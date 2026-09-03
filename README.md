@@ -42,10 +42,10 @@ teacher-workbench/
 cd backend
 # 使用 uv 安装依赖并启动（uv 会自动创建 .venv 并同步依赖）
 uv sync
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8001
 ```
 
-启动后自动建表并灌入示例数据。接口文档：http://127.0.0.1:8000/docs
+启动后自动建表并灌入示例数据。接口文档：http://127.0.0.1:8001/docs
 
 ### 前端
 
@@ -55,7 +55,7 @@ npm install
 npm run dev
 ```
 
-打开 http://localhost:5173（`/api` 已代理到 8000 端口）。
+打开 http://localhost:5173（`/api` 已代理到 8001 端口）。
 
 ## 数据模型（10 张表）
 

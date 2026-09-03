@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { batchDeleteRows, createRow, deleteRow, importStudents, listTable, updateRow } from "../api";
 import { useClasses, useCurrentClass, LEFT_MARK } from "../hooks";
 import type { Row } from "../types";
+import StudentDetailModal from "../components/StudentDetailModal";
 
 const CSV_TEMPLATE = "班级,姓名,学号,小组,标签\n八4班,张三,1,第1组,\n八4班,李四,2,第1组,课代表";
 
@@ -24,6 +25,10 @@ export default function Roster() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form] = Form.useForm();
+
+  // 学生详情档案弹窗
+  const [detailStudent, setDetailStudent] = useState<Row | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // CSV 导入状态
   const [importOpen, setImportOpen] = useState(false);
@@ -120,7 +125,22 @@ export default function Roster() {
 
   const columns = [
     { title: "学号", dataIndex: "学号", width: 80, sorter: (a: Row, b: Row) => (parseInt(a.学号) || 0) - (parseInt(b.学号) || 0) },
-    { title: "姓名", dataIndex: "姓名" },
+    {
+      title: "姓名",
+      dataIndex: "姓名",
+      render: (t: string, r: Row) => (
+        <a
+          style={{ fontWeight: 600 }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setDetailStudent(r);
+            setDetailOpen(true);
+          }}
+        >
+          {t}
+        </a>
+      ),
+    },
     { title: "小组", dataIndex: "小组", width: 100 },
     { title: "标签", dataIndex: "标签", render: (t: string) => (t ? <Tag color="geekblue">{t}</Tag> : "-") },
     {
@@ -196,6 +216,13 @@ export default function Roster() {
         loading={isLoading}
         dataSource={students}
         columns={columns}
+        onRow={(r) => ({
+          onClick: () => {
+            setDetailStudent(r);
+            setDetailOpen(true);
+          },
+          style: { cursor: "pointer" },
+        })}
         rowSelection={{
           selectedRowKeys: selectedKeys,
           onChange: (keys) => setSelectedKeys(keys as number[]),
@@ -303,6 +330,13 @@ export default function Roster() {
           )}
         </Space>
       </Modal>
+
+      {/* 学生个人学情与档案弹窗 */}
+      <StudentDetailModal
+        student={detailStudent}
+        open={detailOpen}
+        onClose={() => setDetailOpen(false)}
+      />
     </div>
   );
 }

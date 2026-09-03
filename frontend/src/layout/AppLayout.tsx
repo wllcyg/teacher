@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { Layout, Menu, Grid, Drawer } from "antd";
+import { Layout, Menu, Grid, Drawer, Tag } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { NAV_GROUPS, ALL_ITEMS } from "../nav";
+import AppLogo from "../components/AppLogo";
 
 const { Sider, Content, Header } = Layout;
 
@@ -48,20 +49,23 @@ export default function AppLayout() {
           className="app-header"
           style={{
             background: "#fff",
-            padding: "0 16px",
+            padding: "0 12px",
             height: 48,
-            lineHeight: "48px",
-            fontWeight: 600,
-            fontSize: 16,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             borderBottom: "1px solid #f0f0f0",
             position: "sticky",
             top: 0,
             zIndex: 90,
           }}
         >
-          {currentPageLabel(location.pathname)}
+          <AppLogo isMobile />
+          <Tag color="blue" style={{ margin: 0, fontWeight: 500 }}>
+            {currentPageLabel(location.pathname)}
+          </Tag>
         </Header>
-        <Content style={{ background: "#f5f6f8" }}>
+        <Content style={{ background: "transparent" }}>
           <Outlet />
         </Content>
 
@@ -157,18 +161,8 @@ export default function AppLayout() {
   return (
     <Layout style={{ minHeight: "100vh" }}>
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={200} theme="light">
-        <div
-          style={{
-            height: 56,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontWeight: 700,
-            fontSize: collapsed ? 14 : 16,
-            color: "#2f6fed",
-          }}
-        >
-          {collapsed ? "工" : "教师工作台"}
+        <div style={{ borderBottom: "1px solid #f1f5f9", marginBottom: 4 }}>
+          <AppLogo collapsed={collapsed} />
         </div>
         <Menu
           mode="inline"
@@ -179,7 +173,7 @@ export default function AppLayout() {
         />
       </Sider>
       <Layout>
-        <Content style={{ padding: 20, background: "#f5f6f8", overflow: "auto" }}>
+        <Content style={{ padding: 20, background: "transparent", overflow: "auto", minHeight: "100vh" }}>
           <Outlet />
         </Content>
       </Layout>

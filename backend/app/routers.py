@@ -152,12 +152,28 @@ def _register_crud(table: str):
         db.commit()
         return {"ok": True, "deleted": len(rows)}
 
+    def batch_update(payload: dict, db: Session = Depends(get_db)):
+        """批量修改：payload = {"ids": [1,2,3], "updates": {"班级": "八10班"}}"""
+        ids = payload.get("ids") or []
+        updates = payload.get("updates") or {}
+        if not ids or not updates:
+            raise HTTPException(status_code=422, detail="ids 和 updates 不能为空")
+        unknown = [k for k in updates if k not in cols]
+        if unknown:
+            raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
+        rows = db.query(Model).filter(Model.id.in_(ids)).all()
+        for r in rows:
+            _apply(r, updates, table)
+        db.commit()
+        return {"ok": True, "updated": len(rows)}
+
     router.add_api_route(f"/tables/{table}", list_rows, methods=["GET"], name=f"list_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", get_row, methods=["GET"], name=f"get_{table}")
     router.add_api_route(f"/tables/{table}", create_row, methods=["POST"], name=f"create_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", update_row, methods=["PUT"], name=f"update_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", delete_row, methods=["DELETE"], name=f"delete_{table}")
     router.add_api_route(f"/tables/{table}/batch-delete", batch_delete, methods=["POST"], name=f"batch_delete_{table}")
+    router.add_api_route(f"/tables/{table}/batch-update", batch_update, methods=["POST"], name=f"batch_update_{table}")
 
 
 for _t in enums.TABLE_COLUMNS:
@@ -240,6 +256,94 @@ def report_matrix(
     if 起:
         opts["起"] = 起
     return scoring.build_matrix(roster, _rows(db, "academic"), _rows(db, "items"), opts)
+
+
+@router.post("/academic/batch-upsert")
+def batch_upsert_academic(
+    payload: dict,
+    db: Session = Depends(get_db),
+):
+    """批量录入/更新考试成绩（以 (班级, 项目, 日期, 学生) 幂等查重入库）。
+    如果项目名在 items 表中不存在，自动创建（满分/学科等取 payload 中的值或默认值）。
+    """
+    klass = payload.get("班级", "").strip()
+    item_name = payload.get("项目", "").strip()
+    exam_date = payload.get("日期", "").strip()
+    records = payload.get("records") or []
+
+    if not klass or not item_name or not exam_date:
+        raise HTTPException(status_code=422, detail="班级、项目和日期不能为空")
+
+    # 自动创建项目（如果不存在）
+    ItemModel = _model("items")
+    existing_item = db.query(ItemModel).filter(ItemModel.项目名 == item_name).first()
+    item_created = False
+    if not existing_item:
+        new_item = ItemModel(
+            项目名=item_name,
+            类型="学业",
+            计分制="分数",
+            满分=str(payload.get("满分", 100)),
+            类别=payload.get("类别", "单元"),
+            学科=payload.get("学科", "地理"),
+            周期="学期",
+            权重="1",
+        )
+        db.add(new_item)
+        db.flush()
+        item_created = True
+
+    AcademicModel = _model("academic")
+    updated_count = 0
+    created_count = 0
+
+    for r in records:
+        stu = str(r.get("学生", "")).strip()
+        val = str(r.get("结果", "")).strip()
+        status = str(r.get("状态", "完成")).strip()
+        note = str(r.get("备注", "")).strip()
+        if not stu:
+            continue
+
+        existing = (
+            db.query(AcademicModel)
+            .filter(
+                AcademicModel.班级 == klass,
+                AcademicModel.项目 == item_name,
+                AcademicModel.日期 == exam_date,
+                AcademicModel.学生 == stu,
+            )
+            .first()
+        )
+        if existing:
+            existing.结果 = val
+            existing.状态 = status
+            existing.备注 = note
+            updated_count += 1
+        else:
+            row = AcademicModel(
+                班级=klass,
+                项目=item_name,
+                日期=exam_date,
+                学生=stu,
+                结果=val,
+                状态=status,
+                备注=note,
+            )
+            db.add(row)
+            created_count += 1
+
+    db.commit()
+    return {
+        "ok": True,
+        "班级": klass,
+        "项目": item_name,
+        "日期": exam_date,
+        "新增": created_count,
+        "更新": updated_count,
+        "总录入": created_count + updated_count,
+        "项目自动创建": item_created,
+    }
 
 
 @router.get("/report/items-summary")

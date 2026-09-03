@@ -2,9 +2,15 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listTable } from "./api";
 import { useAppStore } from "./store/app";
+import { DEFAULT_PERIODS, type PeriodItem } from "./periods";
 import type { Row } from "./types";
 
 export const LEFT_MARK = "（系统）已离班";
+
+export function usePeriods(): PeriodItem[] {
+  const periods = useAppStore((s) => s.periods);
+  return periods && periods.length > 0 ? periods : DEFAULT_PERIODS;
+}
 
 export function useStudents() {
   return useQuery({ queryKey: ["students"], queryFn: () => listTable("students") });

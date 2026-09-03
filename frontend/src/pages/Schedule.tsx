@@ -3,12 +3,13 @@ import { Button, Select, Modal, Form, Input, Popconfirm, message } from "antd";
 import { PlusOutlined, DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createRow, deleteRow, listTable, updateRow } from "../api";
-import { useCurrentClass } from "../hooks";
-import { PERIODS, WEEKDAYS } from "../periods";
+import { useCurrentClass, usePeriods } from "../hooks";
+import { WEEKDAYS } from "../periods";
 import type { Row } from "../types";
 
 export default function Schedule() {
   const { 班级 } = useCurrentClass();
+  const periods = usePeriods();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
@@ -102,7 +103,7 @@ export default function Schedule() {
           ))}
 
           {/* 节次行 */}
-          {PERIODS.map((p) => (
+          {periods.map((p) => (
             <>
               <div
                 key={`label-${p.n}`}
@@ -190,7 +191,7 @@ export default function Schedule() {
             <Select options={WEEKDAYS.map((d) => ({ value: d, label: d }))} />
           </Form.Item>
           <Form.Item name="节次" label="节次" rules={[{ required: true }]}>
-            <Select options={PERIODS.map((p) => ({ value: String(p.n), label: `第${p.n}节 (${p.time})` }))} />
+            <Select options={periods.map((p) => ({ value: String(p.n), label: `第${p.n}节 (${p.time})` }))} />
           </Form.Item>
           <Form.Item name="班级" label="班级" rules={[{ required: true }]}>
             <Input placeholder="例如：八4班" />

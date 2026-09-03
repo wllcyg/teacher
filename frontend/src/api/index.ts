@@ -33,6 +33,15 @@ export async function batchDeleteRows(table: TableName, ids: number[]): Promise<
   return data;
 }
 
+export async function batchUpdateRows(
+  table: TableName,
+  ids: number[],
+  updates: Record<string, any>
+): Promise<{ ok: boolean; updated: number }> {
+  const { data } = await api.post(`/tables/${table}/batch-update`, { ids, updates });
+  return data;
+}
+
 export async function getTables(): Promise<Record<string, TableMeta>> {
   const { data } = await api.get("/tables");
   return data;
@@ -44,8 +53,14 @@ export async function getSummary(班级?: string, 今天?: string): Promise<Summ
   return data;
 }
 
-export async function getExamReport(项目: string, 班级?: string): Promise<any> {
-  const { data } = await api.get(`/report/exam/${encodeURIComponent(项目)}`, { params: { 班级 } });
+export async function getExamReport(
+  项目: string,
+  班级?: string,
+  thresholds?: { 优?: number; 及?: number; 低?: number }
+): Promise<any> {
+  const { data } = await api.get(`/report/exam/${encodeURIComponent(项目)}`, {
+    params: { 班级, ...thresholds },
+  });
   return data;
 }
 
@@ -76,6 +91,19 @@ export async function importParents(文本: string, 班级?: string): Promise<an
 
 export async function importStudents(csv: string, 班级?: string): Promise<any> {
   const { data } = await api.post("/import/students", { csv, 班级 });
+  return data;
+}
+
+export async function batchUpsertAcademic(payload: {
+  班级: string;
+  项目: string;
+  日期: string;
+  满分?: number;
+  学科?: string;
+  类别?: string;
+  records: { 学生: string; 结果: string; 状态?: string; 备注?: string }[];
+}): Promise<any> {
+  const { data } = await api.post("/academic/batch-upsert", payload);
   return data;
 }
 
