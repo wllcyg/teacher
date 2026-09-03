@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate",
+      registerType: "prompt",
       includeAssets: ["favicon.svg", "pwa-192x192.svg", "pwa-512x512.svg"],
       manifest: {
         name: "教师工作台",

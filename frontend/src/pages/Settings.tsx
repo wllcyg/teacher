@@ -17,6 +17,7 @@ import {
   PlusOutlined,
   DeleteOutlined,
   ReloadOutlined,
+  CloudSyncOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import dayjs from "dayjs";
@@ -38,6 +39,33 @@ export default function Settings() {
   const qc = useQueryClient();
   const [savedGreeting, setSavedGreeting] = useState(false);
   const [savedPeriods, setSavedPeriods] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  const isStandalone =
+    typeof window !== "undefined" &&
+    (window.matchMedia("(display-mode: standalone)").matches ||
+      (navigator as any).standalone === true);
+
+  const handleCheckUpdate = async () => {
+    if (!("serviceWorker" in navigator)) {
+      message.warning("当前浏览器环境不支持 Service Worker 离线更新");
+      return;
+    }
+    setCheckingUpdate(true);
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.update();
+        message.success("已请求最新版本信息，若检测到新版本将在右下角弹出提示");
+      } else {
+        message.info("暂未检测到活动的 Service Worker，当前可能处于本地开发环境");
+      }
+    } catch {
+      message.error("检查更新失败，请确认网络连接是否正常");
+    } finally {
+      setTimeout(() => setCheckingUpdate(false), 800);
+    }
+  };
 
   // 表单与 store 保持同步
   useEffect(() => {
@@ -281,17 +309,38 @@ export default function Settings() {
           </Form>
         </Card>
 
-        {/* 关于信息 */}
-        <Card size="small" title="关于系统" style={{ maxWidth: 520 }}>
+        {/* 关于信息与 PWA 更新 */}
+        <Card size="small" title="关于系统与应用更新" style={{ maxWidth: 520 }}>
           <p style={{ color: "#666", fontSize: 13, marginBottom: 12 }}>
             教师工作台 · FastAPI + SQLite + React 现代化工作台
           </p>
-          <Space wrap>
+          <Space wrap style={{ marginBottom: 14 }}>
+            <Tag color={isStandalone ? "processing" : "default"}>
+              {isStandalone ? "已安装应用模式 (PWA)" : "浏览器网页模式"}
+            </Tag>
             <Tag color="blue">单用户</Tag>
             <Tag color="green">数据本地存储</Tag>
             <Tag color="purple">动态作息表</Tag>
             <Tag color="cyan">15 个功能页</Tag>
           </Space>
+          <Divider style={{ margin: "12px 0" }} />
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <Button
+              size="small"
+              icon={<CloudSyncOutlined />}
+              loading={checkingUpdate}
+              onClick={handleCheckUpdate}
+            >
+              检查新版本
+            </Button>
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={() => window.location.reload()}
+            >
+              刷新工作台
+            </Button>
+          </div>
         </Card>
       </div>
     </div>

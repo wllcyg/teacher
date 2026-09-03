@@ -15,10 +15,13 @@ import Comms from "./pages/Comms";
 import Vault from "./pages/Vault";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
+import { ReloadPrompt } from "./components/ReloadPrompt";
 
 export default function App() {
   return (
-    <Routes>
+    <>
+      <ReloadPrompt />
+      <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/today" replace />} />
         <Route path="/today" element={<Today />} />
@@ -38,5 +41,6 @@ export default function App() {
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>
+    </>
   );
 }
