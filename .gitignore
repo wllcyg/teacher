@@ -32,6 +32,9 @@ htmlcov/
 *.db-journal
 *.sqlite3
 backend/app/data/*.db
+backend_data/
+.env
+.env.local
 
 # Node / Vite / React 前端
 node_modules/

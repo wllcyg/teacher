@@ -27,13 +27,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 前端开发时走 Vite 代理，这里放开 CORS 便于直接联调
+# 配置全量 CORS 跨域支持（支持跨源访问、携带凭证、任意请求头与方法）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(router)
