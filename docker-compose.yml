@@ -1,0 +1,16 @@
+services:
+  teacher-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: teacher-workbench-backend:latest
+    container_name: teacher_backend
+    restart: always
+    ports:
+      - "8001:8001"
+    volumes:
+      # 将 SQLite 数据库及历史数据持久化映射到宿主机根目录的 ./backend_data
+      - ./backend_data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+      - DATA_DIR=/app/data
