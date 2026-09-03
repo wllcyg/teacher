@@ -1,0 +1,173 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+.page {
+  padding: 16px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-sub {
+  color: #8c8c8c;
+  margin-bottom: 16px;
+}
+
+/* ===== 移动端适配 ===== */
+@media (max-width: 768px) {
+  .page {
+    /* 底部 Tab 栏 60px + 安全区 */
+    padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  /* 表格在窄屏压缩内边距 */
+  .ant-table-cell {
+    padding: 8px !important;
+  }
+
+  /* 弹窗在移动端铺满 */
+  .ant-modal {
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+  }
+
+  .ant-modal .ant-modal-body {
+    max-height: 65vh;
+    overflow-y: auto;
+  }
+
+  /* 抽屉内容贴边 */
+  .ant-drawer-body {
+    padding: 12px;
+  }
+
+  /* Select 等触控件加大点击区域 */
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input {
+    min-height: 36px;
+  }
+
+  /* 分页器在窄屏简化 */
+  .ant-pagination {
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+}
+
+/* ===== 打印（报表 A4） ===== */
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto !important;
+    background: #fff !important;
+  }
+
+  /* 隐藏导航、顶栏、底栏、抽屉、工具栏等非打印内容 */
+  .ant-layout-sider,
+  .ant-layout-header,
+  .app-header,
+  .app-bottom-bar,
+  .ant-drawer,
+  .ant-drawer-mask,
+  .no-print {
+    display: none !important;
+  }
+
+  /* 内容区铺满、去内边距和灰底 */
+  .ant-layout,
+  .ant-layout-content {
+    background: #fff !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+  }
+
+  .page {
+    padding: 0 !important;
+  }
+
+  /* 屏幕上的页面大标题/副标题打印时隐藏（用 print-header 替代） */
+  .page-title,
+  .page-sub {
+    display: none !important;
+  }
+
+  /* 报表打印标题 */
+  .print-header {
+    text-align: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #333;
+  }
+
+  .print-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #000;
+  }
+
+  .print-meta {
+    font-size: 12px;
+    color: #666;
+    margin-top: 4px;
+  }
+
+  /* 卡片去阴影、避免跨页折断 */
+  .print-area .ant-card {
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  /* 表格打印优化：保留表头灰底、字号收紧、允许滚动容器完整展开 */
+  .print-area .ant-table-content {
+    overflow: visible !important;
+  }
+
+  .print-area .ant-table {
+    font-size: 12px;
+  }
+
+  .print-area .ant-table-thead > tr > th {
+    background: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-area .ant-table-row,
+  .print-area .ant-list-item {
+    break-inside: avoid;
+  }
+}
