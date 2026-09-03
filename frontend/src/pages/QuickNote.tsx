@@ -26,6 +26,8 @@ import {
   EditOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  CrownOutlined,
+  TeamOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
@@ -103,6 +105,37 @@ export default function QuickNote() {
 
   // 当前班级在册名单
   const roster = useMemo(() => activeRoster(students, 班级), [students, 班级]);
+
+  // 视图模式：默认按组展示（"group"），支持切换为平铺展示（"flat"）
+  const [viewMode, setViewMode] = useState<"group" | "flat">("group");
+
+  // 按名册中的小组组织学生，组号升序排列，未分组置底
+  const studentGroups = useMemo(() => {
+    const map = new Map<string, Row[]>();
+    for (const s of roster) {
+      const g = (s.小组 || "").trim() || "未分组";
+      if (!map.has(g)) map.set(g, []);
+      map.get(g)!.push(s);
+    }
+
+    const parseNum = (name: string) => {
+      const match = name.match(/\d+/);
+      return match ? parseInt(match[0], 10) : 9999;
+    };
+
+    return Array.from(map.entries())
+      .map(([groupName, groupStudents]) => ({
+        groupName,
+        students: groupStudents.sort(
+          (a, b) => (parseInt(a.学号, 10) || 0) - (parseInt(b.学号, 10) || 0)
+        ),
+      }))
+      .sort((a, b) => {
+        if (a.groupName === "未分组") return 1;
+        if (b.groupName === "未分组") return -1;
+        return parseNum(a.groupName) - parseNum(b.groupName);
+      });
+  }, [roster]);
 
   // 项目双轨分类
   const academicItems = useMemo(
@@ -283,6 +316,39 @@ export default function QuickNote() {
       qc.invalidateQueries({ queryKey: ["academic"] });
     } catch (e: any) {
       message.error("批量操作失败：" + (e?.message ?? ""));
+    }
+  };
+
+  // 3.1 小组批量过关
+  const handlePassGroup = async (groupStudents: Row[], groupName: string) => {
+    if (!currentItem) return;
+    try {
+      const promises = groupStudents.map(async (s) => {
+        const exist = studentAcademicMap.get(s.姓名);
+        if (exist) {
+          if (exist.结果 !== "过关") {
+            return updateRow("academic", exist.id, {
+              结果: "过关",
+              状态: "完成",
+            });
+          }
+        } else {
+          return createRow("academic", {
+            班级,
+            学生: s.姓名,
+            项目: currentItem.项目名,
+            日期: recordDate.format("YYYY-MM-DD"),
+            结果: "过关",
+            状态: "完成",
+            备注: "",
+          });
+        }
+      });
+      await Promise.all(promises);
+      message.success(`${groupName} 全体已标记为过关`);
+      qc.invalidateQueries({ queryKey: ["academic"] });
+    } catch (e: any) {
+      message.error("小组操作失败：" + (e?.message ?? ""));
     }
   };
 
@@ -762,17 +828,38 @@ export default function QuickNote() {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
+            flexWrap: "wrap",
+            gap: 8,
           }}
         >
-          <span>
-            {班级} | {currentItem?.项目名}
-          </span>
-          <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.85 }}>
-            {recordDate.format("MM/DD")}
-          </span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <span>
+              {班级} | {currentItem?.项目名}
+            </span>
+            <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.85 }}>
+              （共 {studentGroups.length} 组 / {roster.length} 人）
+            </span>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* 视图切换：按组展示 vs 平铺展示 */}
+            <Segmented
+              size="small"
+              value={viewMode}
+              onChange={(val) => setViewMode(val as "group" | "flat")}
+              options={[
+                { label: "按组展示", value: "group", icon: <TeamOutlined /> },
+                { label: "平铺展示", value: "flat" },
+              ]}
+              style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}
+            />
+            <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.85 }}>
+              {recordDate.format("MM/DD")}
+            </span>
+          </div>
         </div>
 
-        {/* 下方：全景学生大按键矩阵（响应式 Grid） */}
+        {/* 下方：学生卡片呈现（按组展示 / 平铺展示） */}
         <div
           style={{
             background: "#fff",
@@ -780,190 +867,385 @@ export default function QuickNote() {
             borderTop: "none",
             borderRadius: "0 0 8px 8px",
             padding: 12,
-            display: "grid",
-            gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
-            gap: 10,
           }}
         >
-          {roster.map((s) => {
-            // 加减分状态
-            const behaviorStat = studentBehaviorMap.get(s.姓名);
-            // 学业状态
-            const academicStat = studentAcademicMap.get(s.姓名);
-            const isPassed = academicStat?.结果 === "过关";
-            const isFailed = academicStat?.结果 === "未过";
-            const isChecked = academicStat?.结果 === "√";
+          {(() => {
+            // 单个学生卡片渲染函数
+            const renderCard = (s: Row, isLeader: boolean, showGroupName = false) => {
+              const behaviorStat = studentBehaviorMap.get(s.姓名);
+              const academicStat = studentAcademicMap.get(s.姓名);
+              const isPassed = academicStat?.结果 === "过关";
+              const isFailed = academicStat?.结果 === "未过";
+              const isChecked = academicStat?.结果 === "√";
 
-            // ---------- 表现加减分模式卡片 ----------
-            if (scoreKind === "加减分") {
-              const hasScore = behaviorStat && behaviorStat.total !== 0;
+              const roleBadge = isLeader ? (
+                <Tag
+                  color="gold"
+                  style={{
+                    margin: 0,
+                    fontSize: 10,
+                    padding: "0 4px",
+                    lineHeight: "16px",
+                    fontWeight: 700,
+                    borderRadius: 4,
+                    border: "none",
+                  }}
+                >
+                  👑 组长
+                </Tag>
+              ) : (
+                <Tag
+                  style={{
+                    margin: 0,
+                    fontSize: 10,
+                    padding: "0 4px",
+                    lineHeight: "16px",
+                    color: "#64748b",
+                    background: "#f1f5f9",
+                    borderRadius: 4,
+                    border: "none",
+                  }}
+                >
+                  组员
+                </Tag>
+              );
+
+              // 1. 表现加减分模式
+              if (scoreKind === "加减分") {
+                const hasScore = behaviorStat && behaviorStat.total !== 0;
+                return (
+                  <button
+                    key={s.学号}
+                    type="button"
+                    onClick={() => handleTapBehavior(s.姓名)}
+                    style={{
+                      position: "relative",
+                      minHeight: 56,
+                      padding: "8px 8px",
+                      borderRadius: 10,
+                      border: hasScore
+                        ? "1.5px solid #1677ff"
+                        : isLeader
+                        ? "1.5px solid #facc15"
+                        : "1px solid #e2e8f0",
+                      background: hasScore ? "#f0f7ff" : isLeader ? "#fffdf5" : "#ffffff",
+                      cursor: "pointer",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      userSelect: "none",
+                      transition: "all 0.1s ease",
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                    }}
+                    onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
+                    onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        width: "100%",
+                      }}
+                    >
+                      <span style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
+                        {s.姓名}
+                      </span>
+                      {roleBadge}
+                    </div>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        width: "100%",
+                        marginTop: 4,
+                      }}
+                    >
+                      {showGroupName && s.小组 ? (
+                        <span style={{ fontSize: 10, color: "#94a3b8" }}>{s.小组}</span>
+                      ) : (
+                        <span />
+                      )}
+                      {hasScore && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: behaviorStat.total > 0 ? "#1677ff" : "#cf1322",
+                            background: behaviorStat.total > 0 ? "#e6f4ff" : "#fff1f0",
+                            borderRadius: 10,
+                            padding: "0 5px",
+                            lineHeight: "16px",
+                          }}
+                        >
+                          {behaviorStat.total > 0 ? `+${behaviorStat.total}` : behaviorStat.total}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              }
+
+              // 2. 过关类模式
+              if (scoreKind === "过关") {
+                return (
+                  <div
+                    key={s.学号}
+                    style={{
+                      padding: "8px 8px",
+                      borderRadius: 10,
+                      border: isPassed
+                        ? "1.5px solid #52c41a"
+                        : isFailed
+                        ? "1.5px solid #fa8c16"
+                        : isLeader
+                        ? "1.5px solid #facc15"
+                        : "1px solid #e2e8f0",
+                      background: isPassed
+                        ? "#f6ffed"
+                        : isFailed
+                        ? "#fffbe6"
+                        : isLeader
+                        ? "#fffdf5"
+                        : "#ffffff",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: "#1e293b",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        width: "100%",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span>{s.姓名}</span>
+                        {isPassed && <CheckCircleOutlined style={{ color: "#52c41a", fontSize: 13 }} />}
+                        {isFailed && <CloseCircleOutlined style={{ color: "#fa8c16", fontSize: 13 }} />}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        {showGroupName && s.小组 && (
+                          <span style={{ fontSize: 10, color: "#94a3b8" }}>{s.小组}</span>
+                        )}
+                        {roleBadge}
+                      </div>
+                    </div>
+
+                    {/* 子按键：过关 / 未过 */}
+                    <div style={{ display: "flex", gap: 5, width: "100%" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetPass(s.姓名, "过关")}
+                        style={{
+                          flex: 1,
+                          padding: "3px 0",
+                          fontSize: 12,
+                          borderRadius: 4,
+                          border: isPassed ? "1px solid #52c41a" : "1px solid #d9d9d9",
+                          background: isPassed ? "#52c41a" : "#fff",
+                          color: isPassed ? "#fff" : "#52c41a",
+                          cursor: "pointer",
+                          fontWeight: 500,
+                          transition: "all 0.1s ease",
+                        }}
+                      >
+                        过关
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSetPass(s.姓名, "未过")}
+                        style={{
+                          flex: 1,
+                          padding: "3px 0",
+                          fontSize: 12,
+                          borderRadius: 4,
+                          border: isFailed ? "1px solid #fa8c16" : "1px solid #d9d9d9",
+                          background: isFailed ? "#fa8c16" : "#fff",
+                          color: isFailed ? "#fff" : "#fa8c16",
+                          cursor: "pointer",
+                          fontWeight: 500,
+                          transition: "all 0.1s ease",
+                        }}
+                      >
+                        未过
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              // 3. 打钩类模式
               return (
                 <button
                   key={s.学号}
                   type="button"
-                  onClick={() => handleTapBehavior(s.姓名)}
+                  onClick={() => handleToggleCheck(s.姓名)}
                   style={{
-                    position: "relative",
                     minHeight: 52,
-                    padding: "8px 6px",
+                    padding: "8px 8px",
                     borderRadius: 10,
-                    border: hasScore ? "1.5px solid #1677ff" : "1px solid #e2e8f0",
-                    background: hasScore ? "#f0f7ff" : "#ffffff",
+                    border: isChecked
+                      ? "1.5px solid #52c41a"
+                      : isLeader
+                      ? "1.5px solid #facc15"
+                      : "1px solid #e2e8f0",
+                    background: isChecked
+                      ? "#f6ffed"
+                      : isLeader
+                      ? "#fffdf5"
+                      : "#ffffff",
                     cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
-                    flexDirection: "column",
+                    justifyContent: "space-between",
                     userSelect: "none",
                     transition: "all 0.1s ease",
                     boxShadow: "0 1px 2px rgba(0,0,0,0.02)",
                   }}
-                  onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.96)")}
-                  onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
-                  onTouchStart={(e) => (e.currentTarget.style.transform = "scale(0.96)")}
-                  onTouchEnd={(e) => (e.currentTarget.style.transform = "scale(1)")}
                 >
-                  <span style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
-                    {s.姓名}
-                  </span>
-                  {/* 右上角累积分值徽标 */}
-                  {hasScore && (
-                    <span
-                      style={{
-                        position: "absolute",
-                        top: 3,
-                        right: 4,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: behaviorStat.total > 0 ? "#1677ff" : "#cf1322",
-                        background: behaviorStat.total > 0 ? "#e6f4ff" : "#fff1f0",
-                        borderRadius: 10,
-                        padding: "0 5px",
-                        lineHeight: "16px",
-                      }}
-                    >
-                      {behaviorStat.total > 0 ? `+${behaviorStat.total}` : behaviorStat.total}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
+                      {s.姓名}
                     </span>
-                  )}
+                    {isChecked && (
+                      <CheckOutlined style={{ color: "#52c41a", fontSize: 13, fontWeight: 700 }} />
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    {showGroupName && s.小组 && (
+                      <span style={{ fontSize: 10, color: "#94a3b8" }}>{s.小组}</span>
+                    )}
+                    {roleBadge}
+                  </div>
                 </button>
               );
-            }
+            };
 
-            // ---------- 过关类模式卡片 ----------
-            if (scoreKind === "过关") {
+            // 模式 A：按组展示（默认）
+            if (viewMode === "group") {
               return (
-                <div
-                  key={s.学号}
-                  style={{
-                    padding: "8px 6px",
-                    borderRadius: 10,
-                    border: isPassed
-                      ? "1.5px solid #52c41a"
-                      : isFailed
-                      ? "1.5px solid #fa8c16"
-                      : "1px solid #e2e8f0",
-                    background: isPassed ? "#f6ffed" : isFailed ? "#fffbe6" : "#ffffff",
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: "#1e293b",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 4,
-                    }}
-                  >
-                    <span>{s.姓名}</span>
-                    {isPassed && <CheckCircleOutlined style={{ color: "#52c41a", fontSize: 12 }} />}
-                    {isFailed && <CloseCircleOutlined style={{ color: "#fa8c16", fontSize: 12 }} />}
-                  </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {studentGroups.map((group) => {
+                    const leader =
+                      group.students.find((s) => (s.标签 || "").includes("组长")) ||
+                      group.students[0];
+                    const passCount = group.students.filter(
+                      (s) => studentAcademicMap.get(s.姓名)?.结果 === "过关"
+                    ).length;
+                    const isAllPassed =
+                      group.students.length > 0 && passCount === group.students.length;
 
-                  {/* 子按键：过关 / 未过 */}
-                  <div style={{ display: "flex", gap: 4, width: "100%" }}>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPass(s.姓名, "过关")}
-                      style={{
-                        flex: 1,
-                        padding: "2px 0",
-                        fontSize: 11,
-                        borderRadius: 4,
-                        border: isPassed ? "1px solid #52c41a" : "1px solid #d9d9d9",
-                        background: isPassed ? "#52c41a" : "#fff",
-                        color: isPassed ? "#fff" : "#52c41a",
-                        cursor: "pointer",
-                        fontWeight: 500,
-                      }}
-                    >
-                      过关
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSetPass(s.姓名, "未过")}
-                      style={{
-                        flex: 1,
-                        padding: "2px 0",
-                        fontSize: 11,
-                        borderRadius: 4,
-                        border: isFailed ? "1px solid #fa8c16" : "1px solid #d9d9d9",
-                        background: isFailed ? "#fa8c16" : "#fff",
-                        color: isFailed ? "#fff" : "#fa8c16",
-                        cursor: "pointer",
-                        fontWeight: 500,
-                      }}
-                    >
-                      未过
-                    </button>
-                  </div>
+                    return (
+                      <div
+                        key={group.groupName}
+                        style={{
+                          background: "#f8fafc",
+                          border: isAllPassed ? "1px solid #b7eb8f" : "1px solid #e2e8f0",
+                          borderRadius: 10,
+                          padding: "10px 12px 12px",
+                          transition: "all 0.2s ease",
+                        }}
+                      >
+                        {/* 小组标题栏 */}
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            marginBottom: 8,
+                            paddingBottom: 6,
+                            borderBottom: "1px dashed #cbd5e1",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 8,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>
+                              👥 {group.groupName}
+                            </span>
+                            {leader && (
+                              <Tag color="gold" style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>
+                                组长：{leader.姓名}
+                              </Tag>
+                            )}
+                            <span style={{ fontSize: 12, color: "#64748b" }}>
+                              共 {group.students.length} 人
+                            </span>
+                            {scoreKind === "过关" && (
+                              <Tag
+                                color={
+                                  isAllPassed ? "success" : passCount > 0 ? "processing" : "default"
+                                }
+                                style={{ margin: 0, fontSize: 11 }}
+                              >
+                                {passCount}/{group.students.length} 已过关
+                              </Tag>
+                            )}
+                          </div>
+
+                          {scoreKind === "过关" && (
+                            <Button
+                              size="small"
+                              type={isAllPassed ? "default" : "primary"}
+                              ghost={!isAllPassed}
+                              style={{ fontSize: 12, height: 24, padding: "0 8px" }}
+                              onClick={() => handlePassGroup(group.students, group.groupName)}
+                            >
+                              {isAllPassed ? "重新全过" : "本组全过"}
+                            </Button>
+                          )}
+                        </div>
+
+                        {/* 小组成员卡片网格 */}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
+                            gap: 10,
+                          }}
+                        >
+                          {group.students.map((s, idx) => {
+                            const isLeader =
+                              (s.标签 || "").includes("组长") || idx === 0;
+                            return renderCard(s, isLeader, false);
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             }
 
-            // ---------- 打钩类模式卡片 ----------
+            // 模式 B：全部平铺展示
             return (
-              <button
-                key={s.学号}
-                type="button"
-                onClick={() => handleToggleCheck(s.姓名)}
+              <div
                 style={{
-                  minHeight: 52,
-                  padding: "8px 6px",
-                  borderRadius: 10,
-                  border: isChecked ? "1.5px solid #52c41a" : "1px solid #e2e8f0",
-                  background: isChecked ? "#f6ffed" : "#ffffff",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "column",
-                  position: "relative",
-                  transition: "all 0.1s ease",
+                  display: "grid",
+                  gridTemplateColumns: `repeat(${gridColumns}, 1fr)`,
+                  gap: 10,
                 }}
               >
-                <span style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
-                  {s.姓名}
-                </span>
-                {isChecked && (
-                  <CheckOutlined
-                    style={{
-                      position: "absolute",
-                      top: 4,
-                      right: 6,
-                      color: "#52c41a",
-                      fontSize: 12,
-                      fontWeight: 700,
-                    }}
-                  />
-                )}
-              </button>
+                {roster.map((s, idx) => {
+                  const isLeader = (s.标签 || "").includes("组长");
+                  return renderCard(s, isLeader, true);
+                })}
+              </div>
             );
-          })}
+          })()}
         </div>
       </Spin>
 
