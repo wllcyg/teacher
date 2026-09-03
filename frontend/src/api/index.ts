@@ -116,3 +116,21 @@ export async function vaultImport(payload: Record<string, Row[]>): Promise<any> 
   const { data } = await api.post("/vault/import", payload);
   return data;
 }
+
+// ---------- 系统全局配置（称呼、学期、作息） ----------
+export interface SystemSettings {
+  称呼?: string;
+  学期?: string;
+  periods?: any[];
+  [key: string]: any;
+}
+
+export async function getSettings(): Promise<SystemSettings> {
+  const { data } = await api.get("/settings");
+  return data;
+}
+
+export async function updateSettings(payload: SystemSettings): Promise<{ ok: boolean }> {
+  const { data } = await api.post("/settings", payload);
+  return data;
+}

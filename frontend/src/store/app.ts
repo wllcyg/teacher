@@ -27,7 +27,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       班级: "",
       今天: todayStr(),
-      称呼: "康康老师",
+      称呼: "崔老师",
       学期: "",
       periods: DEFAULT_PERIODS,
       set班级: (v) => set({ 班级: v }),

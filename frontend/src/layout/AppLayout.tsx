@@ -2,8 +2,11 @@ import { useState } from "react";
 import { Layout, Menu, Grid, Drawer, Tag } from "antd";
 import { MoreOutlined } from "@ant-design/icons";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { NAV_GROUPS, ALL_ITEMS } from "../nav";
 import AppLogo from "../components/AppLogo";
+import { getSettings } from "../api";
+import { useAppStore } from "../store/app";
 
 const { Sider, Content, Header } = Layout;
 
@@ -22,6 +25,25 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
+
+  // 跨端同步：启动时从 SQLite 数据库拉取全局配置（称呼/学期/作息）
+  const set称呼 = useAppStore((s) => s.set称呼);
+  const set学期 = useAppStore((s) => s.set学期);
+  const setPeriods = useAppStore((s) => s.setPeriods);
+
+  useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const data = await getSettings();
+      if (data.称呼) set称呼(data.称呼);
+      if (data.学期 !== undefined) set学期(data.学期);
+      if (data.periods && Array.isArray(data.periods) && data.periods.length > 0) {
+        setPeriods(data.periods);
+      }
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const selectedKey = location.pathname === "/" ? "/today" : location.pathname;
 

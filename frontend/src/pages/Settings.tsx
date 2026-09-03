@@ -18,10 +18,12 @@ import {
   DeleteOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dayjs from "dayjs";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "../store/app";
 import { DEFAULT_PERIODS, type PeriodItem } from "../periods";
+import { updateSettings } from "../api";
 
 export default function Settings() {
   const 称呼 = useAppStore((s) => s.称呼);
@@ -33,20 +35,40 @@ export default function Settings() {
   const resetPeriods = useAppStore((s) => s.resetPeriods);
 
   const [form] = Form.useForm();
+  const qc = useQueryClient();
   const [savedGreeting, setSavedGreeting] = useState(false);
   const [savedPeriods, setSavedPeriods] = useState(false);
+
+  // 表单与 store 保持同步
+  useEffect(() => {
+    form.setFieldsValue({ 称呼, 学期 });
+  }, [称呼, 学期, form]);
 
   // 本地临时编辑的节次状态，便于用户修改多项后统一保存
   const [localPeriods, setLocalPeriods] = useState<PeriodItem[]>(
     periods && periods.length > 0 ? periods : DEFAULT_PERIODS
   );
 
-  const onSaveGreeting = (v: { 称呼: string; 学期: string }) => {
-    set称呼(v.称呼.trim() || "老师");
-    set学期(v.学期.trim());
-    setSavedGreeting(true);
-    message.success("首页问候设置已保存");
-    setTimeout(() => setSavedGreeting(false), 2000);
+  useEffect(() => {
+    if (periods && periods.length > 0) {
+      setLocalPeriods(periods);
+    }
+  }, [periods]);
+
+  const onSaveGreeting = async (v: { 称呼: string; 学期: string }) => {
+    const trimmed称呼 = v.称呼.trim() || "崔老师";
+    const trimmed学期 = v.学期.trim();
+    set称呼(trimmed称呼);
+    set学期(trimmed学期);
+    try {
+      await updateSettings({ 称呼: trimmed称呼, 学期: trimmed学期 });
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      setSavedGreeting(true);
+      message.success("首页问候设置已持久化到数据库");
+      setTimeout(() => setSavedGreeting(false), 2000);
+    } catch {
+      message.error("保存设置到数据库失败");
+    }
   };
 
   const handleTimeChange = (index: number, startStr: string, endStr: string) => {
@@ -81,7 +103,7 @@ export default function Settings() {
     setLocalPeriods((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSavePeriods = () => {
+  const handleSavePeriods = async () => {
     // 校验
     for (const p of localPeriods) {
       if (!p.start || !p.end) {
@@ -94,15 +116,27 @@ export default function Settings() {
       }
     }
     setPeriods(localPeriods);
-    setSavedPeriods(true);
-    message.success("作息时间表已成功更新并生效");
-    setTimeout(() => setSavedPeriods(false), 2000);
+    try {
+      await updateSettings({ periods: localPeriods });
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      setSavedPeriods(true);
+      message.success("作息时间表已成功更新并持久化到数据库");
+      setTimeout(() => setSavedPeriods(false), 2000);
+    } catch {
+      message.error("保存作息表到数据库失败");
+    }
   };
 
-  const handleResetPeriods = () => {
+  const handleResetPeriods = async () => {
     resetPeriods();
     setLocalPeriods(DEFAULT_PERIODS);
-    message.success("已恢复默认作息时间表");
+    try {
+      await updateSettings({ periods: DEFAULT_PERIODS });
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      message.success("已恢复默认作息时间表并同步到数据库");
+    } catch {
+      message.error("重置作息表失败");
+    }
   };
 
   const periodColumns = [
@@ -235,7 +269,7 @@ export default function Settings() {
               label="称呼（首页会显示「早上好，{称呼}」）"
               rules={[{ required: true, message: "请输入称呼" }]}
             >
-              <Input placeholder="例如：康康老师" />
+              <Input placeholder="例如：崔老师" />
             </Form.Item>
             <Form.Item name="学期" label="学期（可选）">
               <Input placeholder="例如：2026 秋季" />
