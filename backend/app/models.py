@@ -113,6 +113,12 @@ class Duty(Base):
     备注 = Column(String, default="")
 
 
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+    key = Column(String, primary_key=True)
+    value = Column(String, default="")
+
+
 # 表名 -> Model 类，供通用 CRUD 与报表层按表名取用
 MODELS: dict[str, type] = {
     "students": Student,

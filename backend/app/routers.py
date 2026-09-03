@@ -4,6 +4,8 @@
 - 报表接口：把 scoring 层的纯函数包装成 REST，供前端直接消费。
 """
 
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -515,3 +517,36 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
             "无效": len(skipped_bad),
         },
     }
+
+
+# ---------- 系统配置持久化（称呼、学期、作息等） ----------
+@router.get("/settings")
+def get_settings(db: Session = Depends(get_db)):
+    rows = db.query(models.AppSetting).all()
+    res = {}
+    for r in rows:
+        try:
+            res[r.key] = json.loads(r.value)
+        except Exception:
+            res[r.key] = r.value
+
+    # 默认值保障
+    if "称呼" not in res:
+        res["称呼"] = "崔老师"
+    if "学期" not in res:
+        res["学期"] = ""
+    return res
+
+
+@router.post("/settings")
+def update_settings(payload: dict, db: Session = Depends(get_db)):
+    for k, v in payload.items():
+        val = json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
+        row = db.query(models.AppSetting).filter(models.AppSetting.key == k).first()
+        if not row:
+            row = models.AppSetting(key=k, value=val)
+            db.add(row)
+        else:
+            row.value = val
+    db.commit()
+    return {"ok": True}
