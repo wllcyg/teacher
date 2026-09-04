@@ -32,6 +32,13 @@ function greeting(): string {
   return "晚上好";
 }
 
+const CARD_THEMES = [
+  { id: "warm", name: "晨曦暖金", dot: "#D97706" },
+  { id: "bamboo", name: "竹青草木", dot: "#16A34A" },
+  { id: "ink", name: "水墨素笺", dot: "#64748B" },
+  { id: "indigo", name: "暮色静蓝", dot: "#38BDF8" },
+];
+
 export default function Today() {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -74,7 +81,7 @@ export default function Today() {
     triggerHaptic("light");
     setRefreshingGreeting(true);
     try {
-      const data = await getDailyGreeting(true, 今天);
+      const data = await getDailyGreeting(true, 今天, selectedTheme !== "auto" ? selectedTheme : undefined);
       qc.setQueryData(["daily-greeting", 今天], data);
       setCardTimestamp(Date.now());
       message.success("已为您更新今日寄语");
@@ -98,8 +105,10 @@ export default function Today() {
   const [downloadingCard, setDownloadingCard] = useState(false);
   const [copyingCard, setCopyingCard] = useState(false);
   const [cardTimestamp, setCardTimestamp] = useState(Date.now());
+  const [selectedTheme, setSelectedTheme] = useState<string>("auto");
 
-  const cardImageUrl = getGreetingCardUrl(今天) + `&_t=${cardTimestamp}`;
+  const activeTheme = selectedTheme === "auto" ? (greetingQuery.data?.theme || "warm") : selectedTheme;
+  const cardImageUrl = getGreetingCardUrl(今天, activeTheme) + `&_t=${cardTimestamp}`;
 
   const handleDownloadCard = async () => {
     triggerHaptic("light");
@@ -107,7 +116,7 @@ export default function Today() {
     try {
       const resp = await fetch(cardImageUrl);
       const blob = await resp.blob();
-      const file = new File([blob], `晨间寄语_${今天}.png`, { type: "image/png" });
+      const file = new File([blob], `晨间寄语_${今天}_${activeTheme}.png`, { type: "image/png" });
 
       // 优先调用系统级 Web Share API（iOS PWA / Safari / Android Chrome 直接唤起原生「存储图像」相册面板）
       if (typeof navigator !== "undefined" && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
@@ -370,29 +379,25 @@ export default function Today() {
         onCancel={() => setCardModalOpen(false)}
         footer={null}
         centered
-        width={420}
+        width={380}
         styles={{
-          body: { padding: "16px 16px 20px" },
-          content: { borderRadius: 18 },
+          body: { padding: "12px 14px 14px", overflow: "hidden" },
+          content: { borderRadius: 16, overflow: "hidden" },
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "#1e293b", lineHeight: 1.2 }}>
             今日晨间寄语海报
           </h3>
           <div
             style={{
-              fontSize: 12,
+              fontSize: 11,
               color: "#6366f1",
-              background: "#eef2ff",
-              display: "inline-block",
-              padding: "3px 10px",
-              borderRadius: 12,
-              marginTop: 6,
+              marginTop: 3,
               fontWeight: 500,
             }}
           >
-            💡 手机端长按图片，点击「存储图像」可直接存入相册
+            💡 手机端长按图片可直接存入相册
           </div>
         </div>
 
@@ -400,10 +405,10 @@ export default function Today() {
           style={{
             textAlign: "center",
             background: "#f8fafc",
-            borderRadius: 14,
-            padding: 10,
+            borderRadius: 12,
+            padding: 6,
             border: "1px solid #f1f5f9",
-            marginBottom: 16,
+            marginBottom: 10,
           }}
         >
           <img
@@ -411,9 +416,11 @@ export default function Today() {
             alt="今日晨间寄语海报"
             style={{
               maxWidth: "100%",
-              maxHeight: "56vh",
-              borderRadius: 10,
-              boxShadow: "0 6px 24px rgba(0,0,0,0.08)",
+              maxHeight: "44vh",
+              aspectRatio: "3 / 4",
+              objectFit: "contain",
+              borderRadius: 8,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
               display: "block",
               margin: "0 auto",
               WebkitTouchCallout: "default",
@@ -422,7 +429,61 @@ export default function Today() {
           />
         </div>
 
-        <div style={{ display: "flex", gap: 10 }}>
+        {/* 🎨 主题风格切换（位于海报下方，单行 4 等分网格） */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 6,
+            marginBottom: 12,
+          }}
+        >
+          {CARD_THEMES.map((t) => {
+            const isSelected = activeTheme === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  triggerHaptic("light");
+                  setSelectedTheme(t.id);
+                  setCardTimestamp(Date.now());
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                  padding: "5px 2px",
+                  borderRadius: 14,
+                  border: isSelected ? "1.5px solid #6366f1" : "1px solid #e2e8f0",
+                  background: isSelected ? "#eef2ff" : "#ffffff",
+                  color: isSelected ? "#4338ca" : "#64748b",
+                  fontSize: 11,
+                  fontWeight: isSelected ? 600 : 400,
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  transition: "all 0.15s ease",
+                  boxShadow: isSelected ? "0 1px 4px rgba(99,102,241,0.15)" : "none",
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: t.dot,
+                    display: "inline-block",
+                    flexShrink: 0,
+                  }}
+                />
+                <span>{t.name}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div style={{ display: "flex", gap: 8 }}>
           <Button
             type="primary"
             icon={<ShareAltOutlined />}
@@ -431,7 +492,8 @@ export default function Today() {
             style={{
               flex: 1,
               borderRadius: 10,
-              height: 40,
+              height: 38,
+              fontSize: 13,
               fontWeight: 500,
               background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
             }}
@@ -442,7 +504,7 @@ export default function Today() {
             icon={<CopyOutlined />}
             onClick={handleCopyCardImage}
             loading={copyingCard}
-            style={{ flex: 1, borderRadius: 10, height: 40 }}
+            style={{ flex: 1, borderRadius: 10, height: 38, fontSize: 13 }}
           >
             复制图片
           </Button>

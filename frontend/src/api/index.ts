@@ -149,17 +149,21 @@ export interface DailyGreeting {
   date: string;
   cached?: boolean;
   card_url?: string;
+  theme?: string;
 }
 
-export async function getDailyGreeting(force: boolean = false, date?: string): Promise<DailyGreeting> {
-  const { data } = await api.get("/daily-greeting", { params: { force, date } });
+export async function getDailyGreeting(force: boolean = false, date?: string, theme?: string): Promise<DailyGreeting> {
+  const { data } = await api.get("/daily-greeting", { params: { force, date, theme } });
   return data;
 }
 
-export function getGreetingCardUrl(date?: string, force: boolean = false): string {
+export function getGreetingCardUrl(date?: string, theme?: string, force: boolean = false): string {
   const base = api.defaults.baseURL || "/api";
-  const p = date ? `?date=${date}` : "";
-  const f = force ? `${p ? "&" : "?"}_t=${Date.now()}` : "";
-  return `${base.replace(/\/$/, "")}/daily-greeting/card${p}${f}`;
+  const params = new URLSearchParams();
+  if (date) params.set("date", date);
+  if (theme && theme !== "auto") params.set("theme", theme);
+  if (force) params.set("_t", String(Date.now()));
+  const qs = params.toString();
+  return `${base.replace(/\/$/, "")}/daily-greeting/card${qs ? `?${qs}` : ""}`;
 }
 

@@ -11,9 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
-
 from . import enums, models, scoring
-from .card_generator import get_or_generate_card_path
+from .card_generator import THEMES, get_or_generate_card_path, resolve_theme_by_date
 from .database import get_db
 
 router = APIRouter(prefix="/api", tags=["api"])
@@ -739,11 +738,16 @@ def get_daily_greeting(
     db: Session = Depends(get_db),
     date: str = Query(default=""),
     force: bool = Query(default=False),
+    theme: str = Query(default="auto"),
 ):
     import datetime
     today_str = date or datetime.date.today().isoformat()
+    resolved_theme = resolve_theme_by_date(today_str) if (not theme or theme == "auto") else theme
+    if resolved_theme not in THEMES:
+        resolved_theme = "warm"
+
     cache_key = f"daily_greeting_{today_str}"
-    card_url = f"/api/daily-greeting/card?date={today_str}"
+    card_url = f"/api/daily-greeting/card?date={today_str}&theme={resolved_theme}"
 
     if not force:
         cached = db.query(models.AppSetting).filter(models.AppSetting.key == cache_key).first()
@@ -752,9 +756,16 @@ def get_daily_greeting(
                 data = json.loads(cached.value)
                 data["cached"] = True
                 data["card_url"] = card_url
+                data["theme"] = resolved_theme
                 return data
             except Exception:
-                return {"quote": cached.value, "date": today_str, "cached": True, "card_url": card_url}
+                return {
+                    "quote": cached.value,
+                    "date": today_str,
+                    "cached": True,
+                    "card_url": card_url,
+                    "theme": resolved_theme,
+                }
 
     teacher_row = db.query(models.AppSetting).filter(models.AppSetting.key == "称呼").first()
     teacher_name = teacher_row.value if teacher_row and teacher_row.value else "崔老师"
@@ -762,7 +773,13 @@ def get_daily_greeting(
 
     # 后端自动预渲染超清晨间寄语海报并缓存
     try:
-        get_or_generate_card_path(quote=quote, date_str=today_str, teacher_name=teacher_name, force=force)
+        get_or_generate_card_path(
+            quote=quote,
+            date_str=today_str,
+            teacher_name=teacher_name,
+            theme=resolved_theme,
+            force=force,
+        )
     except Exception as e:
         print(f"Pre-generating card failed: {e}")
 
@@ -771,6 +788,7 @@ def get_daily_greeting(
         "date": today_str,
         "cached": False,
         "card_url": card_url,
+        "theme": resolved_theme,
     }
 
     val = json.dumps(result, ensure_ascii=False)
@@ -790,17 +808,28 @@ def get_daily_greeting_card(
     db: Session = Depends(get_db),
     date: str = Query(default=""),
     force: bool = Query(default=False),
+    theme: str = Query(default="auto"),
 ):
     import datetime
     today_str = date or datetime.date.today().isoformat()
-    greeting_info = get_daily_greeting(db=db, date=today_str, force=False)
+    resolved_theme = resolve_theme_by_date(today_str) if (not theme or theme == "auto") else theme
+    if resolved_theme not in THEMES:
+        resolved_theme = "warm"
+
+    greeting_info = get_daily_greeting(db=db, date=today_str, force=False, theme=resolved_theme)
     quote = greeting_info.get("quote", "晨光微露，心向阳光。")
 
     teacher_row = db.query(models.AppSetting).filter(models.AppSetting.key == "称呼").first()
     teacher_name = teacher_row.value if teacher_row and teacher_row.value else "崔老师"
 
-    card_path = get_or_generate_card_path(quote=quote, date_str=today_str, teacher_name=teacher_name, force=force)
-    return FileResponse(card_path, media_type="image/png", filename=f"daily_quote_{today_str}.png")
+    card_path = get_or_generate_card_path(
+        quote=quote,
+        date_str=today_str,
+        teacher_name=teacher_name,
+        theme=resolved_theme,
+        force=force,
+    )
+    return FileResponse(card_path, media_type="image/png", filename=f"daily_quote_{today_str}_{resolved_theme}.png")
 
 
 
