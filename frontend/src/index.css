@@ -59,8 +59,8 @@ body {
   50% { opacity: 0.5; transform: scale(1.3); }
 }
 
-/* ===== 移动端适配 ===== */
-@media (max-width: 768px) {
+/* ===== 移动端 & iPad 平板适配 ===== */
+@media (max-width: 1024px), (pointer: coarse) and (max-width: 1280px) {
   .page {
     /* 底部 Tab 栏 60px + 安全区 */
     padding: 12px 12px calc(72px + env(safe-area-inset-bottom, 0px));

@@ -33,6 +33,14 @@ export async function batchDeleteRows(table: TableName, ids: number[]): Promise<
   return data;
 }
 
+export async function batchCreateRows(
+  table: TableName,
+  rows: Record<string, any>[]
+): Promise<{ ok: boolean; created: number }> {
+  const { data } = await api.post(`/tables/${table}/batch-create`, { rows });
+  return data;
+}
+
 export async function batchUpdateRows(
   table: TableName,
   ids: number[],

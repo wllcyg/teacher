@@ -7,6 +7,7 @@ import { NAV_GROUPS, ALL_ITEMS } from "../nav";
 import AppLogo from "../components/AppLogo";
 import { getSettings } from "../api";
 import { useAppStore } from "../store/app";
+import { useIsMobileOrTablet } from "../hooks";
 
 const { Sider, Content, Header } = Layout;
 
@@ -23,8 +24,7 @@ export default function AppLayout() {
   const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
+  const isMobile = useIsMobileOrTablet();
 
   // 跨端同步：启动时从 SQLite 数据库拉取全局配置（称呼/学期/作息）
   const set称呼 = useAppStore((s) => s.set称呼);

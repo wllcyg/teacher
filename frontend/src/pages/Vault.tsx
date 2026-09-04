@@ -42,11 +42,12 @@ export default function Vault() {
   const statMutation = useMutation({
     mutationFn: async () => {
       const tables = Object.keys(meta ?? {});
-      const res = [];
-      for (const t of tables) {
-        const rows = await listTable(t as any);
-        res.push({ table: t, count: rows.length });
-      }
+      const res = await Promise.all(
+        tables.map(async (t) => {
+          const rows = await listTable(t as any);
+          return { table: t, count: rows.length };
+        })
+      );
       setCounts(res);
     },
   });

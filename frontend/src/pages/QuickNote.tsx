@@ -38,6 +38,7 @@ import {
   listTable,
   batchDeleteRows,
   batchUpdateRows,
+  batchUpsertAcademic,
 } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
@@ -288,34 +289,23 @@ export default function QuickNote() {
     }
   };
 
-  // 3. 全班都完成（过关）
+  // 3. 全班都完成（过关）- 单次批量合并请求
   const handleAllPass = async () => {
     if (!currentItem) return;
     triggerHaptic("success");
     try {
-      // 批量将全班尚未过关的学生全部设为过关
-      const promises = roster.map(async (s) => {
-        const exist = studentAcademicMap.get(s.姓名);
-        if (exist) {
-          if (exist.结果 !== "过关") {
-            return updateRow("academic", exist.id, {
-              结果: "过关",
-              状态: "完成",
-            });
-          }
-        } else {
-          return createRow("academic", {
-            班级,
-            学生: s.姓名,
-            项目: currentItem.项目名,
-            日期: recordDate.format("YYYY-MM-DD"),
-            结果: "过关",
-            状态: "完成",
-            备注: "",
-          });
-        }
+      const records = roster.map((s) => ({
+        学生: s.姓名,
+        结果: "过关",
+        状态: "完成",
+        备注: "",
+      }));
+      await batchUpsertAcademic({
+        班级,
+        项目: currentItem.项目名,
+        日期: recordDate.format("YYYY-MM-DD"),
+        records,
       });
-      await Promise.all(promises);
       message.success("全班已全部标记为过关！如有未过的请单独点其「未过」");
       qc.invalidateQueries({ queryKey: ["academic"] });
     } catch (e: any) {
@@ -323,33 +313,23 @@ export default function QuickNote() {
     }
   };
 
-  // 3.1 小组批量过关
+  // 3.1 小组批量过关 - 单次批量合并请求
   const handlePassGroup = async (groupStudents: Row[], groupName: string) => {
     if (!currentItem) return;
     triggerHaptic("success");
     try {
-      const promises = groupStudents.map(async (s) => {
-        const exist = studentAcademicMap.get(s.姓名);
-        if (exist) {
-          if (exist.结果 !== "过关") {
-            return updateRow("academic", exist.id, {
-              结果: "过关",
-              状态: "完成",
-            });
-          }
-        } else {
-          return createRow("academic", {
-            班级,
-            学生: s.姓名,
-            项目: currentItem.项目名,
-            日期: recordDate.format("YYYY-MM-DD"),
-            结果: "过关",
-            状态: "完成",
-            备注: "",
-          });
-        }
+      const records = groupStudents.map((s) => ({
+        学生: s.姓名,
+        结果: "过关",
+        状态: "完成",
+        备注: "",
+      }));
+      await batchUpsertAcademic({
+        班级,
+        项目: currentItem.项目名,
+        日期: recordDate.format("YYYY-MM-DD"),
+        records,
       });
-      await Promise.all(promises);
       message.success(`${groupName} 全体已标记为过关`);
       qc.invalidateQueries({ queryKey: ["academic"] });
     } catch (e: any) {
@@ -357,18 +337,18 @@ export default function QuickNote() {
     }
   };
 
-  // 3.2 小组重置（清空本组记录，恢复初始未过关状态）
+  // 3.2 小组重置 - 单次批量删除合并请求
   const handleResetGroup = async (groupStudents: Row[], groupName: string) => {
     if (!currentItem) return;
     triggerHaptic("medium");
     try {
-      const promises = groupStudents.map(async (s) => {
-        const exist = studentAcademicMap.get(s.姓名);
-        if (exist) {
-          return deleteRow("academic", exist.id);
-        }
-      });
-      await Promise.all(promises);
+      const ids = groupStudents
+        .map((s) => studentAcademicMap.get(s.姓名)?.id)
+        .filter((id): id is number => typeof id === "number");
+
+      if (ids.length > 0) {
+        await batchDeleteRows("academic", ids);
+      }
       message.success(`${groupName} 已重置为初始状态`);
       qc.invalidateQueries({ queryKey: ["academic"] });
     } catch (e: any) {
@@ -411,25 +391,23 @@ export default function QuickNote() {
     }
   };
 
-  // 5. 全班都打钩
+  // 5. 全班都打钩 - 单次批量合并请求
   const handleAllCheck = async () => {
     if (!currentItem) return;
+    triggerHaptic("success");
     try {
-      const promises = roster.map(async (s) => {
-        const exist = studentAcademicMap.get(s.姓名);
-        if (!exist) {
-          return createRow("academic", {
-            班级,
-            学生: s.姓名,
-            项目: currentItem.项目名,
-            日期: recordDate.format("YYYY-MM-DD"),
-            结果: "√",
-            状态: "完成",
-            备注: "",
-          });
-        }
+      const records = roster.map((s) => ({
+        学生: s.姓名,
+        结果: "√",
+        状态: "完成",
+        备注: "",
+      }));
+      await batchUpsertAcademic({
+        班级,
+        项目: currentItem.项目名,
+        日期: recordDate.format("YYYY-MM-DD"),
+        records,
       });
-      await Promise.all(promises);
       message.success("全班已全部打钩完成！");
       qc.invalidateQueries({ queryKey: ["academic"] });
     } catch (e: any) {

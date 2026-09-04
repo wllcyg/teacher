@@ -29,6 +29,8 @@ def _cols(table: str) -> list[str]:
 
 def _to_dict(row, table: str) -> dict:
     d = {"id": row.id}
+    if hasattr(row, "student_id"):
+        d["student_id"] = getattr(row, "student_id", "") or ""
     for c in _cols(table):
         d[c] = getattr(row, c)
     return d
@@ -43,6 +45,80 @@ def _apply(row, payload: dict, table: str):
         if c in payload:
             v = payload[c]
             setattr(row, c, "" if v is None else str(v))
+    if hasattr(row, "student_id") and "student_id" in payload:
+        setattr(row, "student_id", "" if payload["student_id"] is None else str(payload["student_id"]))
+
+
+RELATED_STUDENT_TABLES = ["academic", "behavior", "attendance", "parents", "comms", "duties"]
+
+
+def _next_student_ids(db: Session, count: int = 1) -> list[str]:
+    """生成后续 count 个连续唯一的学生业务编号 STU0001, STU0002..."""
+    stus = db.query(models.Student.student_id).filter(models.Student.student_id.like("STU%")).all()
+    max_num = 0
+    for (sid,) in stus:
+        if sid and sid.startswith("STU"):
+            try:
+                num = int(sid[3:])
+                if num > max_num:
+                    max_num = num
+            except ValueError:
+                pass
+    if max_num == 0:
+        max_id = db.query(models.Student.id).order_by(models.Student.id.desc()).first()
+        max_num = max_id[0] if max_id else 0
+    return [f"STU{max_num + 1 + i:04d}" for i in range(count)]
+
+
+def _lookup_student_id(db: Session, student_name: str, klass: str = None) -> str:
+    """根据姓名（及可选班级）查询学生的 student_id"""
+    if not student_name:
+        return ""
+    q = db.query(models.Student).filter(models.Student.姓名 == student_name)
+    if klass:
+        stu_in_class = q.filter(models.Student.班级 == klass).first()
+        if stu_in_class and stu_in_class.student_id:
+            return stu_in_class.student_id
+    stu = q.first()
+    return stu.student_id if (stu and stu.student_id) else ""
+
+
+def _cascade_student_updates(
+    db: Session,
+    student_row: models.Student,
+    old_name: str,
+    new_name: str,
+    old_class: str,
+    new_class: str,
+):
+    """学生改名或转班时，级联同步 6 张关联子表（成绩、表现、考勤、家长、沟通、值日）"""
+    sid = getattr(student_row, "student_id", "") or ""
+    for t_name in RELATED_STUDENT_TABLES:
+        M = models.MODELS[t_name]
+        # 1. 改名级联
+        if old_name and new_name and old_name != new_name:
+            if sid:
+                cond = or_(M.student_id == sid, M.学生 == old_name)
+            else:
+                cond = (M.学生 == old_name)
+            rows = db.query(M).filter(cond).all()
+            for r in rows:
+                r.学生 = new_name
+                if sid and not getattr(r, "student_id", None):
+                    r.student_id = sid
+
+        # 2. 班级变更级联（针对含班级字段的表，如 academic, behavior）
+        if old_class and new_class and old_class != new_class and hasattr(M, "班级"):
+            curr_name = new_name or old_name
+            if sid:
+                cond = or_(M.student_id == sid, M.学生 == curr_name)
+            else:
+                cond = (M.学生 == curr_name)
+            rows = db.query(M).filter(cond).all()
+            for r in rows:
+                r.班级 = new_class
+                if sid and not getattr(r, "student_id", None):
+                    r.student_id = sid
 
 
 def _find_natural_dup(db: Session, table: str, payload: dict):
@@ -86,6 +162,7 @@ def list_tables():
 def _register_crud(table: str):
     Model = _model(table)
     cols = _cols(table)
+    valid_keys = set(cols) | {"id", "student_id"}
 
     def list_rows(request: Request, db: Session = Depends(get_db)):
         q = db.query(Model)
@@ -97,10 +174,17 @@ def _register_crud(table: str):
             like_val = request.query_params.get(f"{c}_like")
             if like_val is not None and like_val != "":
                 q = q.filter(getattr(Model, c).contains(like_val))
-        # 通用模糊搜索：?q=关键字 在所有列上做 OR 匹配（如学生表可同时搜姓名/学号）
+        if hasattr(Model, "student_id"):
+            sid_val = request.query_params.get("student_id")
+            if sid_val is not None:
+                q = q.filter(Model.student_id == sid_val)
+        # 通用模糊搜索：?q=关键字 在所有列上做 OR 匹配（如学生表可同时搜姓名/学号/业务ID）
         kw = request.query_params.get("q")
         if kw:
-            q = q.filter(or_(*[getattr(Model, c).contains(kw) for c in cols]))
+            search_cols = list(cols)
+            if hasattr(Model, "student_id"):
+                search_cols.append("student_id")
+            q = q.filter(or_(*[getattr(Model, c).contains(kw) for c in search_cols]))
         return [_to_dict(r, table) for r in q.order_by(Model.id).all()]
 
     def get_row(row_id: int, db: Session = Depends(get_db)):
@@ -110,7 +194,7 @@ def _register_crud(table: str):
         return _to_dict(row, table)
 
     def create_row(payload: dict, db: Session = Depends(get_db)):
-        unknown = [k for k in payload if k not in cols]
+        unknown = [k for k in payload if k not in valid_keys]
         if unknown:
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
         existing = _find_natural_dup(db, table, payload)
@@ -118,6 +202,12 @@ def _register_crud(table: str):
             return _to_dict(existing, table)
         row = Model()
         _apply(row, payload, table)
+        if table == "students":
+            if not getattr(row, "student_id", None):
+                row.student_id = _next_student_ids(db, 1)[0]
+        elif table in RELATED_STUDENT_TABLES:
+            if not getattr(row, "student_id", None) and getattr(row, "学生", None):
+                row.student_id = _lookup_student_id(db, row.学生, getattr(row, "班级", None))
         db.add(row)
         db.commit()
         db.refresh(row)
@@ -127,10 +217,17 @@ def _register_crud(table: str):
         row = db.get(Model, row_id)
         if not row:
             raise HTTPException(status_code=404, detail="记录不存在")
-        unknown = [k for k in payload if k not in cols]
+        unknown = [k for k in payload if k not in valid_keys]
         if unknown:
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
+        old_name = getattr(row, "姓名", None)
+        old_class = getattr(row, "班级", None)
         _apply(row, payload, table)
+        if table == "students":
+            new_name = getattr(row, "姓名", None)
+            new_class = getattr(row, "班级", None)
+            if (old_name and new_name and old_name != new_name) or (old_class and new_class and old_class != new_class):
+                _cascade_student_updates(db, row, old_name, new_name, old_class, new_class)
         db.commit()
         db.refresh(row)
         return _to_dict(row, table)
@@ -160,20 +257,54 @@ def _register_crud(table: str):
         updates = payload.get("updates") or {}
         if not ids or not updates:
             raise HTTPException(status_code=422, detail="ids 和 updates 不能为空")
-        unknown = [k for k in updates if k not in cols]
+        unknown = [k for k in updates if k not in valid_keys]
         if unknown:
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
         rows = db.query(Model).filter(Model.id.in_(ids)).all()
         for r in rows:
+            old_name = getattr(r, "姓名", None)
+            old_class = getattr(r, "班级", None)
             _apply(r, updates, table)
+            if table == "students":
+                new_name = getattr(r, "姓名", None)
+                new_class = getattr(r, "班级", None)
+                if (old_name and new_name and old_name != new_name) or (old_class and new_class and old_class != new_class):
+                    _cascade_student_updates(db, r, old_name, new_name, old_class, new_class)
         db.commit()
         return {"ok": True, "updated": len(rows)}
+
+    def batch_create(payload: dict, db: Session = Depends(get_db)):
+        """批量新增：payload = {"rows": [{...}, {...}]}"""
+        records = payload.get("rows") or []
+        if not records:
+            raise HTTPException(status_code=422, detail="rows 不能为空")
+        added = []
+        if table == "students":
+            next_ids = _next_student_ids(db, len(records))
+            for i, rec in enumerate(records):
+                row = Model()
+                _apply(row, rec, table)
+                if not getattr(row, "student_id", None):
+                    row.student_id = next_ids[i]
+                db.add(row)
+                added.append(row)
+        else:
+            for rec in records:
+                row = Model()
+                _apply(row, rec, table)
+                if table in RELATED_STUDENT_TABLES and not getattr(row, "student_id", None) and getattr(row, "学生", None):
+                    row.student_id = _lookup_student_id(db, row.学生, getattr(row, "班级", None))
+                db.add(row)
+                added.append(row)
+        db.commit()
+        return {"ok": True, "created": len(added)}
 
     router.add_api_route(f"/tables/{table}", list_rows, methods=["GET"], name=f"list_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", get_row, methods=["GET"], name=f"get_{table}")
     router.add_api_route(f"/tables/{table}", create_row, methods=["POST"], name=f"create_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", update_row, methods=["PUT"], name=f"update_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", delete_row, methods=["DELETE"], name=f"delete_{table}")
+    router.add_api_route(f"/tables/{table}/batch-create", batch_create, methods=["POST"], name=f"batch_create_{table}")
     router.add_api_route(f"/tables/{table}/batch-delete", batch_delete, methods=["POST"], name=f"batch_delete_{table}")
     router.add_api_route(f"/tables/{table}/batch-update", batch_update, methods=["POST"], name=f"batch_update_{table}")
 
@@ -307,6 +438,7 @@ def batch_upsert_academic(
         if not stu:
             continue
 
+        sid = _lookup_student_id(db, stu, klass)
         existing = (
             db.query(AcademicModel)
             .filter(
@@ -321,9 +453,12 @@ def batch_upsert_academic(
             existing.结果 = val
             existing.状态 = status
             existing.备注 = note
+            if sid and not getattr(existing, "student_id", None):
+                existing.student_id = sid
             updated_count += 1
         else:
             row = AcademicModel(
+                student_id=sid,
                 班级=klass,
                 项目=item_name,
                 日期=exam_date,
@@ -500,6 +635,8 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
             continue
         row = models.Student()
         _apply(row, rec, "students")
+        if not getattr(row, "student_id", None):
+            row.student_id = _next_student_ids(db, 1)[0]
         db.add(row)
         db.commit()
         db.refresh(row)

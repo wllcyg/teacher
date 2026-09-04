@@ -2,9 +2,10 @@ import { useMemo, useState } from "react";
 import { Table, Card, DatePicker, Select, Button, message, Tag, Space, Popconfirm } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
-import { createRow, deleteRow, listTable, updateRow } from "../api";
+import { batchCreateRows, batchDeleteRows, createRow, deleteRow, listTable, updateRow } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
+import { triggerHaptic } from "../utils/haptics";
 
 const STATUSES = ["缺勤", "迟到", "早退", "请假"];
 
@@ -32,23 +33,43 @@ export default function Attendance() {
 
   const save = useMutation({
     mutationFn: async () => {
+      const toDeleteIds: number[] = [];
+      const toCreate: Record<string, any>[] = [];
+      const toUpdate: { id: number; data: Record<string, any> }[] = [];
+
       for (const s of roster) {
-        const st = marks[s.姓名] ?? "";
+        const st = s.姓名 in marks ? marks[s.姓名] : (existingMap.get(s.姓名)?.状态 ?? "");
         const exist = existingMap.get(s.姓名);
+
         if (st) {
           // 记异常
           if (exist) {
-            if (exist.状态 !== st) await updateRow("attendance", exist.id, { ...exist, 状态: st });
+            if (exist.状态 !== st) {
+              toUpdate.push({ id: exist.id, data: { ...exist, 状态: st } });
+            }
           } else {
-            await createRow("attendance", { 日期: dateStr, 学生: s.姓名, 状态: st, 备注: "" });
+            toCreate.push({ 日期: dateStr, 学生: s.姓名, 状态: st, 备注: "" });
           }
         } else {
           // 正常：清掉已有异常
-          if (exist) await deleteRow("attendance", exist.id);
+          if (exist) {
+            toDeleteIds.push(exist.id);
+          }
         }
+      }
+
+      if (toDeleteIds.length > 0) {
+        await batchDeleteRows("attendance", toDeleteIds);
+      }
+      if (toCreate.length > 0) {
+        await batchCreateRows("attendance", toCreate);
+      }
+      if (toUpdate.length > 0) {
+        await Promise.all(toUpdate.map((u) => updateRow("attendance", u.id, u.data)));
       }
     },
     onSuccess: () => {
+      triggerHaptic("success");
       message.success("考勤已保存");
       setMarks({});
       qc.invalidateQueries({ queryKey: ["attendance"] });

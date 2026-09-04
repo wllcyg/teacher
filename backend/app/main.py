@@ -17,6 +17,8 @@ from .routers import router
 async def lifespan(app: FastAPI):
     # 启动时确保表结构已建立
     Base.metadata.create_all(bind=engine)
+    from .migration import init_student_ids_and_schema
+    init_student_ids_and_schema(engine)
     yield
 
 

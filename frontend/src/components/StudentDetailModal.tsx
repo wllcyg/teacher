@@ -83,36 +83,44 @@ export default function StudentDetailModal({
     enabled: open,
   });
 
-  // 筛选属于当前学生的数据
+  // 筛选属于当前学生的数据（优先用 student_id 精准匹配，兼容老数据姓名匹配）
+  const studentId = student?.student_id || "";
+  const matchStudent = (r: Row) => {
+    if (studentId && r.student_id) {
+      return r.student_id === studentId;
+    }
+    return r.学生 === studentName;
+  };
+
   const academics = useMemo(
-    () => (allAcademics ?? []).filter((r) => r.学生 === studentName),
-    [allAcademics, studentName]
+    () => (allAcademics ?? []).filter(matchStudent),
+    [allAcademics, studentName, studentId]
   );
 
   const behaviors = useMemo(
-    () => (allBehavior ?? []).filter((r) => r.学生 === studentName),
-    [allBehavior, studentName]
+    () => (allBehavior ?? []).filter(matchStudent),
+    [allBehavior, studentName, studentId]
   );
 
   const attendances = useMemo(
     () =>
       (allAttendance ?? []).filter(
         (r) =>
-          r.学生 === studentName &&
+          matchStudent(r) &&
           r.状态 &&
           !["正常", "全勤", "系统核对"].includes(r.状态)
       ),
-    [allAttendance, studentName]
+    [allAttendance, studentName, studentId]
   );
 
   const parents = useMemo(
-    () => (allParents ?? []).filter((r) => r.学生 === studentName),
-    [allParents, studentName]
+    () => (allParents ?? []).filter(matchStudent),
+    [allParents, studentName, studentId]
   );
 
   const comms = useMemo(
-    () => (allComms ?? []).filter((r) => r.学生 === studentName),
-    [allComms, studentName]
+    () => (allComms ?? []).filter(matchStudent),
+    [allComms, studentName, studentId]
   );
 
   // 表现总分
@@ -155,6 +163,7 @@ export default function StudentDetailModal({
     if (!studentName) return;
     try {
       await createRow("parents", {
+        student_id: studentId,
         学生: studentName,
         称谓: vals.称谓.trim(),
         电话: vals.电话.trim(),
@@ -173,6 +182,7 @@ export default function StudentDetailModal({
     if (!studentName) return;
     try {
       await createRow("comms", {
+        student_id: studentId,
         日期: dayjs().format("YYYY-MM-DD"),
         学生: studentName,
         对象: "家长",
@@ -246,6 +256,11 @@ export default function StudentDetailModal({
             <Tag color="default" style={{ margin: 0 }}>
               {studentClass}
             </Tag>
+            {student?.student_id && (
+              <Tag color="cyan" style={{ margin: 0, fontFamily: "monospace", fontWeight: 600 }}>
+                {student.student_id}
+              </Tag>
+            )}
             <Tag
               color={totalBehavior > 0 ? "blue" : totalBehavior < 0 ? "red" : "default"}
               style={{ margin: 0 }}

@@ -17,9 +17,10 @@ import {
   CloseOutlined,
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createRow, deleteRow, listTable, updateRow } from "../api";
+import { createRow, deleteRow, listTable, updateRow, batchCreateRows, batchDeleteRows } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
+import { triggerHaptic } from "../utils/haptics";
 
 export default function Seating() {
   const { 班级, set班级, classes } = useCurrentClass();
@@ -275,12 +276,14 @@ export default function Seating() {
   // ---------- 快捷功能：按学号蛇形自动填充 ----------
   const handleAutoFillSerpentine = async () => {
     try {
-      // 1. 清理已有座位
-      const deletePromises = Array.from(seatMap.values()).map((d) => deleteRow("duties", d.id));
-      await Promise.all(deletePromises);
+      // 1. 批量清理已有座位
+      const ids = Array.from(seatMap.values()).map((d) => d.id);
+      if (ids.length > 0) {
+        await batchDeleteRows("duties", ids);
+      }
 
-      // 2. 蛇形填充排座
-      const createPromises: Promise<any>[] = [];
+      // 2. 蛇形填充排座（批量创建）
+      const newSeats: Record<string, any>[] = [];
       let studentIndex = 0;
 
       for (let r = 1; r <= rows; r++) {
@@ -293,20 +296,21 @@ export default function Seating() {
         for (const c of colIndices) {
           if (studentIndex >= roster.length) break;
           const s = roster[studentIndex];
-          createPromises.push(
-            createRow("duties", {
-              岗位: `${r}排${c}列`,
-              学生: s.姓名,
-              类型: "座位",
-              时间: 班级,
-              备注: "",
-            })
-          );
+          newSeats.push({
+            岗位: `${r}排${c}列`,
+            学生: s.姓名,
+            类型: "座位",
+            时间: 班级,
+            备注: "",
+          });
           studentIndex++;
         }
       }
 
-      await Promise.all(createPromises);
+      if (newSeats.length > 0) {
+        await batchCreateRows("duties", newSeats);
+      }
+      triggerHaptic("success");
       message.success(`已按学号蛇形为全班 ${roster.length} 名学生安排好座位！可继续拖拽微调。`);
       qc.invalidateQueries({ queryKey: ["duties"] });
     } catch (e: any) {
@@ -317,8 +321,11 @@ export default function Seating() {
   // ---------- 清空全部座位 ----------
   const handleClearAllSeats = async () => {
     try {
-      const deletePromises = Array.from(seatMap.values()).map((d) => deleteRow("duties", d.id));
-      await Promise.all(deletePromises);
+      const ids = Array.from(seatMap.values()).map((d) => d.id);
+      if (ids.length > 0) {
+        await batchDeleteRows("duties", ids);
+      }
+      triggerHaptic("warning");
       message.success("已清空所有座位！");
       qc.invalidateQueries({ queryKey: ["duties"] });
     } catch (e: any) {

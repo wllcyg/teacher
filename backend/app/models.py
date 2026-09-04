@@ -13,6 +13,7 @@ from .database import Base
 class Student(Base):
     __tablename__ = "students"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, unique=True, index=True, default="")
     班级 = Column(String, default="")
     姓名 = Column(String, default="")
     学号 = Column(String, default="")
@@ -45,6 +46,7 @@ class Item(Base):
 class Academic(Base):
     __tablename__ = "academic"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, index=True, default="")
     日期 = Column(String, default="")
     班级 = Column(String, default="")
     学生 = Column(String, default="")
@@ -57,6 +59,7 @@ class Academic(Base):
 class Behavior(Base):
     __tablename__ = "behavior"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, index=True, default="")
     日期 = Column(String, default="")
     班级 = Column(String, default="")
     学生 = Column(String, default="")
@@ -77,6 +80,7 @@ class Todo(Base):
 class Attendance(Base):
     __tablename__ = "attendance"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, index=True, default="")
     日期 = Column(String, default="")
     学生 = Column(String, default="")
     状态 = Column(String, default="")
@@ -86,6 +90,7 @@ class Attendance(Base):
 class Parent(Base):
     __tablename__ = "parents"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, index=True, default="")
     学生 = Column(String, default="")
     称谓 = Column(String, default="")
     电话 = Column(String, default="")
@@ -95,6 +100,7 @@ class Parent(Base):
 class Comm(Base):
     __tablename__ = "comms"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, index=True, default="")
     日期 = Column(String, default="")
     学生 = Column(String, default="")
     对象 = Column(String, default="")
@@ -106,6 +112,7 @@ class Comm(Base):
 class Duty(Base):
     __tablename__ = "duties"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    student_id = Column(String, index=True, default="")
     岗位 = Column(String, default="")
     学生 = Column(String, default="")
     类型 = Column(String, default="")

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listTable } from "./api";
 import { useAppStore } from "./store/app";
@@ -49,4 +49,44 @@ export function useTable<T extends Row = Row>(table: Parameters<typeof listTable
     queryKey: [table, filters],
     queryFn: () => listTable(table, filters),
   });
+}
+
+/**
+ * 统一判定是否为手机或 iPad / 平板设备：
+ * 1. 触屏能力检测（iPadOS Safari、各类触屏平板、Chrome 开发者工具模拟触屏）；
+ * 2. 苹果 iPad 专属特征：iPadOS 上 Safari 伪装成 Macintosh，但 navigator.maxTouchPoints > 1；
+ * 3. 移动端 UA 匹配（iPhone, iPad, Android, Tablet）；
+ * 4. 屏幕物理尺寸判定（窗口宽度 <= 1024px 为典型 iPad/手机范围）。
+ * 只有在无触屏能力且屏幕宽度大屏幕桌面端（如 1200px+）时，才判定为 PC。
+ */
+export function useIsMobileOrTablet(): boolean {
+  const getIsMobileOrTablet = () => {
+    if (typeof window === "undefined") return false;
+    const isTouch = Boolean(
+      "ontouchstart" in window ||
+      (typeof navigator !== "undefined" && navigator.maxTouchPoints > 0)
+    );
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isIPad = ua.includes("Macintosh") && navigator.maxTouchPoints > 1;
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|Tablet|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    const isSmallOrMediumScreen = window.innerWidth <= 1024;
+    return isIPad || isMobileUA || (isTouch && window.innerWidth <= 1180) || isSmallOrMediumScreen;
+  };
+
+  const [isMobileOrTablet, setIsMobileOrTablet] = useState<boolean>(getIsMobileOrTablet);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobileOrTablet(getIsMobileOrTablet());
+    };
+
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
+  }, []);
+
+  return isMobileOrTablet;
 }
