@@ -41,6 +41,7 @@ import {
 } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
+import { triggerHaptic } from "../utils/haptics";
 
 const { useBreakpoint } = Grid;
 
@@ -223,6 +224,7 @@ export default function QuickNote() {
   // 1. 点按加减分
   const handleTapBehavior = async (studentName: string) => {
     if (!currentItem) return;
+    triggerHaptic("light");
     try {
       const deltaStr = activeDelta > 0 ? `+${activeDelta}` : `${activeDelta}`;
       const res = await createRow("behavior", {
@@ -252,6 +254,7 @@ export default function QuickNote() {
   // 2. 点按过关 / 未过
   const handleSetPass = async (studentName: string, status: "过关" | "未过") => {
     if (!currentItem) return;
+    triggerHaptic(status === "过关" ? "light" : "medium");
     try {
       const existing = studentAcademicMap.get(studentName);
       if (existing) {
@@ -288,6 +291,7 @@ export default function QuickNote() {
   // 3. 全班都完成（过关）
   const handleAllPass = async () => {
     if (!currentItem) return;
+    triggerHaptic("success");
     try {
       // 批量将全班尚未过关的学生全部设为过关
       const promises = roster.map(async (s) => {
@@ -322,6 +326,7 @@ export default function QuickNote() {
   // 3.1 小组批量过关
   const handlePassGroup = async (groupStudents: Row[], groupName: string) => {
     if (!currentItem) return;
+    triggerHaptic("success");
     try {
       const promises = groupStudents.map(async (s) => {
         const exist = studentAcademicMap.get(s.姓名);
@@ -352,9 +357,29 @@ export default function QuickNote() {
     }
   };
 
+  // 3.2 小组重置（清空本组记录，恢复初始未过关状态）
+  const handleResetGroup = async (groupStudents: Row[], groupName: string) => {
+    if (!currentItem) return;
+    triggerHaptic("medium");
+    try {
+      const promises = groupStudents.map(async (s) => {
+        const exist = studentAcademicMap.get(s.姓名);
+        if (exist) {
+          return deleteRow("academic", exist.id);
+        }
+      });
+      await Promise.all(promises);
+      message.success(`${groupName} 已重置为初始状态`);
+      qc.invalidateQueries({ queryKey: ["academic"] });
+    } catch (e: any) {
+      message.error("重置小组失败：" + (e?.message ?? ""));
+    }
+  };
+
   // 4. 点按打钩切换
   const handleToggleCheck = async (studentName: string) => {
     if (!currentItem) return;
+    triggerHaptic("light");
     try {
       const existing = studentAcademicMap.get(studentName);
       if (existing) {
@@ -917,6 +942,7 @@ export default function QuickNote() {
                   <button
                     key={s.学号}
                     type="button"
+                    className="fast-tap-card"
                     onClick={() => handleTapBehavior(s.姓名)}
                     style={{
                       position: "relative",
@@ -992,6 +1018,7 @@ export default function QuickNote() {
                 return (
                   <div
                     key={s.学号}
+                    className="fast-tap-card"
                     style={{
                       padding: "8px 8px",
                       borderRadius: 10,
@@ -1087,6 +1114,7 @@ export default function QuickNote() {
                 <button
                   key={s.学号}
                   type="button"
+                  className="fast-tap-card"
                   onClick={() => handleToggleCheck(s.姓名)}
                   style={{
                     minHeight: 52,
@@ -1202,7 +1230,13 @@ export default function QuickNote() {
                               type={isAllPassed ? "default" : "primary"}
                               ghost={!isAllPassed}
                               style={{ fontSize: 12, height: 24, padding: "0 8px" }}
-                              onClick={() => handlePassGroup(group.students, group.groupName)}
+                              onClick={() => {
+                                if (isAllPassed) {
+                                  handleResetGroup(group.students, group.groupName);
+                                } else {
+                                  handlePassGroup(group.students, group.groupName);
+                                }
+                              }}
                             >
                               {isAllPassed ? "重新全过" : "本组全过"}
                             </Button>

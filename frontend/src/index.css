@@ -105,6 +105,22 @@ body {
   }
 }
 
+/* 移动端快速点按优化：消除 300ms 延迟、禁止双击放大、禁止连点时误选中文本 */
+button,
+[role="button"],
+.ant-btn,
+.touch-btn {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}
+
+.fast-tap-card {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
 /* ===== 打印（报表 A4） ===== */
 @media print {
   @page {

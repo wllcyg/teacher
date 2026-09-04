@@ -72,7 +72,8 @@ export default function AppLayout() {
           style={{
             background: "#fff",
             padding: "0 12px",
-            height: 48,
+            paddingTop: "env(safe-area-inset-top, 0px)",
+            height: "calc(48px + env(safe-area-inset-top, 0px))",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
