@@ -25,6 +25,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { createRow, deleteRow, listTable, updateRow } from "../api";
 import type { Row } from "../types";
+import StudentAvatar from "./StudentAvatar";
 
 interface StudentDetailModalProps {
   student: Row | null;
@@ -227,25 +228,8 @@ export default function StudentDetailModal({
           marginBottom: 16,
         }}
       >
-        {/* 圆形头像 */}
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            background: "linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)",
-            color: "#1d4ed8",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 20,
-            fontWeight: 700,
-            flexShrink: 0,
-            boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-          }}
-        >
-          {firstChar}
-        </div>
+        {/* 学生专属头像 */}
+        <StudentAvatar student={student} size={50} />
 
         {/* 姓名与标签 */}
         <div style={{ flex: 1 }}>

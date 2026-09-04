@@ -6,6 +6,7 @@ import { batchCreateRows, batchDeleteRows, createRow, deleteRow, listTable, upda
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
 import { triggerHaptic } from "../utils/haptics";
+import StudentAvatar from "../components/StudentAvatar";
 
 const STATUSES = ["缺勤", "迟到", "早退", "请假"];
 
@@ -104,7 +105,16 @@ export default function Attendance() {
           pagination={{ pageSize: 50 }}
           columns={[
             { title: "学号", dataIndex: "学号", width: 70 },
-            { title: "姓名", dataIndex: "姓名" },
+            {
+              title: "姓名",
+              dataIndex: "姓名",
+              render: (t: string, s: Row) => (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                  <StudentAvatar student={s} size={24} />
+                  <span style={{ fontWeight: 500 }}>{t}</span>
+                </div>
+              ),
+            },
             {
               title: "状态",
               key: "st",

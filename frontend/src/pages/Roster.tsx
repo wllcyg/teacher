@@ -43,6 +43,7 @@ import {
 import { useClasses, useCurrentClass, LEFT_MARK, useIsMobileOrTablet } from "../hooks";
 import type { Row } from "../types";
 import StudentDetailModal from "../components/StudentDetailModal";
+import StudentAvatar from "../components/StudentAvatar";
 import { triggerHaptic } from "../utils/haptics";
 
 const CSV_TEMPLATE =
@@ -237,16 +238,19 @@ export default function Roster() {
       title: "姓名",
       dataIndex: "姓名",
       render: (t: string, r: Row) => (
-        <a
-          style={{ fontWeight: 600 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setDetailStudent(r);
-            setDetailOpen(true);
-          }}
-        >
-          {t}
-        </a>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <StudentAvatar student={r} size={28} />
+          <a
+            style={{ fontWeight: 600 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setDetailStudent(r);
+              setDetailOpen(true);
+            }}
+          >
+            {t}
+          </a>
+        </div>
       ),
     },
     { title: "小组", dataIndex: "小组", width: 100 },
@@ -672,27 +676,11 @@ export default function Roster() {
                       />
                     )}
 
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 12,
-                        background: isLeft
-                          ? "#f1f5f9"
-                          : isSelected
-                          ? "#dbeafe"
-                          : "#eff6ff",
-                        color: isLeft ? "#94a3b8" : "#2563eb",
-                        fontWeight: 700,
-                        fontSize: 14,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {s.学号 ? (s.学号.length <= 2 ? s.学号.padStart(2, "0") : s.学号) : "#"}
-                    </div>
+                    <StudentAvatar
+                      student={s}
+                      size={44}
+                      style={{ opacity: isLeft ? 0.45 : 1 }}
+                    />
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
