@@ -10,6 +10,7 @@ import {
   ReloadOutlined,
   PictureOutlined,
   DownloadOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -106,6 +107,18 @@ export default function Today() {
     try {
       const resp = await fetch(cardImageUrl);
       const blob = await resp.blob();
+      const file = new File([blob], `晨间寄语_${今天}.png`, { type: "image/png" });
+
+      // 优先调用系统级 Web Share API（iOS PWA / Safari / Android Chrome 直接唤起原生「存储图像」相册面板）
+      if (typeof navigator !== "undefined" && (navigator as any).canShare && (navigator as any).canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "今日晨间寄语",
+        });
+        return;
+      }
+
+      // 电脑端或不支持设备走常规下载
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -114,9 +127,11 @@ export default function Today() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
-      message.success("海报已开始保存");
-    } catch {
-      message.error("保存海报失败，在手机端长按图片可直接保存");
+      message.success("海报已保存到下载目录");
+    } catch (e: any) {
+      if (e?.name !== "AbortError") {
+        message.info("在手机端长按图片，点击「存储图像」即可直接存入系统相册");
+      }
     } finally {
       setDownloadingCard(false);
     }
@@ -325,31 +340,27 @@ export default function Today() {
           >
             换一句
           </Button>
-          {greetingQuery.data?.quote && (
-            <>
-              <Button
-                size="small"
-                type="text"
-                icon={<CopyOutlined />}
-                onClick={() => handleCopyGreeting(greetingQuery.data!.quote)}
-                style={{ fontSize: 12, color: copiedGreeting ? "#16a34a" : "#64748b", borderRadius: 8 }}
-              >
-                {copiedGreeting ? "已复制" : "复制"}
-              </Button>
-              <Button
-                size="small"
-                type="text"
-                icon={<PictureOutlined />}
-                onClick={() => {
-                  triggerHaptic("light");
-                  setCardModalOpen(true);
-                }}
-                style={{ fontSize: 12, color: "#8b5cf6", borderRadius: 8 }}
-              >
-                海报
-              </Button>
-            </>
-          )}
+          <Button
+            size="small"
+            type="text"
+            icon={<CopyOutlined />}
+            onClick={() => handleCopyGreeting(greetingQuery.data?.quote || "晨光微露，心向阳光，愿您和孩子们度过充实美好的一天。")}
+            style={{ fontSize: 12, color: copiedGreeting ? "#16a34a" : "#64748b", borderRadius: 8 }}
+          >
+            {copiedGreeting ? "已复制" : "复制"}
+          </Button>
+          <Button
+            size="small"
+            type="text"
+            icon={<PictureOutlined />}
+            onClick={() => {
+              triggerHaptic("light");
+              setCardModalOpen(true);
+            }}
+            style={{ fontSize: 12, color: "#8b5cf6", borderRadius: 8 }}
+          >
+            海报
+          </Button>
         </div>
       </div>
 
@@ -369,8 +380,19 @@ export default function Today() {
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
             今日晨间寄语海报
           </h3>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-            手机端长按图片可直接存入相册或发送给好友
+          <div
+            style={{
+              fontSize: 12,
+              color: "#6366f1",
+              background: "#eef2ff",
+              display: "inline-block",
+              padding: "3px 10px",
+              borderRadius: 12,
+              marginTop: 6,
+              fontWeight: 500,
+            }}
+          >
+            💡 手机端长按图片，点击「存储图像」可直接存入相册
           </div>
         </div>
 
@@ -394,6 +416,8 @@ export default function Today() {
               boxShadow: "0 6px 24px rgba(0,0,0,0.08)",
               display: "block",
               margin: "0 auto",
+              WebkitTouchCallout: "default",
+              userSelect: "auto",
             }}
           />
         </div>
@@ -401,7 +425,7 @@ export default function Today() {
         <div style={{ display: "flex", gap: 10 }}>
           <Button
             type="primary"
-            icon={<DownloadOutlined />}
+            icon={<ShareAltOutlined />}
             onClick={handleDownloadCard}
             loading={downloadingCard}
             style={{
@@ -412,7 +436,7 @@ export default function Today() {
               background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
             }}
           >
-            保存到相册
+            分享
           </Button>
           <Button
             icon={<CopyOutlined />}
