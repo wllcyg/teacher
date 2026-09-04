@@ -27,13 +27,14 @@ wheels/
 .coverage
 htmlcov/
 
-# SQLite 数据库文件及临时数据
+# SQLite 数据库文件及临时数据与缓存海报
 *.db
 *.db-journal
 *.db-wal
 *.db-shm
 *.sqlite3
 backend/app/data/*.db*
+backend/app/data/cards/
 backend_data/
 .env
 .env.local

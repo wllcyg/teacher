@@ -8,10 +8,12 @@ import json
 import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import FileResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from . import enums, models, scoring
+from .card_generator import get_or_generate_card_path
 from .database import get_db
 
 router = APIRouter(prefix="/api", tags=["api"])
@@ -741,6 +743,7 @@ def get_daily_greeting(
     import datetime
     today_str = date or datetime.date.today().isoformat()
     cache_key = f"daily_greeting_{today_str}"
+    card_url = f"/api/daily-greeting/card?date={today_str}"
 
     if not force:
         cached = db.query(models.AppSetting).filter(models.AppSetting.key == cache_key).first()
@@ -748,18 +751,26 @@ def get_daily_greeting(
             try:
                 data = json.loads(cached.value)
                 data["cached"] = True
+                data["card_url"] = card_url
                 return data
             except Exception:
-                return {"quote": cached.value, "date": today_str, "cached": True}
+                return {"quote": cached.value, "date": today_str, "cached": True, "card_url": card_url}
 
     teacher_row = db.query(models.AppSetting).filter(models.AppSetting.key == "称呼").first()
     teacher_name = teacher_row.value if teacher_row and teacher_row.value else "崔老师"
     quote = _call_daily_greeting(db, teacher_name)
 
+    # 后端自动预渲染超清晨间寄语海报并缓存
+    try:
+        get_or_generate_card_path(quote=quote, date_str=today_str, teacher_name=teacher_name, force=force)
+    except Exception as e:
+        print(f"Pre-generating card failed: {e}")
+
     result = {
         "quote": quote,
         "date": today_str,
         "cached": False,
+        "card_url": card_url,
     }
 
     val = json.dumps(result, ensure_ascii=False)
@@ -772,6 +783,25 @@ def get_daily_greeting(
     db.commit()
 
     return result
+
+
+@router.get("/daily-greeting/card")
+def get_daily_greeting_card(
+    db: Session = Depends(get_db),
+    date: str = Query(default=""),
+    force: bool = Query(default=False),
+):
+    import datetime
+    today_str = date or datetime.date.today().isoformat()
+    greeting_info = get_daily_greeting(db=db, date=today_str, force=False)
+    quote = greeting_info.get("quote", "晨光微露，心向阳光。")
+
+    teacher_row = db.query(models.AppSetting).filter(models.AppSetting.key == "称呼").first()
+    teacher_name = teacher_row.value if teacher_row and teacher_row.value else "崔老师"
+
+    card_path = get_or_generate_card_path(quote=quote, date_str=today_str, teacher_name=teacher_name, force=force)
+    return FileResponse(card_path, media_type="image/png", filename=f"daily_quote_{today_str}.png")
+
 
 
 # ---------- 系统配置持久化（称呼、学期、作息等） ----------

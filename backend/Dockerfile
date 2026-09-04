@@ -14,10 +14,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DATA_DIR=/app/data \
     TZ=Asia/Shanghai
 
-# 安装时区支持与基础工具
+# 安装时区支持、基础工具与优雅中文字体
 RUN apt-get update && apt-get install -y --no-install-recommends \
     tzdata \
     curl \
+    fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制依赖说明并使用国内清华源高速安装

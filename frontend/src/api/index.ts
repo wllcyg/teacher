@@ -148,9 +148,18 @@ export interface DailyGreeting {
   quote: string;
   date: string;
   cached?: boolean;
+  card_url?: string;
 }
 
 export async function getDailyGreeting(force: boolean = false, date?: string): Promise<DailyGreeting> {
   const { data } = await api.get("/daily-greeting", { params: { force, date } });
   return data;
 }
+
+export function getGreetingCardUrl(date?: string, force: boolean = false): string {
+  const base = api.defaults.baseURL || "/api";
+  const p = date ? `?date=${date}` : "";
+  const f = force ? `${p ? "&" : "?"}_t=${Date.now()}` : "";
+  return `${base.replace(/\/$/, "")}/daily-greeting/card${p}${f}`;
+}
+

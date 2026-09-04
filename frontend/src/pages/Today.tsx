@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Card, Row, Col, Tag, Empty, Spin, Statistic, Segmented, Button, message } from "antd";
+import { Card, Row, Col, Tag, Empty, Spin, Statistic, Segmented, Button, message, Modal } from "antd";
 import {
   EditOutlined,
   ClockCircleOutlined,
@@ -8,11 +8,13 @@ import {
   CheckCircleOutlined,
   CopyOutlined,
   ReloadOutlined,
+  PictureOutlined,
+  DownloadOutlined,
 } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
-import { getSummary, getExamReport, listTable, updateRow, getDailyGreeting } from "../api";
+import { getSummary, getExamReport, listTable, updateRow, getDailyGreeting, getGreetingCardUrl } from "../api";
 import { useAppStore } from "../store/app";
 import { useCurrentClass, usePeriods } from "../hooks";
 import { hhmmToMinutes } from "../periods";
@@ -73,6 +75,7 @@ export default function Today() {
     try {
       const data = await getDailyGreeting(true, 今天);
       qc.setQueryData(["daily-greeting", 今天], data);
+      setCardTimestamp(Date.now());
       message.success("已为您更新今日寄语");
     } catch {
       message.error("刷新寄语失败");
@@ -87,6 +90,62 @@ export default function Today() {
     setCopiedGreeting(true);
     message.success("寄语已复制到剪贴板");
     setTimeout(() => setCopiedGreeting(false), 2000);
+  };
+
+  // ---- 寄语分享海报弹窗 ----
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [downloadingCard, setDownloadingCard] = useState(false);
+  const [copyingCard, setCopyingCard] = useState(false);
+  const [cardTimestamp, setCardTimestamp] = useState(Date.now());
+
+  const cardImageUrl = getGreetingCardUrl(今天) + `&_t=${cardTimestamp}`;
+
+  const handleDownloadCard = async () => {
+    triggerHaptic("light");
+    setDownloadingCard(true);
+    try {
+      const resp = await fetch(cardImageUrl);
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `晨间寄语_${今天}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      message.success("海报已开始保存");
+    } catch {
+      message.error("保存海报失败，在手机端长按图片可直接保存");
+    } finally {
+      setDownloadingCard(false);
+    }
+  };
+
+  const handleCopyCardImage = async () => {
+    triggerHaptic("light");
+    setCopyingCard(true);
+    try {
+      const clip = (navigator as any).clipboard;
+      if (clip && clip.write && typeof (window as any).ClipboardItem !== "undefined") {
+        const resp = await fetch(cardImageUrl);
+        const blob = await resp.blob();
+        await clip.write([
+          new (window as any).ClipboardItem({ "image/png": blob }),
+        ]);
+        message.success("海报图片已复制到剪贴板，可直接粘贴发送");
+      } else if (clip && clip.writeText) {
+        await clip.writeText(greetingQuery.data?.quote || "");
+        message.info("已为您复制寄语文字，在移动端长按图片即可直接保存");
+      }
+    } catch {
+      if ((navigator as any).clipboard?.writeText) {
+        await (navigator as any).clipboard.writeText(greetingQuery.data?.quote || "");
+      }
+      message.info("已为您复制寄语文字，在移动端长按图片即可直接保存到相册");
+    } finally {
+      setCopyingCard(false);
+    }
   };
 
   // ---- 数据 ----
@@ -267,18 +326,104 @@ export default function Today() {
             换一句
           </Button>
           {greetingQuery.data?.quote && (
-            <Button
-              size="small"
-              type="text"
-              icon={<CopyOutlined />}
-              onClick={() => handleCopyGreeting(greetingQuery.data!.quote)}
-              style={{ fontSize: 12, color: copiedGreeting ? "#16a34a" : "#64748b", borderRadius: 8 }}
-            >
-              {copiedGreeting ? "已复制" : "复制"}
-            </Button>
+            <>
+              <Button
+                size="small"
+                type="text"
+                icon={<CopyOutlined />}
+                onClick={() => handleCopyGreeting(greetingQuery.data!.quote)}
+                style={{ fontSize: 12, color: copiedGreeting ? "#16a34a" : "#64748b", borderRadius: 8 }}
+              >
+                {copiedGreeting ? "已复制" : "复制"}
+              </Button>
+              <Button
+                size="small"
+                type="text"
+                icon={<PictureOutlined />}
+                onClick={() => {
+                  triggerHaptic("light");
+                  setCardModalOpen(true);
+                }}
+                style={{ fontSize: 12, color: "#8b5cf6", borderRadius: 8 }}
+              >
+                海报
+              </Button>
+            </>
           )}
         </div>
       </div>
+
+      {/* 📱 晨间寄语超清海报弹窗 */}
+      <Modal
+        open={cardModalOpen}
+        onCancel={() => setCardModalOpen(false)}
+        footer={null}
+        centered
+        width={420}
+        styles={{
+          body: { padding: "16px 16px 20px" },
+          content: { borderRadius: 18 },
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+            今日晨间寄语海报
+          </h3>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
+            手机端长按图片可直接存入相册或发送给好友
+          </div>
+        </div>
+
+        <div
+          style={{
+            textAlign: "center",
+            background: "#f8fafc",
+            borderRadius: 14,
+            padding: 10,
+            border: "1px solid #f1f5f9",
+            marginBottom: 16,
+          }}
+        >
+          <img
+            src={cardImageUrl}
+            alt="今日晨间寄语海报"
+            style={{
+              maxWidth: "100%",
+              maxHeight: "56vh",
+              borderRadius: 10,
+              boxShadow: "0 6px 24px rgba(0,0,0,0.08)",
+              display: "block",
+              margin: "0 auto",
+            }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <Button
+            type="primary"
+            icon={<DownloadOutlined />}
+            onClick={handleDownloadCard}
+            loading={downloadingCard}
+            style={{
+              flex: 1,
+              borderRadius: 10,
+              height: 40,
+              fontWeight: 500,
+              background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+            }}
+          >
+            保存到相册
+          </Button>
+          <Button
+            icon={<CopyOutlined />}
+            onClick={handleCopyCardImage}
+            loading={copyingCard}
+            style={{ flex: 1, borderRadius: 10, height: 40 }}
+          >
+            复制图片
+          </Button>
+        </div>
+      </Modal>
 
       {/* 班级切换 */}
       {classes.length > 0 && (
