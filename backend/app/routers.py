@@ -5,6 +5,7 @@
 """
 
 import json
+import os
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import or_
@@ -656,12 +657,139 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
     }
 
 
+# ---------- 每日晨间寄语接口 ----------
+try:
+    from dotenv import load_dotenv
+    _root_env = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.env"))
+    if os.path.exists(_root_env):
+        load_dotenv(_root_env)
+    load_dotenv()
+except Exception:
+    pass
+
+DEFAULT_AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
+DEFAULT_AI_KEY = os.environ.get("AI_API_KEY", os.environ.get("DASHSCOPE_API_KEY", ""))
+DEFAULT_AI_MODEL = os.environ.get("AI_MODEL", "qwen-flash")
+
+EDUCATIONAL_QUOTES = [
+    "晨光微露，心向阳光，愿每个孩子都如春芽般，在爱与期待中悄然生长。",
+    "教育的本质意味着，一棵树摇动另一棵树，一朵云推动另一朵云，一个灵魂唤醒另一个灵魂。",
+    "学贵得师，亦贵得友。愿您今天的课堂充满思考的火花与纯真的笑脸。",
+    "爱是教育的灵魂，没有爱就没有教育。用心灌溉，静待每一朵花开。",
+    "捧着一颗心来，不带半根草去。老师的每一分付出，都在孩子心中生根发芽。",
+    "教育不是注满一桶水，而是点燃一把火。愿今天的教学充满灵感与温度。",
+    "晨光里，你的一句叮咛，正悄悄点亮孩子眼中的星。",
+    "知之者不如好之者，好之者不如乐之者。愿您的启发带给学生探索世界的渴望。",
+    "温和而坚定，严格且包容。用心陪伴每一个独特的生命拔节成长。",
+]
+
+
+def _call_daily_greeting(db: Session, teacher_name: str = "崔老师") -> str:
+    # 优先从环境变量取密钥，其次检查本地数据库（如有）
+    api_key_row = db.query(models.AppSetting).filter(models.AppSetting.key == "ai_api_key").first()
+    base_url_row = db.query(models.AppSetting).filter(models.AppSetting.key == "ai_base_url").first()
+    model_row = db.query(models.AppSetting).filter(models.AppSetting.key == "ai_model").first()
+
+    api_key = (api_key_row.value if api_key_row and api_key_row.value else DEFAULT_AI_KEY).strip()
+    base_url = (base_url_row.value if base_url_row and base_url_row.value else DEFAULT_AI_BASE_URL).strip().rstrip("/")
+    model = (model_row.value if model_row and model_row.value else DEFAULT_AI_MODEL).strip()
+
+    if api_key and base_url:
+        import urllib.request
+        url = f"{base_url}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+        data = {
+            "model": model,
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        f"你是一位富有温度与教育智慧的资深教育导师。请为中学教师{teacher_name}写一句清晨寄语或每日勉励。"
+                        "要求：富有教育情怀与诗意，亲切温暖，给人力量与信心；不要任何开场白、前缀或标号，直接输出正文，字数在40字以内。"
+                    ),
+                },
+                {"role": "user", "content": "请写一句今日晨间寄语。"},
+            ],
+            "temperature": 0.85,
+        }
+        req = urllib.request.Request(url, headers=headers, data=json.dumps(data).encode("utf-8"))
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                body = json.loads(resp.read().decode("utf-8"))
+                text = body.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                if text.startswith(("“", '"')) and text.endswith(("”", '"')):
+                    text = text[1:-1]
+                if text:
+                    return text
+        except Exception as e:
+            print(f"Daily greeting generation error: {e}")
+
+    import random
+    return random.choice(EDUCATIONAL_QUOTES)
+
+
+@router.get("/daily-greeting")
+@router.get("/ai/greeting")
+def get_daily_greeting(
+    db: Session = Depends(get_db),
+    date: str = Query(default=""),
+    force: bool = Query(default=False),
+):
+    import datetime
+    today_str = date or datetime.date.today().isoformat()
+    cache_key = f"daily_greeting_{today_str}"
+
+    if not force:
+        cached = db.query(models.AppSetting).filter(models.AppSetting.key == cache_key).first()
+        if cached and cached.value:
+            try:
+                data = json.loads(cached.value)
+                data["cached"] = True
+                return data
+            except Exception:
+                return {"quote": cached.value, "date": today_str, "cached": True}
+
+    teacher_row = db.query(models.AppSetting).filter(models.AppSetting.key == "称呼").first()
+    teacher_name = teacher_row.value if teacher_row and teacher_row.value else "崔老师"
+    quote = _call_daily_greeting(db, teacher_name)
+
+    result = {
+        "quote": quote,
+        "date": today_str,
+        "cached": False,
+    }
+
+    val = json.dumps(result, ensure_ascii=False)
+    cache_row = db.query(models.AppSetting).filter(models.AppSetting.key == cache_key).first()
+    if not cache_row:
+        cache_row = models.AppSetting(key=cache_key, value=val)
+        db.add(cache_row)
+    else:
+        cache_row.value = val
+    db.commit()
+
+    return result
+
+
 # ---------- 系统配置持久化（称呼、学期、作息等） ----------
 @router.get("/settings")
 def get_settings(db: Session = Depends(get_db)):
     rows = db.query(models.AppSetting).all()
     res = {}
     for r in rows:
+        # 绝不向前端暴露任何 AI 配置、私钥、Token 与临时缓存
+        k_lower = r.key.lower()
+        if (
+            k_lower.startswith("ai_")
+            or k_lower.startswith("daily_greeting_")
+            or "key" in k_lower
+            or "secret" in k_lower
+            or "token" in k_lower
+        ):
+            continue
         try:
             res[r.key] = json.loads(r.value)
         except Exception:

@@ -142,3 +142,15 @@ export async function updateSettings(payload: SystemSettings): Promise<{ ok: boo
   const { data } = await api.post("/settings", payload);
   return data;
 }
+
+// ---------- 每日寄语 ----------
+export interface DailyGreeting {
+  quote: string;
+  date: string;
+  cached?: boolean;
+}
+
+export async function getDailyGreeting(force: boolean = false, date?: string): Promise<DailyGreeting> {
+  const { data } = await api.get("/daily-greeting", { params: { force, date } });
+  return data;
+}

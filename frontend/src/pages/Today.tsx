@@ -6,14 +6,17 @@ import {
   AlertOutlined,
   RedoOutlined,
   CheckCircleOutlined,
+  CopyOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
-import { getSummary, getExamReport, listTable, updateRow } from "../api";
+import { getSummary, getExamReport, listTable, updateRow, getDailyGreeting } from "../api";
 import { useAppStore } from "../store/app";
 import { useCurrentClass, usePeriods } from "../hooks";
 import { hhmmToMinutes } from "../periods";
+import { triggerHaptic } from "../utils/haptics";
 
 const WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
@@ -53,6 +56,38 @@ export default function Today() {
   };
 
   const weekLabel = WEEKDAY_NAMES[dayjs(今天).day()];
+
+  // ---- 每日寄语 ----
+  const [copiedGreeting, setCopiedGreeting] = useState(false);
+  const [refreshingGreeting, setRefreshingGreeting] = useState(false);
+
+  const greetingQuery = useQuery({
+    queryKey: ["daily-greeting", 今天],
+    queryFn: () => getDailyGreeting(false, 今天),
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const handleRefreshGreeting = async () => {
+    triggerHaptic("light");
+    setRefreshingGreeting(true);
+    try {
+      const data = await getDailyGreeting(true, 今天);
+      qc.setQueryData(["daily-greeting", 今天], data);
+      message.success("已为您更新今日寄语");
+    } catch {
+      message.error("刷新寄语失败");
+    } finally {
+      setRefreshingGreeting(false);
+    }
+  };
+
+  const handleCopyGreeting = (text: string) => {
+    triggerHaptic("light");
+    navigator.clipboard.writeText(text);
+    setCopiedGreeting(true);
+    message.success("寄语已复制到剪贴板");
+    setTimeout(() => setCopiedGreeting(false), 2000);
+  };
 
   // ---- 数据 ----
   const summary = useQuery({
@@ -117,16 +152,6 @@ export default function Today() {
     return Math.round((elapsed / total) * 100);
   }, [currentPeriod, nowMinutes]);
 
-  // 待办：今天的未办 + 逾期的未办
-  const todayTodos = useMemo(
-    () => (todos.data ?? []).filter((t: any) => t.日期 === 今天 && t.状态 !== "已办"),
-    [todos.data, 今天]
-  );
-  const overdueTodos = useMemo(
-    () => (todos.data ?? []).filter((t: any) => t.日期 < 今天 && t.状态 !== "已办"),
-    [todos.data, 今天]
-  );
-
   // 等着补测：最近一场考试的缺考名单
   const examName = summary.data?.考试?.名;
   const examReport = useQuery({
@@ -139,18 +164,120 @@ export default function Today() {
     return list.map((x: any) => (typeof x === "string" ? x : x?.姓名 ?? String(x)));
   }, [examReport.data]);
 
+  // 待办：今天的未办 + 逾期的未办
+  const todayTodos = useMemo(
+    () => (todos.data ?? []).filter((t: any) => t.日期 === 今天 && t.状态 !== "已办"),
+    [todos.data, 今天]
+  );
+  const overdueTodos = useMemo(
+    () => (todos.data ?? []).filter((t: any) => t.日期 < 今天 && t.状态 !== "已办"),
+    [todos.data, 今天]
+  );
+
   const s = summary.data;
 
   return (
-    <div className="page">
-      {/* 问候 + 日期 */}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-        <h2 className="page-title" style={{ marginBottom: 0 }}>
+    <div style={{ padding: "16px 20px 32px" }}>
+      {/* 顶部问候栏 */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "baseline",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#0F172A" }}>
           {greeting()}，{称呼}
         </h2>
         <span style={{ color: "#94A3B8" }}>
           {dayjs(今天).format("YYYY年M月D日")} {weekLabel}
         </span>
+      </div>
+
+      {/* 🌟 今日寄语卡片 */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: "12px 16px",
+          borderRadius: 14,
+          background: "linear-gradient(135deg, rgba(248, 250, 252, 0.95) 0%, rgba(238, 242, 255, 0.85) 50%, rgba(245, 243, 255, 0.95) 100%)",
+          border: "1px solid #e0e7ff",
+          boxShadow: "0 1px 3px rgba(99, 102, 241, 0.05)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 240 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+              flexShrink: 0,
+              boxShadow: "0 2px 6px rgba(99, 102, 241, 0.25)",
+            }}
+          >
+            ✨
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", letterSpacing: 0.5 }}>
+                晨间寄语
+              </span>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>· 每日一句</span>
+            </div>
+            <div
+              style={{
+                fontSize: 13.5,
+                color: "#1e293b",
+                fontWeight: 500,
+                lineHeight: 1.5,
+              }}
+            >
+              {greetingQuery.isLoading ? (
+                <span style={{ color: "#94a3b8" }}>正在准备今日寄语...</span>
+              ) : (
+                `“${greetingQuery.data?.quote || "晨光微露，心向阳光，愿您和孩子们度过充实美好的一天。"}”`
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 右侧微操作按钮 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: "auto" }}>
+          <Button
+            size="small"
+            type="text"
+            icon={<ReloadOutlined spin={refreshingGreeting || greetingQuery.isFetching} />}
+            onClick={handleRefreshGreeting}
+            disabled={refreshingGreeting || greetingQuery.isLoading}
+            style={{ fontSize: 12, color: "#6366f1", borderRadius: 8 }}
+          >
+            换一句
+          </Button>
+          {greetingQuery.data?.quote && (
+            <Button
+              size="small"
+              type="text"
+              icon={<CopyOutlined />}
+              onClick={() => handleCopyGreeting(greetingQuery.data!.quote)}
+              style={{ fontSize: 12, color: copiedGreeting ? "#16a34a" : "#64748b", borderRadius: 8 }}
+            >
+              {copiedGreeting ? "已复制" : "复制"}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* 班级切换 */}

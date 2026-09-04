@@ -30,11 +30,15 @@ htmlcov/
 # SQLite 数据库文件及临时数据
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 *.sqlite3
-backend/app/data/*.db
+backend/app/data/*.db*
 backend_data/
 .env
 .env.local
+.env.*.local
+
 
 # Node / Vite / React 前端
 node_modules/
