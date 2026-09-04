@@ -16,11 +16,13 @@ import Vault from "./pages/Vault";
 import Sync from "./pages/Sync";
 import Settings from "./pages/Settings";
 import { ReloadPrompt } from "./components/ReloadPrompt";
+import { NotificationScheduler } from "./components/NotificationScheduler";
 
 export default function App() {
   return (
     <>
       <ReloadPrompt />
+      <NotificationScheduler />
       <Routes>
       <Route element={<AppLayout />}>
         <Route path="/" element={<Navigate to="/today" replace />} />

@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "prompt",
-      includeAssets: ["favicon.svg", "pwa-192x192.svg", "pwa-512x512.svg"],
+      includeAssets: ["favicon.svg", "pwa-192x192.svg", "pwa-512x512.svg", "sw-notification.js"],
       manifest: {
         name: "教师工作台",
         short_name: "教师工作台",
@@ -34,6 +34,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ["/sw-notification.js"],
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
         runtimeCaching: [
           {

@@ -12,6 +12,8 @@ import {
   Popconfirm,
   Alert,
   Drawer,
+  Switch,
+  Select,
 } from "antd";
 import {
   SaveOutlined,
@@ -22,6 +24,11 @@ import {
   ClockCircleOutlined,
   RightOutlined,
   ArrowRightOutlined,
+  BellOutlined,
+  SendOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  NotificationOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import dayjs from "dayjs";
@@ -31,6 +38,16 @@ import { DEFAULT_PERIODS, hhmmToMinutes, type PeriodItem } from "../periods";
 import { updateSettings } from "../api";
 import { useIsMobileOrTablet } from "../hooks";
 import { triggerHaptic } from "../utils/haptics";
+import {
+  getNotificationPermission,
+  requestNotificationPermission,
+  getStoredNotificationSettings,
+  saveStoredNotificationSettings,
+  sendNotification,
+  isIOS,
+  type NotificationSettings,
+  type NotificationPermissionState,
+} from "../utils/notifications";
 
 const HOURS = Array.from({ length: 18 }, (_, i) => String(i + 6).padStart(2, "0")); // 06 ~ 23
 const MINUTES = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
@@ -62,6 +79,62 @@ export default function Settings() {
     typeof window !== "undefined" &&
     (window.matchMedia("(display-mode: standalone)").matches ||
       (navigator as any).standalone === true);
+
+  // ---- PWA 消息通知与课前提醒状态 ----
+  const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(getNotificationPermission());
+  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getStoredNotificationSettings());
+  const [requestingNotif, setRequestingNotif] = useState(false);
+  const [testingNotif, setTestingNotif] = useState(false);
+
+  useEffect(() => {
+    setNotifPermission(getNotificationPermission());
+  }, []);
+
+  const handleRequestNotif = async () => {
+    triggerHaptic("light");
+    setRequestingNotif(true);
+    try {
+      const perm = await requestNotificationPermission();
+      setNotifPermission(perm);
+      if (perm === "granted") {
+        message.success("已成功开启消息通知权限！");
+        await sendNotification("【通知已开启】", {
+          body: "教师工作台课前提醒与教学通知已就绪。",
+          data: { url: "/settings" },
+        });
+      } else if (perm === "denied") {
+        message.error("通知权限被浏览器拦截，请在浏览器地址栏左侧网站权限设置中解除限制。");
+      }
+    } finally {
+      setRequestingNotif(false);
+    }
+  };
+
+  const handleTestNotif = async () => {
+    triggerHaptic("light");
+    setTestingNotif(true);
+    try {
+      const ok = await sendNotification("【工作台测试通知】", {
+        body: "提醒功能运转正常！上课前将准时为您发送系统通知。",
+        data: { url: "/settings" },
+      });
+      if (ok) {
+        message.success("已发送测试通知，请查看手机顶部通知栏或电脑通知中心");
+      } else {
+        message.warning("发送失败，请确认系统通知权限是否已授权");
+      }
+    } finally {
+      setTestingNotif(false);
+    }
+  };
+
+  const handleUpdateNotifSettings = (partial: Partial<NotificationSettings>) => {
+    triggerHaptic("light");
+    const next = { ...notifSettings, ...partial };
+    setNotifSettings(next);
+    saveStoredNotificationSettings(next);
+    message.success("通知设置已保存");
+  };
 
   const handleCheckUpdate = async () => {
     if (!("serviceWorker" in navigator)) {
@@ -584,6 +657,178 @@ export default function Settings() {
               )}
             </div>
           </Form>
+        </Card>
+
+        {/* 🔔 PWA 消息通知与课前提醒 */}
+        <Card
+          size="small"
+          title={
+            <Space>
+              <NotificationOutlined style={{ color: "#6366f1" }} />
+              <span>消息通知与课前提醒</span>
+            </Space>
+          }
+          style={{ width: "100%", maxWidth: 640, borderRadius: 14, border: "1px solid #e2e8f0" }}
+        >
+          {isIOS() && !isStandalone && (
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 14, borderRadius: 10 }}
+              message="iPhone / iPad 用户提示"
+              description="iOS 需将工作台「添加到主屏幕」后方可开启系统级通知。点击 Safari 底部「分享」按钮，选择「添加到主屏幕」，从桌面图标打开即可。"
+            />
+          )}
+
+          {/* 权限状态栏 */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 12px",
+              background: "#f8fafc",
+              borderRadius: 10,
+              border: "1px solid #f1f5f9",
+              marginBottom: 16,
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>
+                系统级通知权限
+              </div>
+              <div>
+                {notifPermission === "granted" && (
+                  <Tag color="success" icon={<CheckCircleOutlined />}>
+                    已授权开启
+                  </Tag>
+                )}
+                {notifPermission === "default" && (
+                  <Tag color="warning" icon={<ClockCircleOutlined />}>
+                    未授权 (待开启)
+                  </Tag>
+                )}
+                {notifPermission === "denied" && (
+                  <Tag color="error" icon={<CloseCircleOutlined />}>
+                    已被浏览器拦截
+                  </Tag>
+                )}
+                {notifPermission === "unsupported" && (
+                  <Tag color="default">当前环境不支持</Tag>
+                )}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              {notifPermission !== "granted" ? (
+                <Button
+                  type="primary"
+                  icon={<BellOutlined />}
+                  loading={requestingNotif}
+                  onClick={handleRequestNotif}
+                  style={{
+                    borderRadius: 8,
+                    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                  }}
+                >
+                  开启系统通知
+                </Button>
+              ) : (
+                <Button
+                  icon={<SendOutlined />}
+                  loading={testingNotif}
+                  onClick={handleTestNotif}
+                  style={{ borderRadius: 8 }}
+                >
+                  发送测试通知
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* 提醒项目选项 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {/* 课前提醒 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: 12,
+                borderBottom: "1px solid #f1f5f9",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>课前自动提醒</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  每节课开始前通过系统通知栏弹出课程班级与开始时间
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {notifSettings.lessonRemindEnabled && (
+                  <Select
+                    size="small"
+                    value={notifSettings.lessonRemindMinutes}
+                    onChange={(val) => handleUpdateNotifSettings({ lessonRemindMinutes: val })}
+                    options={[
+                      { label: "提前 5 分钟", value: 5 },
+                      { label: "提前 10 分钟", value: 10 },
+                      { label: "提前 15 分钟", value: 15 },
+                    ]}
+                    style={{ width: 110 }}
+                  />
+                )}
+                <Switch
+                  checked={notifSettings.lessonRemindEnabled}
+                  onChange={(checked) => handleUpdateNotifSettings({ lessonRemindEnabled: checked })}
+                />
+              </div>
+            </div>
+
+            {/* 晨间寄语问候 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: 12,
+                borderBottom: "1px solid #f1f5f9",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>清晨寄语问候</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  工作日早晨初次唤起工作台时送上今日寄语与温馨勉励
+                </div>
+              </div>
+              <Switch
+                checked={notifSettings.morningGreetingEnabled}
+                onChange={(checked) => handleUpdateNotifSettings({ morningGreetingEnabled: checked })}
+              />
+            </div>
+
+            {/* 待办提醒 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>教学待办轻提醒</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  离校前检测到有今日未结或逾期待办时轻提醒
+                </div>
+              </div>
+              <Switch
+                checked={notifSettings.todoRemindEnabled}
+                onChange={(checked) => handleUpdateNotifSettings({ todoRemindEnabled: checked })}
+              />
+            </div>
+          </div>
         </Card>
 
         {/* 关于信息与 PWA 更新 */}
