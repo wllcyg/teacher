@@ -4,8 +4,10 @@
 - 报表接口：把 scoring 层的纯函数包装成 REST，供前端直接消费。
 """
 
+import datetime
 import json
 import os
+import urllib.parse
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
@@ -672,6 +674,49 @@ DEFAULT_AI_BASE_URL = os.environ.get("AI_BASE_URL", "https://dashscope.aliyuncs.
 DEFAULT_AI_KEY = os.environ.get("AI_API_KEY", os.environ.get("DASHSCOPE_API_KEY", ""))
 DEFAULT_AI_MODEL = os.environ.get("AI_MODEL", "qwen-flash")
 
+
+def _safe_date_str(date: str) -> str:
+    """校验日期必须是合法的 YYYY-MM-DD，非法则回退为今天。
+
+    避免任意字符串被直接拼进缓存文件名，受安排前可无限制造成新文件、把磁盘写满的 DoS 风险。
+    """
+    if date:
+        try:
+            datetime.date.fromisoformat(date)
+            return date
+        except ValueError:
+            pass
+    return datetime.date.today().isoformat()
+
+
+def _allowed_ai_hosts() -> set[str]:
+    """AI 域名白名单：默认只允许 DEFAULT_AI_BASE_URL 自带的域名，可用 AI_ALLOWED_HOSTS 环境变量（逗号分隔）追加。
+
+    防止 ai_base_url 被通过 POST /api/settings 改成任意地址后，发起 SSRF 探测内网/云主机元数据接口。
+    """
+    hosts: set[str] = set()
+    default_host = urllib.parse.urlparse(DEFAULT_AI_BASE_URL).hostname
+    if default_host:
+        hosts.add(default_host.lower())
+    for h in os.environ.get("AI_ALLOWED_HOSTS", "").split(","):
+        h = h.strip().lower()
+        if h:
+            hosts.add(h)
+    return hosts
+
+
+ALLOWED_AI_HOSTS = _allowed_ai_hosts()
+
+
+def _is_allowed_ai_base_url(base_url: str) -> bool:
+    try:
+        host = (urllib.parse.urlparse(base_url).hostname or "").lower()
+    except ValueError:
+        return False
+    if not host:
+        return False
+    return any(host == h or host.endswith("." + h) for h in ALLOWED_AI_HOSTS)
+
 EDUCATIONAL_QUOTES = [
     "晨光微露，心向阳光，愿每个孩子都如春芽般，在爱与期待中悄然生长。",
     "教育的本质意味着，一棵树摇动另一棵树，一朵云推动另一朵云，一个灵魂唤醒另一个灵魂。",
@@ -695,7 +740,9 @@ def _call_daily_greeting(db: Session, teacher_name: str = "崔老师") -> str:
     base_url = (base_url_row.value if base_url_row and base_url_row.value else DEFAULT_AI_BASE_URL).strip().rstrip("/")
     model = (model_row.value if model_row and model_row.value else DEFAULT_AI_MODEL).strip()
 
-    if api_key and base_url:
+    if api_key and base_url and not _is_allowed_ai_base_url(base_url):
+        print(f"Blocked disallowed AI base_url (possible SSRF attempt): {base_url}")
+    elif api_key and base_url:
         import urllib.request
         url = f"{base_url}/chat/completions"
         headers = {
@@ -740,8 +787,7 @@ def get_daily_greeting(
     force: bool = Query(default=False),
     theme: str = Query(default="auto"),
 ):
-    import datetime
-    today_str = date or datetime.date.today().isoformat()
+    today_str = _safe_date_str(date)
     resolved_theme = resolve_theme_by_date(today_str) if (not theme or theme == "auto") else theme
     if resolved_theme not in THEMES:
         resolved_theme = "warm"
@@ -810,8 +856,7 @@ def get_daily_greeting_card(
     force: bool = Query(default=False),
     theme: str = Query(default="auto"),
 ):
-    import datetime
-    today_str = date or datetime.date.today().isoformat()
+    today_str = _safe_date_str(date)
     resolved_theme = resolve_theme_by_date(today_str) if (not theme or theme == "auto") else theme
     if resolved_theme not in THEMES:
         resolved_theme = "warm"
@@ -834,21 +879,15 @@ def get_daily_greeting_card(
 
 
 # ---------- 系统配置持久化（称呼、学期、作息等） ----------
+# 显式白名单：杜绝使用关键词黑名单带来的漏过滤隐患，绝不向前端暴露任何 AI 私钥、Token 与内部状态
+ALLOWED_SETTING_KEYS = {"称呼", "学期", "periods", "notification_schedule", "greeting_theme"}
+
+
 @router.get("/settings")
 def get_settings(db: Session = Depends(get_db)):
-    rows = db.query(models.AppSetting).all()
+    rows = db.query(models.AppSetting).filter(models.AppSetting.key.in_(ALLOWED_SETTING_KEYS)).all()
     res = {}
     for r in rows:
-        # 绝不向前端暴露任何 AI 配置、私钥、Token 与临时缓存
-        k_lower = r.key.lower()
-        if (
-            k_lower.startswith("ai_")
-            or k_lower.startswith("daily_greeting_")
-            or "key" in k_lower
-            or "secret" in k_lower
-            or "token" in k_lower
-        ):
-            continue
         try:
             res[r.key] = json.loads(r.value)
         except Exception:
@@ -865,6 +904,9 @@ def get_settings(db: Session = Depends(get_db)):
 @router.post("/settings")
 def update_settings(payload: dict, db: Session = Depends(get_db)):
     for k, v in payload.items():
+        # 仅允许写入白名单内的业务配置，彻底封死通过该接口篡改 ai_base_url 发起 SSRF 的可能
+        if k not in ALLOWED_SETTING_KEYS:
+            continue
         val = json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
         row = db.query(models.AppSetting).filter(models.AppSetting.key == k).first()
         if not row:
@@ -874,3 +916,4 @@ def update_settings(payload: dict, db: Session = Depends(get_db)):
             row.value = val
     db.commit()
     return {"ok": True}
+

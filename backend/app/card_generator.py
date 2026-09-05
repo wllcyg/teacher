@@ -7,6 +7,7 @@
 """
 
 import datetime
+import hashlib
 import os
 from io import BytesIO
 from typing import List
@@ -310,6 +311,23 @@ def render_greeting_card(
     return img
 
 
+MAX_CACHE_FILES = 200  # 缓存目录数量上限，超过则按最旧修改时间淘汰，避免磁盘无限膨胀
+
+
+def _enforce_cache_limit(cache_dir: str, max_files: int = MAX_CACHE_FILES) -> None:
+    try:
+        files = [
+            os.path.join(cache_dir, f) for f in os.listdir(cache_dir) if f.startswith("daily_card_")
+        ]
+        if len(files) <= max_files:
+            return
+        files.sort(key=lambda p: os.path.getmtime(p))
+        for stale in files[: len(files) - max_files]:
+            os.remove(stale)
+    except OSError:
+        pass
+
+
 def get_or_generate_card_path(
     quote: str,
     date_str: str,
@@ -328,7 +346,10 @@ def get_or_generate_card_path(
         cache_dir = os.path.join(base_dir, "cards")
 
     os.makedirs(cache_dir, exist_ok=True)
-    file_name = f"daily_card_{date_str}_{resolved_theme}.png"
+    # 文件名对 date_str+theme 做哈希，不直接拼用户输入：
+    # 即使上游校验有疏漏，任意字符串也不会直接决定文件名/路径，从根源切断路径穿越风险。
+    digest = hashlib.md5(f"{date_str}|{resolved_theme}".encode()).hexdigest()
+    file_name = f"daily_card_{digest}.png"
     target_path = os.path.join(cache_dir, file_name)
 
     if not force and os.path.exists(target_path) and os.path.getsize(target_path) > 1000:
@@ -337,5 +358,6 @@ def get_or_generate_card_path(
     # 生成并存储
     img = render_greeting_card(quote=quote, date_str=date_str, teacher_name=teacher_name, theme=resolved_theme)
     img.save(target_path, format="PNG", optimize=True)
+    _enforce_cache_limit(cache_dir)
     return target_path
 

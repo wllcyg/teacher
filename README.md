@@ -92,4 +92,4 @@ npm run dev
 1. 数据不再走 WorkBuddy 资料库 SDK，改为自建 SQLite + REST API。
 2. 移除了离线写队列（后端直连数据库，无断网补交场景）。
 3. 「设置」页的称呼/学期改为显式「保存」按钮，修复了原应用关闭面板丢修改的缺陷。
-4. 单用户、无登录；如要多人 web 部署需换 PostgreSQL/MySQL 并加认证。
+4. 单用户；采用共享密码 + Token 认证（默认密码 `123456qw`，部署时必须通过 `APP_PASSWORD`/`APP_SECRET_KEY` 环境变量覆盖），Token 30 天有效且会自动顺延；如要多人 web 部署需换 PostgreSQL/MySQL 并改为多账号体系。

@@ -76,15 +76,31 @@ export function useIsMobileOrTablet(): boolean {
   const [isMobileOrTablet, setIsMobileOrTablet] = useState<boolean>(getIsMobileOrTablet);
 
   useEffect(() => {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // resize 防抖 100ms，避免拖动窗口时整棵组件树在移动端/桌面端布局间频繁切换重渲染
     const handleResize = () => {
-      setIsMobileOrTablet(getIsMobileOrTablet());
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        setIsMobileOrTablet(getIsMobileOrTablet());
+      }, 100);
+    };
+
+    // orientationchange 触发瞬间部分移动浏览器 innerWidth 尚未更新为旋转后的值，
+    // 延迟 100ms 再读取尺寸，避免拿到旋转前的过期数据
+    const handleOrientationChange = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        setIsMobileOrTablet(getIsMobileOrTablet());
+      }, 100);
     };
 
     window.addEventListener("resize", handleResize);
-    window.addEventListener("orientationchange", handleResize);
+    window.addEventListener("orientationchange", handleOrientationChange);
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", handleResize);
+      window.removeEventListener("orientationchange", handleOrientationChange);
     };
   }, []);
 

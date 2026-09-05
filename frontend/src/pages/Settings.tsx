@@ -29,11 +29,13 @@ import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   NotificationOutlined,
+  LogoutOutlined,
 } from "@ant-design/icons";
 import { useState, useEffect } from "react";
 import dayjs from "dayjs";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAppStore } from "../store/app";
+import { useAuthStore } from "../store/auth";
 import { DEFAULT_PERIODS, hhmmToMinutes, type PeriodItem } from "../periods";
 import { updateSettings } from "../api";
 import { useIsMobileOrTablet } from "../hooks";
@@ -54,6 +56,7 @@ const MINUTES = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50
 
 export default function Settings() {
   const isMobile = useIsMobileOrTablet();
+  const clearToken = useAuthStore((s) => s.clearToken);
   const 称呼 = useAppStore((s) => s.称呼);
   const 学期 = useAppStore((s) => s.学期);
   const periods = useAppStore((s) => s.periods);
@@ -874,6 +877,24 @@ export default function Settings() {
             >
               刷新工作台
             </Button>
+            <Popconfirm
+              title="确定退出登录？"
+              okText="退出"
+              cancelText="取消"
+              onConfirm={() => {
+                triggerHaptic("light");
+                clearToken();
+              }}
+            >
+              <Button
+                danger
+                size={isMobile ? "middle" : "small"}
+                icon={<LogoutOutlined />}
+                style={{ flex: isMobile ? 1 : "initial", minWidth: 120 }}
+              >
+                退出登录
+              </Button>
+            </Popconfirm>
           </div>
         </Card>
       </div>

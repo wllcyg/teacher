@@ -99,7 +99,7 @@ export default function AppLayout() {
           height="70vh"
           open={moreOpen}
           onClose={() => setMoreOpen(false)}
-          bodyStyle={{ padding: "8px 4px", overflowY: "auto" }}
+          styles={{ body: { padding: "8px 4px", overflowY: "auto" } }}
         >
           {NAV_GROUPS.map((g) => (
             <div key={g.title} style={{ marginBottom: 8 }}>

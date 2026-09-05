@@ -21,7 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
-# 复制依赖说明并使用国内清华源高速安装
+# 复制依赖说明并使用国内清华源高速安装：
+# requirements.txt 现已通过 `uv export --frozen --no-dev --no-hashes -o requirements.txt` 从 uv.lock 锁定生成，
+# 每项依赖都锁到具体版本，保证每次重新构建镜像装进去的依赖都一致，不会因某个依赖发新版而静静变化。
+# 以后要升级依赖时，先 `uv lock` 更新 uv.lock，再重新导出这份 requirements.txt。
 COPY requirements.txt .
 RUN pip install --no-cache-dir -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt
 

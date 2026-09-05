@@ -1,6 +1,12 @@
 import { api } from "./client";
 import type { Row, TableName, TableMeta, SummaryOverview } from "../types";
 
+// ---------- 登录 ----------
+export async function login(password: string): Promise<{ access_token: string; token_type: string; expires_in: number }> {
+  const { data } = await api.post("/auth/login", { password });
+  return data;
+}
+
 // ---------- 通用 CRUD ----------
 export async function listTable(table: TableName, filters?: Record<string, string>): Promise<Row[]> {
   const { data } = await api.get(`/tables/${table}`, { params: filters });

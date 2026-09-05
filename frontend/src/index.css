@@ -91,11 +91,11 @@ body {
     padding: 12px;
   }
 
-  /* Select 等触控件加大点击区域 */
+  /* Select 等触控件加大点击区域，符合 Apple HIG / Material Design 触控建议 */
   .ant-select-selector,
   .ant-picker,
   .ant-input {
-    min-height: 36px;
+    min-height: 44px;
   }
 
   /* 分页器在窄屏简化 */

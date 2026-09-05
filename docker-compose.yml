@@ -18,6 +18,13 @@ services:
       - AI_API_KEY=${AI_API_KEY:-}
       - AI_BASE_URL=${AI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
       - AI_MODEL=${AI_MODEL:-qwen-flash}
+      # 登录密码与 Token 签名密钥：生产环境务必通过 .env 覆盖为高强度随机值，不要用默认值
+      - APP_PASSWORD=${APP_PASSWORD:-123456qw}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-}
+      # CORS 白名单：必须改成前端实际部署域名（Cloudflare Pages 的 *.pages.dev 或自定义域名），逗号分隔，否则前端请求会被 CORS 拦截
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://yg.cheatppf.xyz}
+      # AI 域名白名单（防 SSRF）：如果换了不同的 AI 服务商，需要把其 host 加到这里，逗号分隔
+      - AI_ALLOWED_HOSTS=${AI_ALLOWED_HOSTS:-}
     networks:
       - default
       - common-network
