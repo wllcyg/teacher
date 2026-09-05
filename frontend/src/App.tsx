@@ -14,6 +14,7 @@ const Scores = lazy(() => import("./pages/Scores"));
 const Summary = lazy(() => import("./pages/Summary"));
 const Report = lazy(() => import("./pages/Report"));
 const Schedule = lazy(() => import("./pages/Schedule"));
+const LessonLogs = lazy(() => import("./pages/LessonLogs"));
 const Seating = lazy(() => import("./pages/Seating"));
 const Todos = lazy(() => import("./pages/Todos"));
 const Attendance = lazy(() => import("./pages/Attendance"));
@@ -66,6 +67,7 @@ export default function App() {
             <Route path="/summary" element={<Summary />} />
             <Route path="/report" element={<Report />} />
             <Route path="/schedule" element={<Schedule />} />
+            <Route path="/lesson-logs" element={<LessonLogs />} />
             <Route path="/seating" element={<Seating />} />
             <Route path="/todos" element={<Todos />} />
             <Route path="/attendance" element={<Attendance />} />

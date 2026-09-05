@@ -13,6 +13,7 @@ export type NotificationPermissionState = "granted" | "denied" | "default" | "un
 export interface NotificationSettings {
   lessonRemindEnabled: boolean;
   lessonRemindMinutes: number;
+  lessonEndRemindEnabled: boolean;
   morningGreetingEnabled: boolean;
   todoRemindEnabled: boolean;
 }
@@ -20,6 +21,7 @@ export interface NotificationSettings {
 export const DEFAULT_NOTIF_SETTINGS: NotificationSettings = {
   lessonRemindEnabled: true,
   lessonRemindMinutes: 5,
+  lessonEndRemindEnabled: true,
   morningGreetingEnabled: true,
   todoRemindEnabled: true,
 };

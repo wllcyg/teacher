@@ -790,6 +790,28 @@ export default function Settings() {
               </div>
             </div>
 
+            {/* 下课记录提醒 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                paddingBottom: 12,
+                borderBottom: "1px solid #f1f5f9",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>下课记录提醒</div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                  课程刚结束时发送系统通知，点击直接弹出抽屉补记随堂进度
+                </div>
+              </div>
+              <Switch
+                checked={notifSettings.lessonEndRemindEnabled}
+                onChange={(checked) => handleUpdateNotifSettings({ lessonEndRemindEnabled: checked })}
+              />
+            </div>
+
             {/* 晨间寄语问候 */}
             <div
               style={{

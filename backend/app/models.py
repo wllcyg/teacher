@@ -120,6 +120,15 @@ class Duty(Base):
     备注 = Column(String, default="")
 
 
+class LessonLog(Base):
+    __tablename__ = "lesson_log"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    日期 = Column(String, default="")
+    班级 = Column(String, default="")
+    节次 = Column(String, default="")
+    内容 = Column(String, default="")
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
     key = Column(String, primary_key=True)
@@ -138,4 +147,6 @@ MODELS: dict[str, type] = {
     "parents": Parent,
     "comms": Comm,
     "duties": Duty,
+    "lesson_log": LessonLog,
 }
+

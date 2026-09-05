@@ -7,6 +7,7 @@ import {
   BarChartOutlined,
   FileTextOutlined,
   CalendarOutlined,
+  BookOutlined,
   AppstoreOutlined,
   CheckSquareOutlined,
   ClockCircleOutlined,
@@ -49,6 +50,7 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "日常管理",
     items: [
       { key: "/schedule", label: "课表", icon: <CalendarOutlined /> },
+      { key: "/lesson-logs", label: "课堂笔记", icon: <BookOutlined /> },
       { key: "/seating", label: "座位", icon: <AppstoreOutlined /> },
       { key: "/todos", label: "待办", icon: <CheckSquareOutlined /> },
       { key: "/attendance", label: "考勤", icon: <ClockCircleOutlined /> },

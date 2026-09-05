@@ -17,6 +17,7 @@ import {
   Popconfirm,
   Grid,
 } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   PlusOutlined,
   UndoOutlined,
@@ -1262,11 +1263,12 @@ export default function QuickNote() {
       </Spin>
 
       {/* 弹窗 1：本轮记录明细与四大整批纠错神技 */}
-      <Modal
+      <AdaptiveModal
         title={`本轮记录明细（${班级} · ${currentItem?.项目名} · ${recordDate.format("MM/DD")}）`}
         open={recordsModalOpen}
         onCancel={() => setRecordsModalOpen(false)}
         width={680}
+        drawerHeight="85vh"
         footer={null}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1449,10 +1451,10 @@ export default function QuickNote() {
             </div>
           </div>
         </div>
-      </Modal>
+      </AdaptiveModal>
 
       {/* 弹窗 2：新建项目 Modal */}
-      <Modal
+      <AdaptiveModal
         title="新项目"
         open={newItemOpen}
         onCancel={() => setNewItemOpen(false)}
@@ -1515,10 +1517,10 @@ export default function QuickNote() {
             }}
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
 
       {/* 弹窗 3：改名 Modal */}
-      <Modal
+      <AdaptiveModal
         title="修改项目名称"
         open={renameOpen}
         onCancel={() => setRenameOpen(false)}
@@ -1534,7 +1536,7 @@ export default function QuickNote() {
             <Input />
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
     </div>
   );
 }

@@ -94,16 +94,32 @@ def _decode_token(token: str) -> dict | None:
     return payload
 
 
+# 免认证公开路径白名单（无任何隐私数据的公开视觉资源，供 <img> 标签直接加载及直接分享查看）
+PUBLIC_PATHS = {
+    "/api/daily-greeting/card",
+}
+
+
 def require_auth(request: Request, response: Response, authorization: str = Header(default="")) -> None:
     """挂在整个受保护路由组上的认证依赖：
 
-    - 从 `Authorization: Bearer <token>` 中取出并校验签名与有效期，失败统一 401。
+    - 白名单公开资源（如每日寄语海报图）直接放行，供浏览器 <img> 或直接外链访问；
+    - 其余接口优先校验 `Authorization: Bearer <token>`，同时支持 `?token=` query 参数作为备用；
     - 校验通过且距离过期不足 7 天时，通过响应头 `X-New-Token` 下发续期后的新 token，
       前端响应拦截器读取后静默替换本地存储，实现自动顺延、正常使用不掉线。
     """
-    if not authorization or not authorization.startswith("Bearer "):
+    if request.url.path.rstrip("/") in PUBLIC_PATHS:
+        return
+
+    token = ""
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[len("Bearer "):].strip()
+    elif request.query_params.get("token"):
+        token = request.query_params.get("token", "").strip()
+
+    if not token:
         raise HTTPException(status_code=401, detail="未登录")
-    token = authorization[len("Bearer "):].strip()
+
     payload = _decode_token(token)
     if not payload:
         raise HTTPException(status_code=401, detail="登录已失效，请重新登录")

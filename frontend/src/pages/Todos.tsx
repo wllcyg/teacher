@@ -16,6 +16,7 @@ import {
   Badge,
   Tooltip,
 } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   PlusOutlined,
   CheckCircleFilled,
@@ -685,8 +686,8 @@ export default function Todos() {
         </div>
       )}
 
-      {/* 编辑/详细新建弹窗 */}
-      <Modal
+      {/* 编辑/详细新建弹窗（手机端自动下沉为底部抽屉，iPad/PC保持居中） */}
+      <AdaptiveModal
         title={editing ? "编辑待办" : "新建待办"}
         open={open}
         onCancel={() => setOpen(false)}
@@ -745,7 +746,7 @@ export default function Todos() {
             <DatePicker style={{ width: "100%" }} />
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
     </div>
   );
 }

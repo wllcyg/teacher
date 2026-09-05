@@ -11,7 +11,8 @@ export type TableName =
   | "attendance"
   | "parents"
   | "comms"
-  | "duties";
+  | "duties"
+  | "lesson_log";
 
 export interface TableMeta {
   columns: string[];

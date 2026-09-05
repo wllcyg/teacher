@@ -84,6 +84,25 @@ export const NotificationScheduler: React.FC = () => {
                 });
               }
             }
+
+            // 下课后提醒（下课后 0 ~ 10 分钟内提醒一次记录教学进度）
+            if (settings.lessonEndRemindEnabled) {
+              const endMinutes = hhmmToMinutes(p.end);
+              const diffAfter = nowMinutes - endMinutes;
+              if (diffAfter >= 0 && diffAfter <= 10) {
+                const notifEndKey = `notified_lesson_end_${todayStr}_${l.节次号}_${l.班级}`;
+                if (!localStorage.getItem(notifEndKey)) {
+                  localStorage.setItem(notifEndKey, String(Date.now()));
+                  await sendNotification(`【下课啦】第 ${l.节次号} 节课已结束 🔔`, {
+                    body: `${l.班级} · ${l.学科 || "课堂"} 已下课，顺手记一笔教学进度吧！`,
+                    tag: notifEndKey,
+                    data: {
+                      url: `/today?action=record_lesson&period=${l.节次号}&klass=${encodeURIComponent(l.班级)}`,
+                    },
+                  });
+                }
+              }
+            }
           }
         }
 

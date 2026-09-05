@@ -203,6 +203,10 @@ def _register_crud(table: str):
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
         existing = _find_natural_dup(db, table, payload)
         if existing:
+            if table == "lesson_log":
+                _apply(existing, payload, table)
+                db.commit()
+                db.refresh(existing)
             return _to_dict(existing, table)
         row = Model()
         _apply(row, payload, table)

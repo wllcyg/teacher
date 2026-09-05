@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Card, Row, Col, Tag, Empty, Spin, Statistic, Segmented, Button, message, Modal } from "antd";
 import {
   EditOutlined,
@@ -11,15 +11,18 @@ import {
   PictureOutlined,
   DownloadOutlined,
   ShareAltOutlined,
+  BookOutlined,
 } from "@ant-design/icons";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
 import { getSummary, getExamReport, listTable, updateRow, getDailyGreeting, getGreetingCardUrl } from "../api";
 import { useAppStore } from "../store/app";
 import { useCurrentClass, usePeriods } from "../hooks";
 import { hhmmToMinutes } from "../periods";
 import { triggerHaptic } from "../utils/haptics";
+import { LessonLogDrawer, type LessonContext } from "../components/LessonLogDrawer";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 
 const WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
@@ -184,7 +187,6 @@ export default function Today() {
   // 课表：全班级（教师视角），按今天星期几过滤
   const schedule = useQuery({ queryKey: ["schedule"], queryFn: () => listTable("schedule") });
   const todayLessons = useMemo(() => {
-    if (weekLabel === "周六" || weekLabel === "周日") return [];
     return (schedule.data ?? [])
       .filter((r: any) => r.星期 === weekLabel)
       .map((r: any) => ({ ...r, 节次号: parseInt(String(r.节次).replace(/第|节/g, ""), 10) || 0 }))
@@ -234,6 +236,81 @@ export default function Today() {
     const elapsed = nowMinutes - hhmmToMinutes(currentPeriod.start);
     return Math.round((elapsed / total) * 100);
   }, [currentPeriod, nowMinutes]);
+
+  // 刚上完的上一节课（已结束的课中离当前时间最近的一节）
+  const lastLesson = useMemo(() => {
+    const finished = todayLessons.filter((l: any) => {
+      const p = periods.find((x) => x.n === l.节次号);
+      return p && hhmmToMinutes(p.end) <= nowMinutes;
+    });
+    return finished.length > 0 ? finished[finished.length - 1] : null;
+  }, [todayLessons, nowMinutes, periods]);
+
+  // 今日课堂记录列表（用于标识哪些课程已记）
+  const lessonLogs = useQuery({
+    queryKey: ["lesson_log", { 日期: 今天 }],
+    queryFn: () => listTable("lesson_log", { 日期: 今天 }),
+  });
+
+  const isLessonRecorded = (periodNum: number, klass: string) => {
+    const pStr = `第${periodNum}节`;
+    return (lessonLogs.data ?? []).some(
+      (r: any) => (r.节次 === pStr || r.节次 === String(periodNum)) && r.班级 === klass
+    );
+  };
+
+  // 今日已记录的课堂笔记（按节次从小到大排序）
+  const todayLogs = useMemo(() => {
+    return (lessonLogs.data ?? []).slice().sort((a: any, b: any) => {
+      const pA = parseInt(String(a.节次).replace(/第|节/g, ""), 10) || 0;
+      const pB = parseInt(String(b.节次).replace(/第|节/g, ""), 10) || 0;
+      return pA - pB;
+    });
+  }, [lessonLogs.data]);
+
+  // 课后课堂记录抽屉状态
+  const [logDrawerOpen, setLogDrawerOpen] = useState(false);
+  const [logContext, setLogContext] = useState<LessonContext | null>(null);
+
+  const handleOpenLessonLog = (lesson: any) => {
+    triggerHaptic("light");
+    setLogContext({
+      日期: 今天,
+      班级: lesson.班级,
+      节次: lesson.节次号,
+      科目: lesson.科目,
+    });
+    setLogDrawerOpen(true);
+  };
+
+  // 监听通知点击附带的 URL query 参数自动拉起抽屉
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const action = searchParams.get("action");
+    if (action === "record_lesson") {
+      const periodParam = searchParams.get("period");
+      const klassParam = searchParams.get("klass");
+      const target = todayLessons.find(
+        (l: any) =>
+          String(l.节次号) === String(periodParam) &&
+          (!klassParam || l.班级 === klassParam)
+      ) || (periodParam ? { 节次号: periodParam, 班级: klassParam || 班级, 科目: "" } : null);
+
+      if (target) {
+        handleOpenLessonLog(target);
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete("action");
+            next.delete("period");
+            next.delete("klass");
+            return next;
+          },
+          { replace: true }
+        );
+      }
+    }
+  }, [searchParams, todayLessons]);
 
   // 等着补测：最近一场考试的缺考名单
   const examName = summary.data?.考试?.名;
@@ -373,12 +450,11 @@ export default function Today() {
         </div>
       </div>
 
-      {/* 📱 晨间寄语超清海报弹窗 */}
-      <Modal
+      {/* 📱 晨间寄语超清海报弹窗（手机端自动下沉为抽屉，iPad/PC保持居中） */}
+      <AdaptiveModal
         open={cardModalOpen}
         onCancel={() => setCardModalOpen(false)}
         footer={null}
-        centered
         width={380}
         styles={{
           body: { padding: "12px 14px 14px", overflow: "hidden" },
@@ -509,7 +585,7 @@ export default function Today() {
             复制图片
           </Button>
         </div>
-      </Modal>
+      </AdaptiveModal>
 
       {/* 班级切换 */}
       {classes.length > 0 && (
@@ -534,77 +610,97 @@ export default function Today() {
                 background: "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)",
                 border: "1px solid #C7D2FE",
                 borderBottom: nextLesson ? "none" : undefined,
-                borderRadius: nextLesson ? "12px 12px 0 0" : 12,
+                borderRadius: nextLesson ? "16px 16px 0 0" : 16,
+                overflow: "hidden",
               }}
-              styles={{ body: { padding: "20px 24px" } }}
+              styles={{ body: { padding: "16px 18px" } }}
             >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  flexWrap: "wrap",
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                    <span
-                      style={{
-                        display: "inline-block",
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        background: "#4F46E5",
-                        animation: "pulse 2s ease-in-out infinite",
-                        boxShadow: "0 0 0 3px rgba(79,70,229,0.2)",
-                      }}
-                    />
-                    <span style={{ fontSize: 13, color: "#6366F1", fontWeight: 500 }}>正在上课</span>
-                    <span
-                      style={{
-                        fontSize: 12,
-                        color: "#818CF8",
-                        background: "#EEF2FF",
-                        border: "1px solid #C7D2FE",
-                        borderRadius: 20,
-                        padding: "1px 10px",
-                        marginLeft: 4,
-                      }}
-                    >
-                      还剩 {remainMinutes} 分钟
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: 22, fontWeight: 700, color: "#1E1B4B" }}>
-                    第{currentLesson.节次号}节 {currentLesson.班级}·{currentLesson.科目}
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6366F1", fontSize: 13 }}>
-                      <ClockCircleOutlined /> {currentPeriod.time}
-                    </div>
-                    {/* 进度条 */}
-                    <div style={{ flex: 1, maxWidth: 180, height: 4, borderRadius: 2, background: "rgba(99,102,241,0.15)", overflow: "hidden" }}>
-                      <div
-                        style={{
-                          height: "100%",
-                          width: `${progressPct}%`,
-                          borderRadius: 2,
-                          background: "linear-gradient(90deg, #6366F1, #818CF8)",
-                          transition: "width 0.5s ease",
-                        }}
-                      />
-                    </div>
-                    <span style={{ fontSize: 12, color: "#818CF8" }}>{progressPct}%</span>
-                  </div>
+              {/* 顶部：状态徽标与时间进度 */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 8,
+                      height: 8,
+                      borderRadius: "50%",
+                      background: "#4F46E5",
+                      animation: "pulse 2s ease-in-out infinite",
+                      boxShadow: "0 0 0 3px rgba(79,70,229,0.2)",
+                      flexShrink: 0,
+                    }}
+                  />
+                  <span style={{ fontSize: 13, color: "#4F46E5", fontWeight: 600, whiteSpace: "nowrap" }}>正在上课</span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      color: "#4338CA",
+                      background: "rgba(255, 255, 255, 0.85)",
+                      border: "1px solid #C7D2FE",
+                      borderRadius: 20,
+                      padding: "2px 10px",
+                      fontWeight: 500,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    还剩 {remainMinutes} 分钟
+                  </span>
                 </div>
 
+                <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6366F1", fontSize: 12, whiteSpace: "nowrap" }}>
+                  <ClockCircleOutlined /> {currentPeriod.time}
+                  <span style={{ color: "#818CF8", fontWeight: 600 }}>{progressPct}%</span>
+                </div>
+              </div>
+
+              {/* 课程主标题：整行通栏展示，彻底消除折行尴尬 */}
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#1E1B4B", margin: "6px 0 10px", letterSpacing: "0.2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                第{currentLesson.节次号}节 {currentLesson.班级}·{currentLesson.科目}
+              </div>
+
+              {/* 进度条 */}
+              <div style={{ height: 4, borderRadius: 2, background: "rgba(99,102,241,0.15)", overflow: "hidden", marginBottom: 14 }}>
+                <div
+                  style={{
+                    height: "100%",
+                    width: `${progressPct}%`,
+                    borderRadius: 2,
+                    background: "linear-gradient(90deg, #6366F1, #818CF8)",
+                    transition: "width 0.5s ease",
+                  }}
+                />
+              </div>
+
+              {/* 底部按钮栏：双按钮等宽平铺，大拇指极佳热区 */}
+              <div style={{ display: "flex", gap: 10 }}>
+                <Button
+                  icon={<BookOutlined />}
+                  size="middle"
+                  onClick={() => handleOpenLessonLog(currentLesson)}
+                  style={{
+                    flex: 1,
+                    height: 38,
+                    borderColor: isLessonRecorded(currentLesson.节次号, currentLesson.班级) ? "#10B981" : "#818CF8",
+                    color: isLessonRecorded(currentLesson.节次号, currentLesson.班级) ? "#059669" : "#4F46E5",
+                    background: isLessonRecorded(currentLesson.节次号, currentLesson.班级) ? "#ECFDF5" : "#FFFFFF",
+                    borderRadius: 8,
+                    fontWeight: 500,
+                  }}
+                >
+                  {isLessonRecorded(currentLesson.节次号, currentLesson.班级) ? "已记课堂" : "记课堂"}
+                </Button>
                 <Button
                   type="primary"
                   icon={<EditOutlined />}
-                  size="large"
+                  size="middle"
                   onClick={() => handleGoQuickNote(currentLesson.班级)}
+                  style={{
+                    flex: 1,
+                    height: 38,
+                    borderRadius: 8,
+                    background: "#4F46E5",
+                    fontWeight: 500,
+                  }}
                 >
                   记一笔
                 </Button>
@@ -616,52 +712,213 @@ export default function Today() {
           <Card
             size="small"
             style={{
-              borderRadius: currentLesson ? "0 0 12px 12px" : 12,
+              borderRadius: currentLesson ? "0 0 16px 16px" : 16,
               borderTop: currentLesson ? "1px dashed #E2E8F0" : undefined,
+              border: "1px solid #E2E8F0",
+              background: currentLesson ? "#F8FAFC" : "#FFFFFF",
             }}
-            styles={{ body: { padding: currentLesson ? "14px 24px" : "20px 24px" } }}
+            styles={{ body: { padding: currentLesson ? "12px 18px" : "16px 18px" } }}
           >
             <div
               style={{
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: 16,
+                gap: 12,
                 flexWrap: "wrap",
               }}
             >
               <div>
                 {nextLesson && nextPeriod ? (
                   <>
-                    <div style={{ color: "#94A3B8", fontSize: 13, marginBottom: 4 }}>
+                    <div style={{ color: "#94A3B8", fontSize: 12, marginBottom: 2, whiteSpace: "nowrap" }}>
                       {currentLesson ? "接下来" : "下一节"}
                     </div>
-                    <div style={{ fontSize: currentLesson ? 17 : 22, fontWeight: currentLesson ? 600 : 700, color: "#0F172A" }}>
+                    <div style={{ fontSize: currentLesson ? 15 : 18, fontWeight: currentLesson ? 600 : 700, color: "#0F172A", whiteSpace: "nowrap" }}>
                       第{nextLesson.节次号}节 {nextLesson.班级}·{nextLesson.科目}
                     </div>
-                    <div style={{ color: "#94A3B8", marginTop: 4, display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                    <div style={{ color: "#94A3B8", marginTop: 2, display: "flex", alignItems: "center", gap: 6, fontSize: 12, whiteSpace: "nowrap" }}>
                       <ClockCircleOutlined /> {nextPeriod.time}
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 18, fontWeight: 600, color: "#0F172A" }}>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "#0F172A", whiteSpace: "nowrap" }}>
                     {todayLessons.length === 0 ? "今天没有排课" : currentLesson ? "这是今天最后一节课了" : "今天的课上完了"}
                   </div>
                 )}
               </div>
+
               {!currentLesson && (
-                <Button
-                  type="primary"
-                  icon={<EditOutlined />}
-                  size="large"
-                  onClick={() => handleGoQuickNote(nextLesson?.班级 || 班级)}
-                >
-                  记一笔
-                </Button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  {lastLesson && (
+                    <Button
+                      icon={<BookOutlined />}
+                      size="middle"
+                      onClick={() => handleOpenLessonLog(lastLesson)}
+                      style={{
+                        height: 36,
+                        borderColor: isLessonRecorded(lastLesson.节次号, lastLesson.班级) ? "#10B981" : "#CBD5E1",
+                        color: isLessonRecorded(lastLesson.节次号, lastLesson.班级) ? "#059669" : "#334155",
+                        background: isLessonRecorded(lastLesson.节次号, lastLesson.班级) ? "#ECFDF5" : "#FFFFFF",
+                        borderRadius: 8,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {isLessonRecorded(lastLesson.节次号, lastLesson.班级)
+                        ? `已记第${lastLesson.节次号}节`
+                        : `补记第${lastLesson.节次号}节`}
+                    </Button>
+                  )}
+                  <Button
+                    type="primary"
+                    icon={<EditOutlined />}
+                    size="middle"
+                    onClick={() => handleGoQuickNote(nextLesson?.班级 || 班级)}
+                    style={{ height: 36, borderRadius: 8, background: "#4F46E5", fontWeight: 500 }}
+                  >
+                    记一笔
+                  </Button>
+                </div>
               )}
             </div>
           </Card>
         </div>
+
+        {/* 今日课堂笔记清单卡片 */}
+        <Card
+          size="small"
+          style={{
+            marginTop: 16,
+            borderRadius: 16,
+            border: "1px solid #E2E8F0",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          }}
+          styles={{ body: { padding: "16px 18px" } }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: todayLogs.length > 0 ? 12 : 0,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: "#EEF2FF",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#4F46E5",
+                  fontSize: 14,
+                }}
+              >
+                <BookOutlined />
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>今日课堂笔记</span>
+              <Tag
+                color={todayLogs.length > 0 ? "blue" : "default"}
+                style={{ borderRadius: 10, margin: 0, fontWeight: 500 }}
+              >
+                {todayLogs.length} 条已记
+              </Tag>
+            </div>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => navigate("/lesson-logs")}
+              style={{ padding: 0, fontSize: 13, color: "#4F46E5", fontWeight: 500 }}
+            >
+              全部记录 ➔
+            </Button>
+          </div>
+
+          {todayLogs.length === 0 ? (
+            <div style={{ padding: "10px 0 4px", color: "#94A3B8", fontSize: 13, textAlign: "center" }}>
+              今日暂无课堂笔记，上课或下课后点击上方「记课堂」即可随时记录教学进度与作业。
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {todayLogs.map((log: any) => {
+                const periodNum = parseInt(String(log.节次).replace(/第|节/g, ""), 10) || log.节次;
+                const matchingLesson = todayLessons.find(
+                  (l: any) => String(l.节次号) === String(periodNum) && l.班级 === log.班级
+                );
+                return (
+                  <div
+                    key={log.id}
+                    onClick={() =>
+                      handleOpenLessonLog({
+                        节次号: periodNum,
+                        班级: log.班级,
+                        科目: matchingLesson?.科目 || "",
+                      })
+                    }
+                    style={{
+                      background: "#F8FAFC",
+                      borderRadius: 12,
+                      padding: "12px 14px",
+                      border: "1px solid #F1F5F9",
+                      cursor: "pointer",
+                      transition: "all 0.15s ease",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <Tag
+                        style={{
+                          borderRadius: 6,
+                          fontWeight: 600,
+                          margin: 0,
+                          background: "#EEF2FF",
+                          borderColor: "#C7D2FE",
+                          color: "#4F46E5",
+                        }}
+                      >
+                        第{periodNum}节 · {log.班级}
+                        {matchingLesson?.科目 ? ` · ${matchingLesson.科目}` : ""}
+                      </Tag>
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<EditOutlined />}
+                        style={{ color: "#6366F1", fontSize: 12, height: 24, padding: "0 6px" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenLessonLog({
+                            节次号: periodNum,
+                            班级: log.班级,
+                            科目: matchingLesson?.科目 || "",
+                          });
+                        }}
+                      >
+                        编辑
+                      </Button>
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: 14,
+                        color: "#334155",
+                        lineHeight: 1.6,
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {log.内容}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
 
         {/* 今日节奏 + 紧要的事 + 等着补测 */}
         <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
@@ -876,6 +1133,13 @@ export default function Today() {
           </Col>
         </Row>
       </Spin>
+
+      {/* 课后课堂记录抽屉（移动端底部滑出） */}
+      <LessonLogDrawer
+        open={logDrawerOpen}
+        onClose={() => setLogDrawerOpen(false)}
+        lessonContext={logContext}
+      />
     </div>
   );
 }
