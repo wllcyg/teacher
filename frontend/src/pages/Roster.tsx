@@ -43,6 +43,8 @@ import {
 import { useClasses, useCurrentClass, LEFT_MARK, useIsMobileOrTablet } from "../hooks";
 import type { Row } from "../types";
 import StudentDetailModal from "../components/StudentDetailModal";
+import { ActionSheet, Dialog, Toast, PullToRefresh } from "antd-mobile";
+import type { Action } from "antd-mobile/es/components/action-sheet";
 import StudentAvatar from "../components/StudentAvatar";
 import { triggerHaptic } from "../utils/haptics";
 
@@ -101,6 +103,17 @@ export default function Roster() {
       }),
     enabled: !!班级,
   });
+
+  // 📱 antd-mobile 下拉手势刷新
+  const handleRefreshRoster = async () => {
+    triggerHaptic("light");
+    await qc.invalidateQueries({ queryKey: ["students"] });
+    Toast.show({
+      icon: "success",
+      content: "已刷新学生名册",
+      duration: 1200,
+    });
+  };
 
   // 新增/修改学生
   const saveMutation = useMutation({
@@ -378,7 +391,8 @@ export default function Roster() {
 
   // ==================== 渲染主体 ====================
   return (
-    <div className="page" style={{ maxWidth: 1100, margin: "0 auto" }}>
+    <PullToRefresh onRefresh={handleRefreshRoster}>
+      <div className="page" style={{ maxWidth: 1100, margin: "0 auto" }}>
       {/* 电脑端 (PC)：严格使用原方案结构与交互展示 */}
       {!isMobile ? (
         <>
@@ -804,164 +818,63 @@ export default function Roster() {
             </div>
           )}
 
-          {/* 📱 移动端 Vant 风格底部动作面板 */}
-          <Drawer
-            placement="bottom"
-            open={actionSheetOpen}
+          {/* 📱 移动端 antd-mobile 原生动作面板 */}
+          <ActionSheet
+            visible={actionSheetOpen}
+            actions={[
+              { text: "查看学生全景档案", key: "detail" },
+              { text: "编辑学生信息", key: "edit" },
+              {
+                text: actionStudent?.标签?.includes(LEFT_MARK) ? "恢复为在册学生" : "标记该生已离班",
+                key: "toggle_leave",
+                danger: !actionStudent?.标签?.includes(LEFT_MARK),
+              },
+              { text: "彻底删除学生", key: "delete", danger: true },
+            ]}
             onClose={() => setActionSheetOpen(false)}
-            height="auto"
-            styles={{
-              body: { padding: "16px 16px 28px 16px" },
-              content: { borderRadius: "20px 20px 0 0" },
+            onAction={(action) => {
+              if (!actionStudent) return;
+              if (action.key === "detail") {
+                setActionSheetOpen(false);
+                setDetailStudent(actionStudent);
+                setDetailOpen(true);
+              } else if (action.key === "edit") {
+                setActionSheetOpen(false);
+                openEdit(actionStudent);
+              } else if (action.key === "toggle_leave") {
+                setActionSheetOpen(false);
+                if (actionStudent.标签 && actionStudent.标签.includes(LEFT_MARK)) {
+                  restoreMutation.mutate(actionStudent);
+                } else {
+                  leaveMutation.mutate(actionStudent);
+                }
+              } else if (action.key === "delete") {
+                setActionSheetOpen(false);
+                Dialog.confirm({
+                  title: "彻底删除学生",
+                  content: `确定彻底删除学生「${actionStudent.姓名}」？此操作无法撤销。`,
+                  confirmText: "删除",
+                  cancelText: "取消",
+                  onConfirm: () => {
+                    delMutation.mutate(actionStudent.id);
+                  },
+                });
+              }
             }}
-            closable={false}
-          >
-            {actionStudent && (
-              <div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    paddingBottom: 14,
-                    marginBottom: 10,
-                    borderBottom: "1px solid #f1f5f9",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      borderRadius: 14,
-                      background: "#eff6ff",
-                      color: "#2563eb",
-                      fontWeight: 700,
-                      fontSize: 16,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {actionStudent.学号 || "#"}
+            cancelText="取消"
+            extra={
+              actionStudent ? (
+                <div style={{ textAlign: "center", padding: "4px 0" }}>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+                    {actionStudent.姓名} <span style={{ fontSize: 13, color: "#64748b" }}>({actionStudent.学号 || "#"})</span>
                   </div>
-                  <div>
-                    <div style={{ fontSize: 17, fontWeight: 700, color: "#1e293b" }}>
-                      {actionStudent.姓名}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                      {actionStudent.班级} · {actionStudent.小组 || "未分配小组"}
-                    </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                    {actionStudent.班级} · {actionStudent.小组 || "未分配小组"}
                   </div>
                 </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <Button
-                    block
-                    size="large"
-                    icon={<UserOutlined style={{ color: "#2563eb" }} />}
-                    style={{
-                      height: 46,
-                      justifyContent: "flex-start",
-                      borderRadius: 12,
-                      fontSize: 15,
-                    }}
-                    onClick={() => {
-                      setActionSheetOpen(false);
-                      setDetailStudent(actionStudent);
-                      setDetailOpen(true);
-                    }}
-                  >
-                    查看学生全景档案
-                  </Button>
-
-                  <Button
-                    block
-                    size="large"
-                    icon={<EditOutlined style={{ color: "#1677ff" }} />}
-                    style={{
-                      height: 46,
-                      justifyContent: "flex-start",
-                      borderRadius: 12,
-                      fontSize: 15,
-                    }}
-                    onClick={() => openEdit(actionStudent)}
-                  >
-                    编辑学生信息
-                  </Button>
-
-                  {actionStudent.标签 && actionStudent.标签.includes(LEFT_MARK) ? (
-                    <Button
-                      block
-                      size="large"
-                      icon={<RollbackOutlined style={{ color: "#52c41a" }} />}
-                      style={{
-                        height: 46,
-                        justifyContent: "flex-start",
-                        borderRadius: 12,
-                        fontSize: 15,
-                      }}
-                      onClick={() => restoreMutation.mutate(actionStudent)}
-                    >
-                      恢复为在册学生
-                    </Button>
-                  ) : (
-                    <Button
-                      block
-                      size="large"
-                      icon={<UserDeleteOutlined style={{ color: "#fa8c16" }} />}
-                      style={{
-                        height: 46,
-                        justifyContent: "flex-start",
-                        borderRadius: 12,
-                        fontSize: 15,
-                      }}
-                      onClick={() => leaveMutation.mutate(actionStudent)}
-                    >
-                      标记该生已离班
-                    </Button>
-                  )}
-
-                  <Popconfirm
-                    title="确定彻底删除该学生？此操作无法撤销。"
-                    onConfirm={() => delMutation.mutate(actionStudent.id)}
-                    okText="删除"
-                    cancelText="取消"
-                  >
-                    <Button
-                      block
-                      danger
-                      size="large"
-                      icon={<DeleteOutlined />}
-                      style={{
-                        height: 46,
-                        justifyContent: "flex-start",
-                        borderRadius: 12,
-                        fontSize: 15,
-                      }}
-                    >
-                      彻底删除学生
-                    </Button>
-                  </Popconfirm>
-
-                  <Button
-                    block
-                    size="large"
-                    style={{
-                      height: 44,
-                      marginTop: 6,
-                      borderRadius: 12,
-                      background: "#f8fafc",
-                      color: "#64748b",
-                      border: "none",
-                    }}
-                    onClick={() => setActionSheetOpen(false)}
-                  >
-                    取消
-                  </Button>
-                </div>
-              </div>
-            )}
-          </Drawer>
+              ) : null
+            }
+          />
         </>
       )}
 
@@ -1101,5 +1014,6 @@ export default function Roster() {
         onClose={() => setDetailOpen(false)}
       />
     </div>
+    </PullToRefresh>
   );
 }

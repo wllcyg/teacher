@@ -23,6 +23,7 @@ import { hhmmToMinutes } from "../periods";
 import { triggerHaptic } from "../utils/haptics";
 import { LessonLogDrawer, type LessonContext } from "../components/LessonLogDrawer";
 import { AdaptiveModal } from "../components/AdaptiveModal";
+import { PullToRefresh, Toast } from "antd-mobile";
 
 const WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
@@ -61,10 +62,18 @@ export default function Today() {
   const handleCompleteTodo = async (t: any) => {
     try {
       await updateRow("todos", t.id, { 状态: "已办" });
-      message.success(`已办结：「${t.事项}」`);
+      triggerHaptic("success");
+      Toast.show({
+        icon: "success",
+        content: `已办结：「${t.事项}」`,
+        duration: 1500,
+      });
       qc.invalidateQueries({ queryKey: ["todos"] });
     } catch (e: any) {
-      message.error("操作失败：" + (e?.message ?? ""));
+      Toast.show({
+        icon: "fail",
+        content: "操作失败：" + (e?.message ?? ""),
+      });
     }
   };
 
@@ -192,6 +201,23 @@ export default function Today() {
       .map((r: any) => ({ ...r, 节次号: parseInt(String(r.节次).replace(/第|节/g, ""), 10) || 0 }))
       .sort((a: any, b: any) => a.节次号 - b.节次号);
   }, [schedule.data, weekLabel]);
+
+  // 📱 antd-mobile 下拉手势刷新
+  const handleRefreshAll = async () => {
+    triggerHaptic("light");
+    await Promise.all([
+      summary.refetch(),
+      todos.refetch(),
+      schedule.refetch(),
+      greetingQuery.refetch(),
+      examReport.refetch(),
+    ]);
+    Toast.show({
+      icon: "success",
+      content: "已刷新今日数据",
+      duration: 1200,
+    });
+  };
 
   // 当前正在上的课：start <= now < end
   const nowMinutes = dayjs().hour() * 60 + dayjs().minute();
@@ -337,7 +363,8 @@ export default function Today() {
   const s = summary.data;
 
   return (
-    <div style={{ padding: "16px 20px 32px" }}>
+    <PullToRefresh onRefresh={handleRefreshAll}>
+      <div style={{ padding: "16px 20px 32px" }}>
       {/* 顶部问候栏 */}
       <div
         style={{
@@ -1141,5 +1168,6 @@ export default function Today() {
         lessonContext={logContext}
       />
     </div>
+    </PullToRefresh>
   );
 }

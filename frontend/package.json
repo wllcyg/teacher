@@ -12,6 +12,7 @@
     "@ant-design/icons": "^5.5.2",
     "@tanstack/react-query": "^5.62.0",
     "antd": "^5.22.0",
+    "antd-mobile": "^5.42.3",
     "axios": "^1.7.9",
     "boring-avatars": "^2.0.4",
     "dayjs": "^1.11.13",

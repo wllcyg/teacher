@@ -18,6 +18,7 @@ import {
   Grid,
 } from "antd";
 import { AdaptiveModal } from "../components/AdaptiveModal";
+import { PullToRefresh, Toast, Dialog } from "antd-mobile";
 import {
   PlusOutlined,
   UndoOutlined,
@@ -105,6 +106,22 @@ export default function QuickNote() {
       listTable("academic", { 班级, 日期: recordDate.format("YYYY-MM-DD") }),
     enabled: !!班级,
   });
+
+  // 📱 antd-mobile 下拉手势刷新
+  const handleRefreshQuickNote = async () => {
+    triggerHaptic("light");
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["students"] }),
+      qc.invalidateQueries({ queryKey: ["items"] }),
+      qc.invalidateQueries({ queryKey: ["behavior", 班级, recordDate.format("YYYY-MM-DD")] }),
+      qc.invalidateQueries({ queryKey: ["academic", 班级, recordDate.format("YYYY-MM-DD")] }),
+    ]);
+    Toast.show({
+      icon: "success",
+      content: "已刷新打卡数据",
+      duration: 1200,
+    });
+  };
 
   // 当前班级在册名单
   const roster = useMemo(() => activeRoster(students, 班级), [students, 班级]);
@@ -425,11 +442,19 @@ export default function QuickNote() {
     const last = undoStack[undoStack.length - 1];
     try {
       await deleteRow(last.table, last.id);
-      message.success(`已撤销：${last.desc}`);
+      triggerHaptic("medium");
+      Toast.show({
+        icon: "success",
+        content: `已撤销：${last.desc}`,
+        duration: 1500,
+      });
       setUndoStack((prev) => prev.slice(0, -1));
       qc.invalidateQueries({ queryKey: [last.table] });
     } catch (e: any) {
-      message.error("撤销失败，该记录可能已被修改或删除");
+      Toast.show({
+        icon: "fail",
+        content: "撤销失败，记录可能已被删除",
+      });
       setUndoStack((prev) => prev.slice(0, -1));
     }
   };
@@ -569,7 +594,8 @@ export default function QuickNote() {
   const gridColumns = screens.xl ? 7 : screens.lg ? 6 : screens.md ? 4 : 3;
 
   return (
-    <div className="page" style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <PullToRefresh onRefresh={handleRefreshQuickNote}>
+      <div className="page" style={{ maxWidth: 1200, margin: "0 auto" }}>
       {/* 标题与口号 */}
       <div style={{ marginBottom: 14 }}>
         <h2 className="page-title" style={{ marginBottom: 2 }}>
@@ -1538,5 +1564,6 @@ export default function QuickNote() {
         </Form>
       </AdaptiveModal>
     </div>
+    </PullToRefresh>
   );
 }
