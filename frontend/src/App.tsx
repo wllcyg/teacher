@@ -23,6 +23,7 @@ const Comms = lazy(() => import("./pages/Comms"));
 const Vault = lazy(() => import("./pages/Vault"));
 const Sync = lazy(() => import("./pages/Sync"));
 const Settings = lazy(() => import("./pages/Settings"));
+const More = lazy(() => import("./pages/More"));
 
 function PageSkeleton() {
   return (
@@ -76,6 +77,7 @@ export default function App() {
             <Route path="/vault" element={<Vault />} />
             <Route path="/sync" element={<Sync />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/more" element={<More />} />
           </Route>
         </Routes>
       </Suspense>

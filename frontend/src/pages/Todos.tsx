@@ -34,6 +34,7 @@ import dayjs, { type Dayjs } from "dayjs";
 import { createRow, deleteRow, listTable, updateRow } from "../api";
 import type { Row } from "../types";
 import { triggerHaptic } from "../utils/haptics";
+import { useIsMobileOrTablet } from "../hooks";
 
 const KINDS = ["教学", "行政", "家校", "班务"];
 
@@ -47,6 +48,7 @@ const KIND_THEMES: Record<string, { color: string; bg: string; border: string }>
 
 export default function Todos() {
   const qc = useQueryClient();
+  const isMobile = useIsMobileOrTablet();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form] = Form.useForm();
@@ -161,6 +163,21 @@ export default function Todos() {
     }
     return { total, pending, done, overdue };
   }, [data]);
+
+  // 类别数据统计（联动当前状态筛选）
+  const kindCounts = useMemo(() => {
+    const map: Record<string, number> = { 全部: 0 };
+    for (const k of KINDS) map[k] = 0;
+    for (const r of data) {
+      if (statusFilter === "待办" && r.状态 === "已办") continue;
+      if (statusFilter === "已办" && r.状态 !== "已办") continue;
+      map["全部"] = (map["全部"] || 0) + 1;
+      if (r.类别 && map[r.类别] !== undefined) {
+        map[r.类别]++;
+      }
+    }
+    return map;
+  }, [data, statusFilter]);
 
   // 智能过滤与排序（紧要待办优先）
   const filteredData = useMemo(() => {
@@ -322,164 +339,249 @@ export default function Todos() {
 
   return (
     <div className="page" style={{ maxWidth: 1000, margin: "0 auto" }}>
-      {/* 头部标题与操作 */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: 12,
-          marginBottom: 14,
-        }}
-      >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <h2 className="page-title" style={{ margin: 0 }}>
-              待办清单
-            </h2>
-            {counts.pending > 0 && (
-              <Badge
-                count={`${counts.pending} 件待办`}
-                style={{ backgroundColor: "#1677ff", fontWeight: "normal" }}
-              />
-            )}
-            {counts.overdue > 0 && (
-              <Badge
-                count={`${counts.overdue} 件逾期`}
-                style={{ backgroundColor: "#ff4d4f", fontWeight: "normal" }}
-              />
-            )}
-          </div>
-          <div className="page-sub" style={{ margin: "4px 0 0" }}>
-            轻点左侧圆圈快速打钩完成 · 单手高效随手记
-          </div>
-        </div>
-
-        <Space wrap>
-          {/* 视图切换按钮 */}
-          <Segmented
-            value={viewMode}
-            onChange={(v) => setViewMode(v as any)}
-            options={[
-              { value: "card", label: "卡片模式", icon: <AppstoreOutlined /> },
-              { value: "table", label: "表格模式", icon: <BarsOutlined /> },
-            ]}
-          />
-          <Button type="primary" icon={<PlusOutlined />} onClick={openCreateModal}>
-            详细新建
-          </Button>
-        </Space>
-      </div>
-
-      {/* ⚡ 极速随手记输入条（移动端/iPad 体验核心） */}
-      <div
-        style={{
-          background: "#ffffff",
-          padding: "10px 14px",
-          borderRadius: 14,
-          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.04)",
-          border: "1px solid #e2e8f0",
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <Select
-            value={quickKind}
-            onChange={setQuickKind}
-            style={{ width: 88, flexShrink: 0 }}
-            options={KINDS.map((k) => ({ value: k, label: k }))}
-          />
-          <Input
-            placeholder="随时随手记待办，按回车速记..."
-            value={quickText}
-            onChange={(e) => setQuickText(e.target.value)}
-            onPressEnter={handleQuickAdd}
-            allowClear
-            style={{ borderRadius: 8 }}
-          />
-          <Button
-            type="primary"
-            icon={<CheckOutlined />}
-            onClick={handleQuickAdd}
-            loading={save.isPending}
-            style={{ flexShrink: 0, borderRadius: 8 }}
-          >
-            记下
-          </Button>
-        </div>
-      </div>
-
-      {/* 筛选控制器：状态分段 + 类别筛选药丸 */}
+      {/* 头部标题与新建入口 */}
       <div
         style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          flexWrap: "wrap",
-          gap: 12,
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <h2 className="page-title" style={{ margin: 0, fontSize: isMobile ? 20 : 22, fontWeight: 700 }}>
+            待办清单
+          </h2>
+          {counts.pending > 0 && (
+            <span
+              style={{
+                fontSize: 12,
+                background: "#eff6ff",
+                color: "#2563eb",
+                padding: "2px 8px",
+                borderRadius: 10,
+                fontWeight: 600,
+              }}
+            >
+              {counts.pending} 待办
+            </span>
+          )}
+          {counts.overdue > 0 && (
+            <span
+              style={{
+                fontSize: 12,
+                background: "#fef2f2",
+                color: "#dc2626",
+                padding: "2px 8px",
+                borderRadius: 10,
+                fontWeight: 600,
+              }}
+            >
+              {counts.overdue} 逾期
+            </span>
+          )}
+        </div>
+
+        <Space>
+          {!isMobile && (
+            <Segmented
+              value={viewMode}
+              onChange={(v) => setViewMode(v as any)}
+              options={[
+                { value: "card", label: "卡片", icon: <AppstoreOutlined /> },
+                { value: "table", label: "表格", icon: <BarsOutlined /> },
+              ]}
+            />
+          )}
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={openCreateModal}
+            style={{ borderRadius: 10, fontWeight: 500, height: 36 }}
+          >
+            {isMobile ? "新建" : "详细新建"}
+          </Button>
+        </Space>
+      </div>
+
+      {/* ⚡ 极速随手记输入条（全新扁平胶囊轻量卡片） */}
+      <div
+        style={{
+          background: "#ffffff",
+          padding: "5px 6px 5px 12px",
+          borderRadius: 14,
+          border: "1px solid #e2e8f0",
+          boxShadow: "0 1px 4px rgba(15, 23, 42, 0.04)",
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
           marginBottom: 14,
         }}
       >
-        {/* 状态分段器 */}
+        <Select
+          value={quickKind}
+          onChange={(v) => {
+            triggerHaptic("light");
+            setQuickKind(v);
+          }}
+          variant="borderless"
+          popupMatchSelectWidth={false}
+          dropdownStyle={{ minWidth: 110, padding: 4 }}
+          style={{ width: 94, padding: 0, fontWeight: 500 }}
+          options={KINDS.map((k) => ({
+            value: k,
+            label: (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, whiteSpace: "nowrap" }}>
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: "50%",
+                    backgroundColor: KIND_THEMES[k]?.color || "#94a3b8",
+                    flexShrink: 0,
+                  }}
+                />
+                <span>{k}</span>
+              </span>
+            ),
+          }))}
+        />
+        <div style={{ width: 1, height: 18, background: "#e2e8f0" }} />
+        <Input
+          variant="borderless"
+          placeholder="随时随手记待办，按回车添加..."
+          value={quickText}
+          onChange={(e) => setQuickText(e.target.value)}
+          onPressEnter={handleQuickAdd}
+          allowClear
+          style={{ flex: 1, padding: "4px 2px", fontSize: 14 }}
+        />
+        <Button
+          type="primary"
+          icon={<CheckOutlined />}
+          onClick={handleQuickAdd}
+          loading={save.isPending}
+          style={{
+            borderRadius: 10,
+            height: 34,
+            padding: "0 14px",
+            fontWeight: 500,
+            boxShadow: "none",
+          }}
+        >
+          记下
+        </Button>
+      </div>
+
+      {/* 筛选控制器：状态切换 + 类别滚动药丸 */}
+      <div style={{ marginBottom: 14 }}>
+        {/* 状态分段控制器 */}
         <Segmented
+          block
           value={statusFilter}
-          onChange={(v) => setStatusFilter(v as string)}
+          onChange={(v) => {
+            triggerHaptic("light");
+            setStatusFilter(v as string);
+          }}
+          style={{
+            borderRadius: 10,
+            padding: 3,
+            background: "#f1f5f9",
+            marginBottom: 8,
+          }}
           options={[
             {
               value: "待办",
               label: (
-                <div style={{ padding: "0 4px" }}>
-                  <span>待办</span>
-                  {counts.pending > 0 && (
-                    <span
-                      style={{
-                        marginLeft: 6,
-                        background: "#1677ff",
-                        color: "#fff",
-                        padding: "1px 6px",
-                        borderRadius: 10,
-                        fontSize: 11,
-                      }}
-                    >
-                      {counts.pending}
-                    </span>
-                  )}
-                </div>
+                <span style={{ fontWeight: statusFilter === "待办" ? 600 : 400 }}>
+                  待办 {counts.pending > 0 && `(${counts.pending})`}
+                </span>
+              ),
+            },
+            {
+              value: "已办",
+              label: (
+                <span style={{ fontWeight: statusFilter === "已办" ? 600 : 400 }}>
+                  已办 {counts.done > 0 && `(${counts.done})`}
+                </span>
               ),
             },
             {
               value: "全部",
-              label: `全部 (${counts.total})`,
-            },
-            {
-              value: "已办",
-              label: `已办 (${counts.done})`,
+              label: (
+                <span style={{ fontWeight: statusFilter === "全部" ? 600 : 400 }}>
+                  全部 ({counts.total})
+                </span>
+              ),
             },
           ]}
         />
 
-        {/* 类别药丸 */}
-        <Space size={6} wrap>
+        {/* 类别横向滚动标签 */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            overflowX: "auto",
+            WebkitOverflowScrolling: "touch",
+            scrollbarWidth: "none",
+            padding: "2px 0 4px",
+          }}
+        >
           {["全部", ...KINDS].map((k) => {
             const isSelected = kindFilter === k;
+            const theme = KIND_THEMES[k];
+            const count = kindCounts[k] || 0;
+
             return (
-              <Tag.CheckableTag
+              <div
                 key={k}
-                checked={isSelected}
-                onChange={() => setKindFilter(k)}
+                onClick={() => {
+                  triggerHaptic("light");
+                  setKindFilter(k);
+                }}
                 style={{
-                  padding: "4px 10px",
-                  borderRadius: 12,
-                  fontSize: 13,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 5,
+                  padding: "5px 10px",
+                  borderRadius: 20,
+                  fontSize: 12,
+                  fontWeight: isSelected ? 600 : 400,
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
+                  flexShrink: 0,
+                  background: isSelected ? (theme?.bg || "#eff6ff") : "#fff",
+                  color: isSelected ? (theme?.color || "#2563eb") : "#64748b",
+                  border: `1px solid ${isSelected ? (theme?.border || "#bfdbfe") : "#e2e8f0"}`,
+                  transition: "all 0.15s ease",
                 }}
               >
-                {k}
-              </Tag.CheckableTag>
+                {theme && (
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: theme.color,
+                    }}
+                  />
+                )}
+                <span>{k}</span>
+                <span
+                  style={{
+                    fontSize: 11,
+                    opacity: isSelected ? 0.9 : 0.6,
+                    fontWeight: "normal",
+                  }}
+                >
+                  {count}
+                </span>
+              </div>
             );
           })}
-        </Space>
+        </div>
       </div>
 
       {/* 主展示区：卡片清单模式 (移动端 / iPad 默认) vs 传统表格模式 */}
@@ -487,24 +589,86 @@ export default function Todos() {
         filteredData.length === 0 ? (
           <div
             style={{
-              padding: "48px 16px",
-              background: "#fff",
+              padding: "40px 16px",
+              background: "#ffffff",
               borderRadius: 16,
-              border: "1px dashed #cbd5e1",
+              border: "1px solid #f1f5f9",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.02)",
               textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Empty
-              description={
-                statusFilter === "待办"
-                  ? "太棒了！所有待办均已完成 🎉"
-                  : "当前暂无待办事项"
-              }
-            >
-              <Button type="primary" ghost icon={<PlusOutlined />} onClick={openCreateModal}>
-                新建一条待办
-              </Button>
-            </Empty>
+            {statusFilter === "待办" ? (
+              <>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    background: "#ecfdf5",
+                    color: "#10b981",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 28,
+                    marginBottom: 12,
+                  }}
+                >
+                  <CheckCircleFilled />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
+                  太棒了！所有待办均已完成 🎉
+                </div>
+                <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>
+                  今日任务已全部清零，享受轻松时光或随手记录新事项
+                </div>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={openCreateModal}
+                  style={{ borderRadius: 10, height: 36 }}
+                >
+                  新建一条待办
+                </Button>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    background: "#f1f5f9",
+                    color: "#94a3b8",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 26,
+                    marginBottom: 12,
+                  }}
+                >
+                  <ClockCircleOutlined />
+                </div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#1e293b", marginBottom: 4 }}>
+                  暂无相关待办记录
+                </div>
+                <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 16 }}>
+                  可以在上方输入栏随手记下新待办
+                </div>
+                <Button
+                  type="primary"
+                  ghost
+                  icon={<PlusOutlined />}
+                  onClick={openCreateModal}
+                  style={{ borderRadius: 10, height: 36 }}
+                >
+                  添加待办
+                </Button>
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -526,28 +690,26 @@ export default function Todos() {
                 <div
                   key={r.id}
                   style={{
-                    background: isDone ? "#fafafa" : "#ffffff",
-                    border: `1px solid ${isDone ? "#e2e8f0" : "#cbd5e1"}`,
+                    background: isDone ? "#f8fafc" : "#ffffff",
+                    border: `1px solid ${isDone ? "#e2e8f0" : "#e2e8f0"}`,
                     borderRadius: 14,
-                    padding: "14px 14px",
+                    padding: "13px 14px",
                     display: "flex",
                     alignItems: "flex-start",
                     gap: 12,
-                    boxShadow: isDone
-                      ? "none"
-                      : "0 2px 6px rgba(0, 0, 0, 0.03)",
-                    transition: "all 0.2s ease",
+                    boxShadow: isDone ? "none" : "0 1px 3px rgba(15, 23, 42, 0.04)",
+                    transition: "all 0.18s ease",
                     position: "relative",
                   }}
                 >
-                  {/* 左侧大触控圆形 Checkbox（44px 触控靶心） */}
+                  {/* 左侧大触控圆形 Checkbox */}
                   <div
                     onClick={() => toggle.mutate(r)}
                     role="button"
                     tabIndex={0}
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -562,18 +724,18 @@ export default function Todos() {
                     {isDone ? (
                       <CheckCircleFilled
                         style={{
-                          fontSize: 24,
-                          color: "#52c41a",
+                          fontSize: 23,
+                          color: "#10b981",
                           transition: "transform 0.15s ease",
                         }}
                       />
                     ) : (
                       <div
                         style={{
-                          width: 22,
-                          height: 22,
+                          width: 21,
+                          height: 21,
                           borderRadius: "50%",
-                          border: "2px solid #94a3b8",
+                          border: "2px solid #cbd5e1",
                           background: "#fff",
                           transition: "all 0.15s ease",
                         }}
@@ -590,7 +752,7 @@ export default function Todos() {
                         fontSize: 15,
                         lineHeight: 1.45,
                         fontWeight: isDone ? 400 : 500,
-                        color: isDone ? "#94a3b8" : "#1e293b",
+                        color: isDone ? "#94a3b8" : "#0f172a",
                         textDecoration: isDone ? "line-through" : "none",
                         cursor: "pointer",
                         wordBreak: "break-word",
@@ -617,7 +779,8 @@ export default function Todos() {
                             background: theme.bg,
                             borderColor: theme.border,
                             borderRadius: 6,
-                            fontSize: 12,
+                            fontSize: 11,
+                            padding: "0 6px",
                           }}
                         >
                           {r.类别}
@@ -641,7 +804,7 @@ export default function Todos() {
                         type="text"
                         size="small"
                         shape="circle"
-                        icon={<EditOutlined style={{ color: "#64748b" }} />}
+                        icon={<EditOutlined style={{ color: "#94a3b8" }} />}
                         onClick={() => openEditModal(r)}
                       />
                     </Tooltip>

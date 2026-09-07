@@ -71,4 +71,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export const ALL_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
+export const MORE_NAV_ITEM: NavItem = {
+  key: "/more",
+  label: "更多",
+  icon: <AppstoreOutlined />,
+};
+
+export const ALL_ITEMS: NavItem[] = [...NAV_GROUPS.flatMap((g) => g.items), MORE_NAV_ITEM];

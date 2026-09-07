@@ -324,6 +324,18 @@ export default function StudentDetailModal({
                         >
                           {r.结果}
                         </span>
+                        {r.备注 && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: "#64748b",
+                              fontWeight: 400,
+                              marginLeft: 6,
+                            }}
+                          >
+                            （{r.备注}）
+                          </span>
+                        )}
                       </div>
                     </div>
                     <Popconfirm

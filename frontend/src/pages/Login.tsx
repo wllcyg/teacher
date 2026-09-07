@@ -11,10 +11,11 @@ export default function Login() {
   const setToken = useAuthStore((s) => s.setToken);
 
   const handleLogin = async () => {
-    if (!password || loading) return;
+    const pwd = password.trim();
+    if (!pwd || loading) return;
     setLoading(true);
     try {
-      const { access_token } = await login(password);
+      const { access_token } = await login(pwd);
       setToken(access_token);
     } catch (e: any) {
       const status = e?.response?.status;
@@ -56,6 +57,9 @@ export default function Login() {
           onChange={(e) => setPassword(e.target.value)}
           onPressEnter={handleLogin}
           autoFocus
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           style={{ marginBottom: 16 }}
         />
         <Button type="primary" size="large" block loading={loading} onClick={handleLogin}>
