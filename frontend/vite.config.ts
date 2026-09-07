@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
-// 前端 5173，后端 8001；/api 走代理联调；支持 PWA 离线安装与全屏应用模式
+// 前端 5173，本地开发后端 9001（生产 8001）；/api 走代理联调；支持 PWA 离线安装与全屏应用模式
 export default defineConfig({
   plugins: [
     react(),
@@ -106,7 +106,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: process.env.VITE_DEV_API_TARGET || "https://teacher.cheatppf.xyz",
+        target: process.env.VITE_DEV_API_TARGET || "http://127.0.0.1:9001",
         changeOrigin: true,
       },
     },

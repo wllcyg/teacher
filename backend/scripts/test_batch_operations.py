@@ -5,7 +5,7 @@ import sqlite3
 import concurrent.futures
 import time
 
-BASE_URL = "http://127.0.0.1:8002/api"
+BASE_URL = "http://127.0.0.1:9001/api"
 DB_PATH = "/Users/moliang/Desktop/coder/teacher/backend/app/data/teacher_workbench.db"
 
 def http_req(url, method="GET", data=None):

@@ -228,7 +228,6 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
       content: `${activeDate} ${activePeriod} (${activeClass}) 的记录将被彻底删除。`,
       confirmText: "删除",
       cancelText: "取消",
-      confirmButtonProps: { color: "danger" },
       onConfirm: async () => {
         await handleDelete();
       },
