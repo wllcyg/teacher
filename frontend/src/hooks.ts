@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listTable } from "./api";
 import { useAppStore } from "./store/app";
@@ -18,10 +18,12 @@ export function useStudents() {
 
 export function useClasses(): string[] {
   const { data } = useStudents();
-  if (!data) return [];
-  const set = new Set<string>();
-  for (const s of data) if (s.班级) set.add(s.班级);
-  return Array.from(set);
+  return useMemo(() => {
+    if (!data) return [];
+    const set = new Set<string>();
+    for (const s of data) if (s.班级) set.add(s.班级);
+    return Array.from(set);
+  }, [data]);
 }
 
 /** 当前班在册学生（不含已离班），按学号数值序 */

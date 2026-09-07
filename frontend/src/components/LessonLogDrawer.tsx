@@ -1,15 +1,20 @@
-import React, { useState, useEffect } from "react";
-import { Drawer, Button, Input, Tag, Space, message, Spin, Popconfirm, DatePicker, Select } from "antd";
+import React, { useState, useEffect, useMemo } from "react";
+import { Drawer, Button, Input, Tag, message, Spin, Popconfirm } from "antd";
+import { Toast, DatePicker as MobileDatePicker, Dialog } from "antd-mobile";
 import {
   BookOutlined,
   CheckCircleFilled,
   DeleteOutlined,
   EditOutlined,
+  CalendarOutlined,
 } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { listTable, createRow, updateRow, deleteRow } from "../api";
-import { useClasses, usePeriods } from "../hooks";
+import { useClasses, usePeriods, useIsMobileOrTablet } from "../hooks";
+import { triggerHaptic } from "../utils/haptics";
+
+const WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 export interface LessonContext {
   日期: string;
@@ -43,6 +48,7 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
   onSuccess,
   allowEditContext = false,
 }) => {
+  const isMobile = useIsMobileOrTablet();
   const qc = useQueryClient();
   const classes = useClasses();
   const periods = usePeriods();
@@ -55,21 +61,19 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
   const [customDate, setCustomDate] = useState<string>(dayjs().format("YYYY-MM-DD"));
   const [customClass, setCustomClass] = useState<string>("");
   const [customPeriod, setCustomPeriod] = useState<string>("第1节");
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
 
+  // 关键修复：仅在抽屉打开时基于传入的 lessonContext 初始化一次初值，
+  // 避免输入内容或选择节次触发重新渲染时导致 customPeriod 被反复打回默认值
   useEffect(() => {
     if (open) {
-      if (lessonContext) {
-        setCustomDate(lessonContext.日期 || dayjs().format("YYYY-MM-DD"));
-        setCustomClass(lessonContext.班级 || (classes[0] || ""));
-        const pStr = String(lessonContext.节次);
-        setCustomPeriod(pStr.startsWith("第") ? pStr : `第${pStr}节`);
-      } else {
-        setCustomDate(dayjs().format("YYYY-MM-DD"));
-        setCustomClass(classes[0] || "");
-        setCustomPeriod("第1节");
-      }
+      setCustomDate(lessonContext?.日期 || dayjs().format("YYYY-MM-DD"));
+      setCustomClass(lessonContext?.班级 || (classes[0] || ""));
+      const pRaw = lessonContext?.节次;
+      const pStr = pRaw !== undefined && pRaw !== null ? String(pRaw) : "第1节";
+      setCustomPeriod(pStr.startsWith("第") ? pStr : `第${pStr}节`);
     }
-  }, [open, lessonContext, classes]);
+  }, [open]);
 
   const activeDate = allowEditContext ? customDate : lessonContext?.日期 || "";
   const activeClass = allowEditContext ? customClass : lessonContext?.班级 || "";
@@ -89,15 +93,35 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
       }
     : null;
 
-  // 查询该节课是否已有记录
-  const { data: logs, isLoading: loadingLog } = useQuery({
+  // 1. 优先从父级已有的全局缓存中毫秒级本地查找（0 延迟、0 网络请求）
+  const allCachedLogs = qc.getQueryData<any[]>(["lesson_log"]);
+
+  const cachedMatch = useMemo(() => {
+    if (!allCachedLogs || !activeDate || !activeClass || !activePeriod) return null;
+    const targetPeriodNum = String(activePeriod).replace(/第|节/g, "");
+    return (
+      allCachedLogs.find(
+        (r) =>
+          r.日期 === activeDate &&
+          r.班级 === activeClass &&
+          (r.节次 === activePeriod || String(r.节次).replace(/第|节/g, "") === targetPeriodNum)
+      ) || null
+    );
+  }, [allCachedLogs, activeDate, activeClass, activePeriod]);
+
+  // 2. 只有在本地没有全局缓存时（例如独立页面），才向服务端发起单条查询，并设置 60s 缓存
+  const { data: remoteLogs, isLoading: loadingLog } = useQuery({
     queryKey: ["lesson_log", queryFilters],
     queryFn: () => listTable("lesson_log", queryFilters as Record<string, string>),
-    enabled: open && !!queryFilters,
-    staleTime: 0,
+    enabled: open && !allCachedLogs && !!queryFilters,
+    staleTime: 60 * 1000,
   });
 
-  const existingRecord = logs && logs.length > 0 ? logs[0] : null;
+  const existingRecord = allCachedLogs
+    ? cachedMatch
+    : remoteLogs && remoteLogs.length > 0
+    ? remoteLogs[0]
+    : null;
 
   useEffect(() => {
     if (open) {
@@ -110,6 +134,7 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
   }, [open, existingRecord]);
 
   const handleInsertTag = (tag: string) => {
+    triggerHaptic("light");
     setContent((prev) => {
       const prefix = `【${tag}】`;
       if (prev.includes(prefix)) return prev;
@@ -119,11 +144,15 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
 
   const handleSave = async () => {
     if (!activeDate || !activeClass || !activePeriod) {
-      message.warning("请完善日期、班级和节次信息");
+      const msg = "请完善日期、班级和节次信息";
+      if (isMobile) Toast.show({ content: msg, icon: "fail" });
+      else message.warning(msg);
       return;
     }
     if (!content.trim()) {
-      message.warning("请输入课堂记录内容");
+      const msg = "请输入课堂记录内容";
+      if (isMobile) Toast.show({ content: msg, icon: "fail" });
+      else message.warning(msg);
       return;
     }
 
@@ -141,12 +170,23 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
           内容: content.trim(),
         });
       }
-      message.success("已保存课堂记录");
+      triggerHaptic("success");
+      if (isMobile) {
+        Toast.show({ icon: "success", content: "已保存课堂记录", duration: 1500 });
+      } else {
+        message.success("已保存课堂记录");
+      }
       qc.invalidateQueries({ queryKey: ["lesson_log"] });
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || "保存失败，请稍后重试");
+      triggerHaptic("warning");
+      const errDetail = err?.response?.data?.detail || "保存失败，请稍后重试";
+      if (isMobile) {
+        Toast.show({ icon: "fail", content: errDetail });
+      } else {
+        message.error(errDetail);
+      }
     } finally {
       setSaving(false);
     }
@@ -157,16 +197,42 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
     setDeleting(true);
     try {
       await deleteRow("lesson_log", existingRecord.id);
-      message.success("已删除课堂记录");
+      triggerHaptic("success");
+      if (isMobile) {
+        Toast.show({ icon: "success", content: "已删除课堂记录", duration: 1500 });
+      } else {
+        message.success("已删除课堂记录");
+      }
       setContent("");
       qc.invalidateQueries({ queryKey: ["lesson_log"] });
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      message.error(err?.response?.data?.detail || "删除失败");
+      triggerHaptic("warning");
+      const errDetail = err?.response?.data?.detail || "删除失败";
+      if (isMobile) {
+        Toast.show({ icon: "fail", content: errDetail });
+      } else {
+        message.error(errDetail);
+      }
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleMobileConfirmDelete = () => {
+    if (!existingRecord) return;
+    triggerHaptic("warning");
+    Dialog.confirm({
+      title: "确定删除此课堂记录？",
+      content: `${activeDate} ${activePeriod} (${activeClass}) 的记录将被彻底删除。`,
+      confirmText: "删除",
+      cancelText: "取消",
+      confirmButtonProps: { color: "danger" },
+      onConfirm: async () => {
+        await handleDelete();
+      },
+    });
   };
 
   return (
@@ -262,50 +328,204 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
       }
     >
       <Spin spinning={loadingLog}>
-        {/* 手动补录时的班级/节次/日期选择器 */}
+        {/* 手动补录时的班级/节次/日期选择器（全面贴合移动端触控设计） */}
         {allowEditContext && (
           <div
             style={{
-              marginBottom: 14,
+              marginBottom: 16,
               background: "#F8FAFC",
-              padding: "10px 12px",
-              borderRadius: 10,
+              padding: "12px 14px",
+              borderRadius: 14,
               border: "1px solid #E2E8F0",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
             }}
           >
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr", gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 12, color: "#64748B", marginBottom: 4 }}>日期</div>
-                <DatePicker
-                  value={activeDate ? dayjs(activeDate) : dayjs()}
-                  onChange={(d) => d && setCustomDate(d.format("YYYY-MM-DD"))}
-                  allowClear={false}
-                  style={{ width: "100%" }}
-                />
+            {/* 1. 日期选择区 */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>授课日期</span>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <span
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setCustomDate(dayjs().format("YYYY-MM-DD"));
+                    }}
+                    style={{
+                      fontSize: 12,
+                      padding: "2px 10px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      background: activeDate === dayjs().format("YYYY-MM-DD") ? "#EEF2FF" : "#FFFFFF",
+                      color: activeDate === dayjs().format("YYYY-MM-DD") ? "#4F46E5" : "#64748B",
+                      border: activeDate === dayjs().format("YYYY-MM-DD") ? "1px solid #C7D2FE" : "1px solid #E2E8F0",
+                      fontWeight: activeDate === dayjs().format("YYYY-MM-DD") ? 600 : 400,
+                    }}
+                  >
+                    今天
+                  </span>
+                  <span
+                    onClick={() => {
+                      triggerHaptic("light");
+                      setCustomDate(dayjs().subtract(1, "day").format("YYYY-MM-DD"));
+                    }}
+                    style={{
+                      fontSize: 12,
+                      padding: "2px 10px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      background: activeDate === dayjs().subtract(1, "day").format("YYYY-MM-DD") ? "#EEF2FF" : "#FFFFFF",
+                      color: activeDate === dayjs().subtract(1, "day").format("YYYY-MM-DD") ? "#4F46E5" : "#64748B",
+                      border: activeDate === dayjs().subtract(1, "day").format("YYYY-MM-DD") ? "1px solid #C7D2FE" : "1px solid #E2E8F0",
+                      fontWeight: activeDate === dayjs().subtract(1, "day").format("YYYY-MM-DD") ? 600 : 400,
+                    }}
+                  >
+                    昨天
+                  </span>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 12, color: "#64748B", marginBottom: 4 }}>班级</div>
-                <Select
-                  value={activeClass || undefined}
-                  onChange={(val) => setCustomClass(val)}
-                  placeholder="选择班级"
-                  style={{ width: "100%" }}
-                  options={classes.map((c) => ({ label: c, value: c }))}
-                />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: "#64748B", marginBottom: 4 }}>节次</div>
-                <Select
-                  value={activePeriod}
-                  onChange={(val) => setCustomPeriod(val)}
-                  style={{ width: "100%" }}
-                  options={periods.map((p) => ({
-                    label: `第${p.n}节`,
-                    value: `第${p.n}节`,
-                  }))}
-                />
+
+              {/* 点击卡片唤起移动端滚轮选择器 */}
+              <div
+                onClick={() => {
+                  triggerHaptic("light");
+                  setDatePickerVisible(true);
+                }}
+                style={{
+                  background: "#FFFFFF",
+                  border: "1px solid #CBD5E1",
+                  borderRadius: 10,
+                  padding: "9px 12px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <CalendarOutlined style={{ color: "#4F46E5", fontSize: 16 }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#1E293B" }}>
+                    {activeDate} {WEEKDAY_NAMES[dayjs(activeDate).day()]}
+                  </span>
+                </div>
+                <span style={{ fontSize: 12, color: "#4F46E5", fontWeight: 500 }}>
+                  更改日期 ›
+                </span>
               </div>
             </div>
+
+            {/* 2. 授课班级选择区 */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>授课班级</span>
+                <span style={{ fontSize: 12, color: "#4F46E5", fontWeight: 600 }}>当前：{activeClass || "未选择"}</span>
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 8,
+                  flexWrap: "wrap",
+                }}
+              >
+                {classes.map((c) => {
+                  const isSelected = activeClass === c;
+                  return (
+                    <div
+                      key={c}
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setCustomClass(c);
+                      }}
+                      style={{
+                        padding: "6px 14px",
+                        borderRadius: 10,
+                        fontSize: 13,
+                        fontWeight: isSelected ? 600 : 500,
+                        cursor: "pointer",
+                        background: isSelected ? "#4F46E5" : "#FFFFFF",
+                        color: isSelected ? "#FFFFFF" : "#334155",
+                        border: isSelected ? "1.5px solid #4F46E5" : "1px solid #E2E8F0",
+                        boxShadow: isSelected ? "0 2px 6px rgba(79, 70, 229, 0.25)" : "none",
+                        transition: "all 0.15s ease",
+                        userSelect: "none",
+                      }}
+                    >
+                      {c}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. 上课节次选择区（全景网格：根据配置的全部节次平铺展示，带开课时间） */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>
+                  上课节次（共 {periods.length} 节可选）
+                </span>
+                <span style={{ fontSize: 12, color: "#4F46E5", fontWeight: 600 }}>
+                  当前已选：{activePeriod}
+                </span>
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 8,
+                }}
+              >
+                {periods.map((p) => {
+                  const pValue = `第${p.n}节`;
+                  const isSelected = activePeriod === pValue;
+                  return (
+                    <div
+                      key={p.n}
+                      onClick={() => {
+                        triggerHaptic("light");
+                        setCustomPeriod(pValue);
+                      }}
+                      style={{
+                        padding: "8px 4px",
+                        borderRadius: 10,
+                        textAlign: "center",
+                        cursor: "pointer",
+                        background: isSelected ? "#4F46E5" : "#FFFFFF",
+                        color: isSelected ? "#FFFFFF" : "#334155",
+                        border: isSelected ? "1.5px solid #4F46E5" : "1px solid #E2E8F0",
+                        boxShadow: isSelected ? "0 2px 8px rgba(79, 70, 229, 0.3)" : "none",
+                        transition: "all 0.15s ease",
+                        userSelect: "none",
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: isSelected ? 700 : 600 }}>第{p.n}节</div>
+                      {p.start && (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            marginTop: 2,
+                            color: isSelected ? "rgba(255,255,255,0.85)" : "#94A3B8",
+                          }}
+                        >
+                          {p.start}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 移动端滚轮日期选择器 */}
+            <MobileDatePicker
+              visible={datePickerVisible}
+              onClose={() => setDatePickerVisible(false)}
+              defaultValue={activeDate ? dayjs(activeDate).toDate() : new Date()}
+              onConfirm={(val) => {
+                setCustomDate(dayjs(val).format("YYYY-MM-DD"));
+                triggerHaptic("light");
+              }}
+            />
           </div>
         )}
         {/* 快捷输入标签栏 */}
@@ -353,23 +573,36 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
         {/* 底部按钮栏 */}
         <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
           {existingRecord && (
-            <Popconfirm
-              title="确定删除这条课堂记录吗？"
-              onConfirm={handleDelete}
-              okText="删除"
-              cancelText="取消"
-              okButtonProps={{ danger: true }}
-            >
+            isMobile ? (
               <Button
                 danger
                 icon={<DeleteOutlined />}
                 size="large"
                 loading={deleting}
+                onClick={handleMobileConfirmDelete}
                 style={{ borderRadius: 8 }}
               >
                 删除
               </Button>
-            </Popconfirm>
+            ) : (
+              <Popconfirm
+                title="确定删除这条课堂记录吗？"
+                onConfirm={handleDelete}
+                okText="删除"
+                cancelText="取消"
+                okButtonProps={{ danger: true }}
+              >
+                <Button
+                  danger
+                  icon={<DeleteOutlined />}
+                  size="large"
+                  loading={deleting}
+                  style={{ borderRadius: 8 }}
+                >
+                  删除
+                </Button>
+              </Popconfirm>
+            )
           )}
 
           <Button
