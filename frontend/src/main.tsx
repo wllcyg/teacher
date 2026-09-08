@@ -11,6 +11,22 @@ import "./index.css";
 
 dayjs.locale("zh-cn");
 
+// 📱 移动端软键盘弹起防遮挡：输入框聚焦时自动居中平滑对齐
+if (typeof window !== "undefined") {
+  window.addEventListener("focusin", (e) => {
+    const target = e.target as HTMLElement;
+    if (
+      window.innerWidth < 768 &&
+      target &&
+      (target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+    ) {
+      setTimeout(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 320);
+    }
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { refetchOnWindowFocus: false, retry: 1 },

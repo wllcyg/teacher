@@ -10,11 +10,11 @@ import {
   Spin,
   Segmented,
   Tag,
-  Modal,
   Space,
   Button,
   List,
 } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   DashboardOutlined,
   TeamOutlined,
@@ -949,7 +949,7 @@ export default function Summary() {
       </Spin>
 
       {/* 弹窗 1：待补测名单下钻弹窗 */}
-      <Modal
+      <AdaptiveModal
         title={`待补测学生名单（${班级} · 共 ${retestList.length} 人次）`}
         open={retestModalOpen}
         onCancel={() => setRetestModalOpen(false)}
@@ -989,10 +989,10 @@ export default function Summary() {
             ]}
           />
         )}
-      </Modal>
+      </AdaptiveModal>
 
       {/* 弹窗 2：本周考勤异常下钻弹窗 */}
-      <Modal
+      <AdaptiveModal
         title={`本周考勤异常名单（${班级} · 共 ${thisWeekAttendance.length} 条）`}
         open={attendanceModalOpen}
         onCancel={() => setAttendanceModalOpen(false)}
@@ -1030,7 +1030,7 @@ export default function Summary() {
             ]}
           />
         )}
-      </Modal>
+      </AdaptiveModal>
       {/* 弹窗 3：学生个人学情与档案弹窗 */}
       <StudentDetailModal
         student={detailStudent}

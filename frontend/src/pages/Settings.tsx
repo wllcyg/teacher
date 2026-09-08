@@ -11,17 +11,17 @@ import {
   Space,
   Popconfirm,
   Alert,
-  Drawer,
   Switch,
   Select,
 } from "antd";
+import { Popup } from "antd-mobile";
 import {
   SaveOutlined,
   PlusOutlined,
   DeleteOutlined,
   ReloadOutlined,
-  CloudSyncOutlined,
   ClockCircleOutlined,
+
   RightOutlined,
   ArrowRightOutlined,
   BellOutlined,
@@ -42,14 +42,17 @@ import { useIsMobileOrTablet } from "../hooks";
 import { triggerHaptic } from "../utils/haptics";
 import {
   getNotificationPermission,
-  requestNotificationPermission,
-  getStoredNotificationSettings,
-  saveStoredNotificationSettings,
-  sendNotification,
+  isPushSupported,
+  getPushSubscription,
+  subscribePushNotification,
+  unsubscribePushNotification,
+  sendBackendTestPush,
+  getPushStatus,
   isIOS,
-  type NotificationSettings,
   type NotificationPermissionState,
 } from "../utils/notifications";
+
+
 
 const HOURS = Array.from({ length: 18 }, (_, i) => String(i + 6).padStart(2, "0")); // 06 ~ 23
 const MINUTES = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
@@ -71,94 +74,98 @@ export default function Settings() {
   const [savedPeriods, setSavedPeriods] = useState(false);
   const [checkingUpdate, setCheckingUpdate] = useState(false);
 
-  // 移动端专用：底部弹起时间段抽屉选择器状态
+  // 移动端专用：作息时间表底部配置面板与时分选择器抽屉状态
+  const [scheduleDrawerOpen, setScheduleDrawerOpen] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [tempStart, setTempStart] = useState("08:20");
   const [tempEnd, setTempEnd] = useState("09:00");
   const [activeTab, setActiveTab] = useState<"start" | "end">("start");
 
+
   const isStandalone =
     typeof window !== "undefined" &&
     (window.matchMedia("(display-mode: standalone)").matches ||
       (navigator as any).standalone === true);
 
-  // ---- PWA 消息通知与课前提醒状态 ----
+  // ---- PWA 消息通知与系统离线推送状态 ----
   const [notifPermission, setNotifPermission] = useState<NotificationPermissionState>(getNotificationPermission());
-  const [notifSettings, setNotifSettings] = useState<NotificationSettings>(getStoredNotificationSettings());
-  const [requestingNotif, setRequestingNotif] = useState(false);
-  const [testingNotif, setTestingNotif] = useState(false);
+
+
+  // Web Push 离线推送特有状态
+
+  const [pushCapable, setPushCapable] = useState(isPushSupported());
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [subscribingPush, setSubscribingPush] = useState(false);
+  const [testingBackendPush, setTestingBackendPush] = useState(false);
+  const [deviceCount, setDeviceCount] = useState<number | null>(null);
 
   useEffect(() => {
     setNotifPermission(getNotificationPermission());
+    setPushCapable(isPushSupported());
+    if (isPushSupported()) {
+      getPushSubscription().then((sub) => {
+        setPushSubscribed(!!sub);
+      });
+      getPushStatus().then((status) => {
+        setDeviceCount(status.subscribedDevices);
+      }).catch(() => {});
+    }
   }, []);
 
-  const handleRequestNotif = async () => {
-    triggerHaptic("light");
-    setRequestingNotif(true);
+  const handleSubscribePush = async () => {
+    triggerHaptic("medium");
+    setSubscribingPush(true);
     try {
-      const perm = await requestNotificationPermission();
-      setNotifPermission(perm);
-      if (perm === "granted") {
-        message.success("已成功开启消息通知权限！");
-        await sendNotification("【通知已开启】", {
-          body: "教师工作台课前提醒与教学通知已就绪。",
-          data: { url: "/settings" },
-        });
-      } else if (perm === "denied") {
-        message.error("通知权限被浏览器拦截，请在浏览器地址栏左侧网站权限设置中解除限制。");
-      }
+      await subscribePushNotification();
+      setPushSubscribed(true);
+      setNotifPermission("granted");
+      message.success("已成功开启 PWA 系统级离线推送！");
+      getPushStatus().then((s) => setDeviceCount(s.subscribedDevices)).catch(() => {});
+    } catch (err: any) {
+      console.error(err);
+      message.error(`开启离线推送失败: ${err.message || "请检查系统权限"}`);
     } finally {
-      setRequestingNotif(false);
+      setSubscribingPush(false);
     }
   };
 
-  const handleTestNotif = async () => {
+  const handleUnsubscribePush = async () => {
     triggerHaptic("light");
-    setTestingNotif(true);
     try {
-      const ok = await sendNotification("【工作台测试通知】", {
-        body: "提醒功能运转正常！上课前将准时为您发送系统通知。",
-        data: { url: "/settings" },
+      await unsubscribePushNotification();
+      setPushSubscribed(false);
+      message.info("已取消当前设备的后台离线推送");
+      getPushStatus().then((s) => setDeviceCount(s.subscribedDevices)).catch(() => {});
+    } catch (err) {
+      message.error("注销推送失败");
+    }
+  };
+
+  const handleTestBackendPush = async () => {
+    triggerHaptic("light");
+    setTestingBackendPush(true);
+    try {
+      const res = await sendBackendTestPush({
+        title: "【工作台离线推送测试】",
+        body: "系统级 Web Push 通道畅通！即使关闭页面或最小化也能准时收到。",
+        url: "/settings",
+        badgeCount: 1,
       });
-      if (ok) {
-        message.success("已发送测试通知，请查看手机顶部通知栏或电脑通知中心");
+      if (res.ok) {
+        message.success("后端已下发系统推送，请最小化窗口或查看通知中心！");
       } else {
-        message.warning("发送失败，请确认系统通知权限是否已授权");
+        message.warning(res.message || "推送下发异常");
       }
+    } catch (err: any) {
+      message.error(`测试推送失败: ${err.response?.data?.detail || err.message || "未知错误"}`);
     } finally {
-      setTestingNotif(false);
+      setTestingBackendPush(false);
     }
   };
 
-  const handleUpdateNotifSettings = (partial: Partial<NotificationSettings>) => {
-    triggerHaptic("light");
-    const next = { ...notifSettings, ...partial };
-    setNotifSettings(next);
-    saveStoredNotificationSettings(next);
-    message.success("通知设置已保存");
-  };
 
-  const handleCheckUpdate = async () => {
-    if (!("serviceWorker" in navigator)) {
-      message.warning("当前浏览器环境不支持 Service Worker 离线更新");
-      return;
-    }
-    setCheckingUpdate(true);
-    try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      if (reg) {
-        await reg.update();
-        message.success("已请求最新版本信息，若检测到新版本将在右下角弹出提示");
-      } else {
-        message.info("暂未检测到活动的 Service Worker，当前可能处于本地开发环境");
-      }
-    } catch {
-      message.error("检查更新失败，请确认网络连接是否正常");
-    } finally {
-      setTimeout(() => setCheckingUpdate(false), 800);
-    }
-  };
+
 
   // 表单与 store 保持同步
   useEffect(() => {
@@ -251,7 +258,9 @@ export default function Settings() {
       setSavedPeriods(true);
       triggerHaptic("success");
       message.success("作息时间表已成功更新并持久化到数据库");
+      setScheduleDrawerOpen(false);
       setTimeout(() => setSavedPeriods(false), 2000);
+
     } catch {
       triggerHaptic("warning");
       message.error("保存作息表到数据库失败");
@@ -445,166 +454,115 @@ export default function Settings() {
             ) : null
           }
         >
-          <Alert
-            type="info"
-            showIcon
-            message="提示：调整各节次时间后点击「保存作息表」，全站（课表展示、今日课程倒计时与当前上课状态）将立即生效。"
-            style={{ marginBottom: 14, fontSize: 12.5 }}
-          />
-
-          {/* 移动端快捷操作栏 */}
-          {isMobile && (
-            <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              <Button
-                size="middle"
-                icon={<PlusOutlined />}
-                onClick={handleAddPeriod}
-                style={{ flex: 1, minWidth: 100 }}
-              >
-                添加节次
-              </Button>
-              <Popconfirm
-                title="确定恢复系统默认 11 节作息时间？"
-                onConfirm={handleResetPeriods}
-                okText="恢复"
-                cancelText="取消"
-              >
-                <Button size="middle" icon={<ReloadOutlined />} style={{ flex: 1, minWidth: 100 }}>
-                  恢复默认
-                </Button>
-              </Popconfirm>
-            </div>
-          )}
-
-          {/* 移动端卡片列表（点击呼出底部抽屉选择器） vs PC 端表格 */}
           {isMobile ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {localPeriods.map((p, index) => {
-                const duration =
-                  p.start && p.end
-                    ? hhmmToMinutes(p.end) - hhmmToMinutes(p.start)
-                    : 0;
-                return (
-                  <div
-                    key={p.n}
-                    style={{
-                      padding: "12px 14px",
-                      background: "#f8fafc",
-                      borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                    }}
-                  >
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>
-                          第 {p.n} 节
-                        </span>
-                        {duration > 0 ? (
-                          <Tag color="blue" style={{ margin: 0, fontSize: 12 }}>
-                            {duration} 分钟
-                          </Tag>
-                        ) : (
-                          <Tag color="default" style={{ margin: 0, fontSize: 12 }}>
-                            {p.time}
-                          </Tag>
-                        )}
-                      </div>
-                      <Popconfirm
-                        title="确定删除此节次？"
-                        onConfirm={() => handleDeletePeriod(index)}
-                        okText="删除"
-                        cancelText="取消"
-                      >
-                        <Button
-                          type="text"
-                          danger
-                          size="small"
-                          icon={<DeleteOutlined />}
-                          style={{ padding: "4px 8px" }}
-                        >
-                          删除
-                        </Button>
-                      </Popconfirm>
-                    </div>
-
-                    {/* 📱 点击该卡片直接从屏幕底部滑出时间段选择面板 */}
-                    <div
-                      onClick={() => handleOpenMobileTimePicker(index)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        padding: "10px 14px",
-                        background: "#fff",
-                        borderRadius: 10,
-                        border: "1px solid #cbd5e1",
-                        cursor: "pointer",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <ClockCircleOutlined style={{ color: "#6366f1", fontSize: 16 }} />
-                        <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a", letterSpacing: 0.5 }}>
-                          {p.start} ~ {p.end}
-                        </span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#6366f1", fontSize: 13, fontWeight: 500 }}>
-                        <span>修改时间</span>
-                        <RightOutlined style={{ fontSize: 11 }} />
-                      </div>
-                    </div>
+            /* 📱 移动端紧凑入口按钮：点击呼出底部配置面板，彻底告别平铺刷屏 */
+            <div
+              onClick={() => {
+                triggerHaptic("light");
+                setScheduleDrawerOpen(true);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "14px 16px",
+                background: "linear-gradient(135deg, #f8faff 0%, #f1f5f9 100%)",
+                borderRadius: 12,
+                border: "1px solid #e0e7ff",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 10,
+                    background: "#eef2ff",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#4f46e5",
+                    fontSize: 20,
+                    flexShrink: 0,
+                  }}
+                >
+                  <ClockCircleOutlined />
+                </div>
+                <div>
+                  <div style={{ fontSize: 14.5, fontWeight: 600, color: "#1e293b", display: "flex", alignItems: "center", gap: 6 }}>
+                    <span>作息时间表配置</span>
+                    <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                      共 {localPeriods.length} 节
+                    </Tag>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <Table
-              rowKey="n"
-              dataSource={localPeriods}
-              columns={periodColumns}
-              pagination={false}
-              size="small"
-              scroll={{ x: 500 }}
-            />
-          )}
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
+                    {localPeriods[0]?.start || "08:00"} ~ {localPeriods[localPeriods.length - 1]?.end || "21:40"} · 点击弹出面板编辑
+                  </div>
+                </div>
+              </div>
 
-          {/* 底部保存按钮 */}
-          <div
-            style={{
-              marginTop: 16,
-              display: "flex",
-              flexDirection: isMobile ? "column" : "row",
-              justifyContent: isMobile ? "stretch" : "flex-end",
-              alignItems: isMobile ? "stretch" : "center",
-              gap: 10,
-            }}
-          >
-            {savedPeriods && (
-              <span
+              <Button
+                type="primary"
+                size="middle"
                 style={{
-                  color: "#52c41a",
-                  fontWeight: 500,
-                  textAlign: isMobile ? "center" : "right",
-                  marginRight: isMobile ? 0 : 8,
+                  borderRadius: 8,
+                  background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                  boxShadow: "0 2px 6px rgba(99, 102, 241, 0.25)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
                 }}
               >
-                ✓ 作息时间表已保存并全站同步生效
-              </span>
-            )}
-            <Button
-              type="primary"
-              size={isMobile ? "large" : "middle"}
-              icon={<SaveOutlined />}
-              onClick={handleSavePeriods}
-              block={isMobile}
-            >
-              保存作息表
-            </Button>
-          </div>
+                配置作息 <RightOutlined style={{ fontSize: 11 }} />
+              </Button>
+            </div>
+          ) : (
+            /* 💻 PC 端原有表格视图 */
+            <>
+              <Alert
+                type="info"
+                showIcon
+                message="提示：调整各节次时间后点击「保存作息表」，全站（课表展示、今日课程倒计时与当前上课状态）将立即生效。"
+                style={{ marginBottom: 14, fontSize: 12.5 }}
+              />
+
+              <Table
+                rowKey="n"
+                dataSource={localPeriods}
+                columns={periodColumns}
+                pagination={false}
+                size="small"
+                scroll={{ x: 500 }}
+              />
+
+              <div
+                style={{
+                  marginTop: 16,
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "center",
+                  gap: 10,
+                }}
+              >
+                {savedPeriods && (
+                  <span style={{ color: "#52c41a", fontWeight: 500, marginRight: 8 }}>
+                    ✓ 作息时间表已保存并全站同步生效
+                  </span>
+                )}
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleSavePeriods}
+                >
+                  保存作息表
+                </Button>
+              </div>
+            </>
+          )}
         </Card>
+
 
         {/* 首页问候设置 */}
         <Card
@@ -662,13 +620,13 @@ export default function Settings() {
           </Form>
         </Card>
 
-        {/* 🔔 PWA 消息通知与课前提醒 */}
+        {/* 🔔 PWA 系统离线消息推送 */}
         <Card
           size="small"
           title={
             <Space>
               <NotificationOutlined style={{ color: "#6366f1" }} />
-              <span>消息通知与课前提醒</span>
+              <span>系统离线消息推送 (PWA)</span>
             </Space>
           }
           style={{ width: "100%", maxWidth: 640, borderRadius: 14, border: "1px solid #e2e8f0" }}
@@ -683,178 +641,85 @@ export default function Settings() {
             />
           )}
 
-          {/* 权限状态栏 */}
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "10px 12px",
-              background: "#f8fafc",
-              borderRadius: 10,
-              border: "1px solid #f1f5f9",
-              marginBottom: 16,
-              flexWrap: "wrap",
-              gap: 8,
+              padding: "14px 16px",
+              background: "linear-gradient(135deg, #f8faff 0%, #f1f5f9 100%)",
+              borderRadius: 12,
+              border: "1px solid #e0e7ff",
+              marginBottom: 0,
             }}
           >
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b", marginBottom: 2 }}>
-                系统级通知权限
-              </div>
-              <div>
-                {notifPermission === "granted" && (
-                  <Tag color="success" icon={<CheckCircleOutlined />}>
-                    已授权开启
-                  </Tag>
-                )}
-                {notifPermission === "default" && (
-                  <Tag color="warning" icon={<ClockCircleOutlined />}>
-                    未授权 (待开启)
-                  </Tag>
-                )}
-                {notifPermission === "denied" && (
-                  <Tag color="error" icon={<CloseCircleOutlined />}>
-                    已被浏览器拦截
-                  </Tag>
-                )}
-                {notifPermission === "unsupported" && (
-                  <Tag color="default">当前环境不支持</Tag>
-                )}
-              </div>
-            </div>
 
-            <div style={{ display: "flex", gap: 8 }}>
-              {notifPermission !== "granted" ? (
-                <Button
-                  type="primary"
-                  icon={<BellOutlined />}
-                  loading={requestingNotif}
-                  onClick={handleRequestNotif}
-                  style={{
-                    borderRadius: 8,
-                    background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
-                  }}
-                >
-                  开启系统通知
-                </Button>
-              ) : (
-                <Button
-                  icon={<SendOutlined />}
-                  loading={testingNotif}
-                  onClick={handleTestNotif}
-                  style={{ borderRadius: 8 }}
-                >
-                  发送测试通知
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* 提醒项目选项 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* 课前提醒 */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingBottom: 12,
-                borderBottom: "1px solid #f1f5f9",
-              }}
-            >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>课前自动提醒</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                  每节课开始前通过系统通知栏弹出课程班级与开始时间
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>PWA 离线系统推送 (Web Push)</span>
+                  {pushSubscribed ? (
+                    <Tag color="success" icon={<CheckCircleOutlined />}>
+                      已就绪 (离线可达)
+                    </Tag>
+                  ) : (
+                    <Tag color="default" icon={<ClockCircleOutlined />}>
+                      未开启
+                    </Tag>
+                  )}
+                  {deviceCount !== null && deviceCount > 0 && (
+                    <Tag color="purple">已连通 {deviceCount} 台设备</Tag>
+                  )}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, maxWidth: 420, lineHeight: 1.5 }}>
+                  基于系统级推送通道（iOS APNs / Windows WNS）。即使关闭 PWA 窗口或标签页，依然能在锁屏与桌面收到通知，并联动桌面图标红点。
                 </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                {notifSettings.lessonRemindEnabled && (
-                  <Select
-                    size="small"
-                    value={notifSettings.lessonRemindMinutes}
-                    onChange={(val) => handleUpdateNotifSettings({ lessonRemindMinutes: val })}
-                    options={[
-                      { label: "提前 5 分钟", value: 5 },
-                      { label: "提前 10 分钟", value: 10 },
-                      { label: "提前 15 分钟", value: 15 },
-                    ]}
-                    style={{ width: 110 }}
-                  />
+
+              {/* 操作按钮区 */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                {!pushSubscribed ? (
+                  <Button
+                    type="primary"
+                    icon={<BellOutlined />}
+                    loading={subscribingPush}
+                    disabled={!pushCapable}
+                    onClick={handleSubscribePush}
+                    style={{
+                      borderRadius: 8,
+                      background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+                    }}
+                  >
+                    开启系统级离线推送
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      type="primary"
+                      icon={<SendOutlined />}
+                      loading={testingBackendPush}
+                      onClick={handleTestBackendPush}
+                      style={{
+                        borderRadius: 8,
+                        background: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+                      }}
+                    >
+                      发送离线测试推送
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      type="text"
+                      onClick={handleUnsubscribePush}
+                      style={{ fontSize: 12 }}
+                    >
+                      注销本设备
+                    </Button>
+                  </>
                 )}
-                <Switch
-                  checked={notifSettings.lessonRemindEnabled}
-                  onChange={(checked) => handleUpdateNotifSettings({ lessonRemindEnabled: checked })}
-                />
               </div>
-            </div>
-
-            {/* 下课记录提醒 */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingBottom: 12,
-                borderBottom: "1px solid #f1f5f9",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>下课记录提醒</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                  课程刚结束时发送系统通知，点击直接弹出抽屉补记随堂进度
-                </div>
-              </div>
-              <Switch
-                checked={notifSettings.lessonEndRemindEnabled}
-                onChange={(checked) => handleUpdateNotifSettings({ lessonEndRemindEnabled: checked })}
-              />
-            </div>
-
-            {/* 晨间寄语问候 */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                paddingBottom: 12,
-                borderBottom: "1px solid #f1f5f9",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>清晨寄语问候</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                  工作日早晨初次唤起工作台时送上今日寄语与温馨勉励
-                </div>
-              </div>
-              <Switch
-                checked={notifSettings.morningGreetingEnabled}
-                onChange={(checked) => handleUpdateNotifSettings({ morningGreetingEnabled: checked })}
-              />
-            </div>
-
-            {/* 待办提醒 */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#1e293b" }}>教学待办轻提醒</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
-                  离校前检测到有今日未结或逾期待办时轻提醒
-                </div>
-              </div>
-              <Switch
-                checked={notifSettings.todoRemindEnabled}
-                onChange={(checked) => handleUpdateNotifSettings({ todoRemindEnabled: checked })}
-              />
             </div>
           </div>
         </Card>
+
+
 
         {/* 关于信息与 PWA 更新 */}
         <Card
@@ -869,25 +734,16 @@ export default function Settings() {
             <Tag color={isStandalone ? "processing" : "default"}>
               {isStandalone ? "已安装应用模式 (PWA)" : "浏览器网页模式"}
             </Tag>
-            <Tag color="blue">单用户</Tag>
+            <Tag color="blue">静默热更新</Tag>
             <Tag color="green">数据本地存储</Tag>
             <Tag color="purple">动态作息表</Tag>
             <Tag color="cyan">15 个功能页</Tag>
           </Space>
+          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+            ⚡ 系统已开启全自动静默热更新。每次发版均由系统推送主动唤醒，打开即享最新版本。
+          </div>
           <Divider style={{ margin: "12px 0" }} />
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Button
-              size={isMobile ? "middle" : "small"}
-              icon={<CloudSyncOutlined />}
-              loading={checkingUpdate}
-              onClick={() => {
-                triggerHaptic("light");
-                handleCheckUpdate();
-              }}
-              style={{ flex: isMobile ? 1 : "initial", minWidth: 120 }}
-            >
-              检查新版本
-            </Button>
             <Button
               size={isMobile ? "middle" : "small"}
               icon={<ReloadOutlined />}
@@ -899,6 +755,7 @@ export default function Settings() {
             >
               刷新工作台
             </Button>
+
             <Popconfirm
               title="确定退出登录？"
               okText="退出"
@@ -921,23 +778,190 @@ export default function Settings() {
         </Card>
       </div>
 
-      {/* 📱 移动端底部弹起的时间段抽屉选择器（Vant / ActionSheet 风格） */}
-      <Drawer
-        placement="bottom"
-        open={mobileDrawerOpen}
-        onClose={() => setMobileDrawerOpen(false)}
-        height="auto"
-        closable={false}
-        styles={{
-          body: {
-            padding: "12px 16px calc(20px + env(safe-area-inset-bottom, 16px)) 16px",
-            background: "#fff",
-            borderRadius: "20px 20px 0 0",
-          },
-          content: {
-            borderRadius: "20px 20px 0 0",
-            boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.12)",
-          },
+      {/* 📱 移动端底部弹起的作息时间表配置主面板 Popup */}
+      <Popup
+        position="bottom"
+        visible={scheduleDrawerOpen}
+        onMaskClick={() => setScheduleDrawerOpen(false)}
+        bodyStyle={{
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          maxHeight: "88vh",
+          height: "88vh",
+          background: "#f8fafc",
+          display: "flex",
+          flexDirection: "column",
+          padding: "16px 16px calc(24px + env(safe-area-inset-bottom, 16px)) 16px",
+          overflow: "hidden",
+        }}
+      >
+        {/* 顶部手柄指示条 */}
+        <div
+          style={{
+            width: 36,
+            height: 4,
+            background: "#cbd5e1",
+            borderRadius: 2,
+            margin: "0 auto 12px",
+          }}
+        />
+
+        {/* 抽屉顶栏 */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 12,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: "#0f172a" }}>作息时间表配置</div>
+            <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+              共 {localPeriods.length} 节次，点击各节次可快速调节起止时间
+            </div>
+          </div>
+          <Button
+            type="text"
+            onClick={() => setScheduleDrawerOpen(false)}
+            style={{ color: "#64748b", fontSize: 14 }}
+          >
+            完成
+          </Button>
+        </div>
+
+        {/* 快捷操作栏：添加节次 & 恢复默认 */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <Button
+            icon={<PlusOutlined />}
+            onClick={handleAddPeriod}
+            style={{ flex: 1, borderRadius: 8, fontWeight: 500 }}
+          >
+            添加节次
+          </Button>
+          <Popconfirm
+            title="确定恢复系统默认 11 节作息时间？"
+            onConfirm={handleResetPeriods}
+            okText="恢复"
+            cancelText="取消"
+          >
+            <Button icon={<ReloadOutlined />} style={{ flex: 1, borderRadius: 8 }}>
+              恢复默认
+            </Button>
+          </Popconfirm>
+        </div>
+
+        {/* 节次卡片滚动列表 */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            paddingRight: 2,
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {localPeriods.map((p, index) => {
+            const duration =
+              p.start && p.end
+                ? hhmmToMinutes(p.end) - hhmmToMinutes(p.start)
+                : 0;
+            return (
+              <div
+                key={p.n}
+                onClick={() => handleOpenMobileTimePicker(index)}
+                style={{
+                  padding: "12px 14px",
+                  background: "#fff",
+                  borderRadius: 12,
+                  border: "1px solid #e2e8f0",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", minWidth: 46 }}>
+                    第 {p.n} 节
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <ClockCircleOutlined style={{ color: "#6366f1", fontSize: 14 }} />
+                    <span style={{ fontSize: 15, fontWeight: 600, color: "#0f172a" }}>
+                      {p.start} ~ {p.end}
+                    </span>
+                  </div>
+                  {duration > 0 && (
+                    <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                      {duration}分
+                    </Tag>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ fontSize: 12.5, color: "#6366f1", fontWeight: 500, display: "flex", alignItems: "center" }}>
+                    修改 <RightOutlined style={{ fontSize: 10, marginLeft: 2 }} />
+                  </div>
+                  <Popconfirm
+                    title="确定删除此节次？"
+                    onConfirm={(e) => {
+                      e?.stopPropagation();
+                      handleDeletePeriod(index);
+                    }}
+                    okText="删除"
+                    cancelText="取消"
+                  >
+                    <Button
+                      type="text"
+                      danger
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{ marginLeft: 4 }}
+                    />
+                  </Popconfirm>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 底部吸底保存生效按钮 */}
+        <div style={{ paddingTop: 12, borderTop: "1px solid #e2e8f0", marginTop: 10 }}>
+          <Button
+            type="primary"
+            size="large"
+            block
+            icon={<SaveOutlined />}
+            onClick={handleSavePeriods}
+            style={{
+              borderRadius: 12,
+              height: 44,
+              fontWeight: 600,
+              fontSize: 15,
+              background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)",
+              boxShadow: "0 4px 12px rgba(99, 102, 241, 0.3)",
+            }}
+          >
+            保存作息表并全站生效
+          </Button>
+        </div>
+      </Popup>
+
+      {/* 📱 移动端底部弹起的时间段选择器 Popup */}
+      <Popup
+        position="bottom"
+        visible={mobileDrawerOpen}
+        onMaskClick={() => setMobileDrawerOpen(false)}
+        bodyStyle={{
+          padding: "12px 16px calc(24px + env(safe-area-inset-bottom, 16px)) 16px",
+          background: "#fff",
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          overflow: "hidden",
         }}
       >
         {/* 顶部手柄指示条 */}
@@ -1247,7 +1271,7 @@ export default function Settings() {
         >
           确定上课时间 ({tempStart} ~ {tempEnd})
         </Button>
-      </Drawer>
+      </Popup>
     </div>
   );
 }

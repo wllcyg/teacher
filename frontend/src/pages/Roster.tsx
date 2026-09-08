@@ -3,7 +3,6 @@ import {
   Table,
   Button,
   Select,
-  Modal,
   Form,
   Input,
   Space,
@@ -13,12 +12,12 @@ import {
   Upload,
   Alert,
   Statistic,
-  Drawer,
   Checkbox,
   Dropdown,
   Grid,
   Empty,
 } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   PlusOutlined,
   UploadOutlined,
@@ -43,7 +42,7 @@ import {
 import { useClasses, useCurrentClass, LEFT_MARK, useIsMobileOrTablet } from "../hooks";
 import type { Row } from "../types";
 import StudentDetailModal from "../components/StudentDetailModal";
-import { ActionSheet, Dialog, Toast, PullToRefresh } from "antd-mobile";
+import { ActionSheet, Dialog, Toast, PullToRefresh, SwipeAction } from "antd-mobile";
 import type { Action } from "antd-mobile/es/components/action-sheet";
 import StudentAvatar from "../components/StudentAvatar";
 import { triggerHaptic } from "../utils/haptics";
@@ -660,9 +659,30 @@ export default function Roster() {
                       !/^\d{4}-\d{2}-\d{2}$/.test(t)
                   );
 
-                return (
+                const swipeActions = [
+                  {
+                    key: "detail",
+                    text: "档案",
+                    color: "primary",
+                    onClick: () => {
+                      triggerHaptic("light");
+                      setDetailStudent(s);
+                      setDetailOpen(true);
+                    },
+                  },
+                  {
+                    key: "edit",
+                    text: "编辑",
+                    color: "warning",
+                    onClick: () => {
+                      triggerHaptic("light");
+                      openEdit(s);
+                    },
+                  },
+                ];
+
+                const cardContent = (
                   <div
-                    key={s.id}
                     onClick={() => {
                       if (isBatchMode) {
                         toggleSelectStudent(s.id);
@@ -761,6 +781,18 @@ export default function Roster() {
                       />
                     )}
                   </div>
+                );
+
+                return isBatchMode ? (
+                  <div key={s.id}>{cardContent}</div>
+                ) : (
+                  <SwipeAction
+                    key={s.id}
+                    rightActions={swipeActions}
+                    style={{ borderRadius: 14, overflow: "hidden" }}
+                  >
+                    {cardContent}
+                  </SwipeAction>
                 );
               })}
             </div>
@@ -879,7 +911,7 @@ export default function Roster() {
       )}
 
       {/* 新增/编辑学生弹窗 */}
-      <Modal
+      <AdaptiveModal
         title={editing ? "编辑学生" : "添加学生"}
         open={open}
         onCancel={() => setOpen(false)}
@@ -916,10 +948,10 @@ export default function Roster() {
             />
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
 
       {/* CSV 批量导入弹窗 */}
-      <Modal
+      <AdaptiveModal
         title="CSV 批量导入学生"
         open={importOpen}
         onCancel={() => setImportOpen(false)}
@@ -1005,7 +1037,7 @@ export default function Roster() {
             </div>
           )}
         </Space>
-      </Modal>
+      </AdaptiveModal>
 
       {/* 学生个人学情与档案全景弹窗 */}
       <StudentDetailModal

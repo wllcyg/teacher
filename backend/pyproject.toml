@@ -9,6 +9,7 @@ dependencies = [
     "sqlalchemy>=2.0",
     "pydantic>=2.6",
     "pillow>=12.3.0",
+    "pywebpush>=2.5.0",
 ]
 
 [tool.uv]

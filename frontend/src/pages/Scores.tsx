@@ -8,7 +8,6 @@ import {
   InputNumber,
   Checkbox,
   Table,
-  Modal,
   Tag,
   Empty,
   Spin,
@@ -18,6 +17,9 @@ import {
   Alert,
   Collapse,
 } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
+import { PullToRefresh, Toast } from "antd-mobile";
+import { triggerHaptic } from "../utils/haptics";
 import { CheckCircleOutlined, FormOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
@@ -28,6 +30,16 @@ import type { Row } from "../types";
 export default function Scores() {
   const { 班级, set班级, classes } = useCurrentClass();
   const qc = useQueryClient();
+
+  const handleRefreshScores = async () => {
+    triggerHaptic("light");
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["academic"] }),
+      qc.invalidateQueries({ queryKey: ["students"] }),
+      qc.invalidateQueries({ queryKey: ["items"] }),
+    ]);
+    Toast.show({ content: "已更新成绩数据", duration: 1000 });
+  };
 
   // 考试名称（AutoComplete 可搜可建）
   const [examName, setExamName] = useState<string>("");
@@ -332,8 +344,9 @@ export default function Scores() {
   }, [examColumns, scoreLookup, showRank, examRanksMap]);
 
   return (
-    <div className="page">
-      <h2 className="page-title">成绩</h2>
+    <PullToRefresh onRefresh={handleRefreshScores}>
+      <div className="page">
+        <h2 className="page-title">成绩</h2>
       <div className="page-sub">以一次考试为单位：选考试、贴分数，全班一次入库。</div>
 
       <Spin spinning={loadingStudents || loadingItems || loadingAcademics}>
@@ -463,7 +476,7 @@ export default function Scores() {
       </Spin>
 
       {/* 弹窗：登分过目核对 */}
-      <Modal
+      <AdaptiveModal
         title={`登分过目核对（${班级} · ${examName} · ${examDate.format("YYYY/MM/DD")}）`}
         open={previewOpen}
         onCancel={() => setPreviewOpen(false)}
@@ -548,7 +561,8 @@ export default function Scores() {
             },
           ]}
         />
-      </Modal>
+      </AdaptiveModal>
     </div>
+    </PullToRefresh>
   );
 }

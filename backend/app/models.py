@@ -135,6 +135,21 @@ class AppSetting(Base):
     value = Column(String, default="")
 
 
+class PushSubscriptionModel(Base):
+    """Web Push 设备订阅凭据存储表。
+    记录端点 URL、客户端公钥 p256dh、鉴权密匙 auth 以及设备信息。
+    """
+    __tablename__ = "push_subscriptions"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    endpoint = Column(String, unique=True, index=True, nullable=False)
+    p256dh = Column(String, nullable=False, default="")
+    auth = Column(String, nullable=False, default="")
+    user_agent = Column(String, default="")
+    created_at = Column(String, default="")
+    updated_at = Column(String, default="")
+
+
+
 # 表名 -> Model 类，供通用 CRUD 与报表层按表名取用
 MODELS: dict[str, type] = {
     "students": Student,

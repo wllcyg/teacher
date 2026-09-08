@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Tabs, Table, Button, Modal, Form, Input, Select, Space, Popconfirm, message, Tag, DatePicker, Upload, Alert } from "antd";
+import { Tabs, Table, Button, Form, Input, Select, Space, Popconfirm, message, Tag, DatePicker, Upload, Alert } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import { PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -127,7 +128,7 @@ export default function Comms() {
         ]}
       />
 
-      <Modal title={editing ? "编辑沟通记录" : "添加沟通记录"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
+      <AdaptiveModal title={editing ? "编辑沟通记录" : "添加沟通记录"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
         <Form form={form} layout="vertical" onFinish={(v) => save.mutate({ ...v, 日期: v.日期 ? v.日期.format("YYYY-MM-DD") : "" })}>
           <Form.Item name="日期" label="日期"><DatePicker style={{ width: "100%" }} /></Form.Item>
           <Form.Item name="学生" label="学生" rules={[{ required: true }]}>
@@ -138,7 +139,7 @@ export default function Comms() {
           <Form.Item name="内容" label="内容"><Input.TextArea rows={3} /></Form.Item>
           <Form.Item name="结果" label="结果"><Input placeholder="例如：已记录" /></Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
     </div>
   );
 }

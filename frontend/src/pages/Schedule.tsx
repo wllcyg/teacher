@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   Button,
   Select,
-  Modal,
   Form,
   Input,
   Popconfirm,
@@ -12,6 +11,7 @@ import {
   Space,
   Tag,
 } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   PlusOutlined,
   DeleteOutlined,
@@ -317,7 +317,7 @@ export default function Schedule() {
         </div>
       )}
 
-      <Modal
+      <AdaptiveModal
         title={editing ? "编辑课程" : "添加课程"}
         open={open}
         onCancel={() => setOpen(false)}
@@ -353,7 +353,7 @@ export default function Schedule() {
             <Input placeholder="例如：地理" />
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
     </div>
   );
 }

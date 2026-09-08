@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
 import {
-  Modal,
   Card,
   Tag,
   Button,
@@ -13,6 +12,7 @@ import {
   Alert,
   Spin,
 } from "antd";
+import { AdaptiveModal } from "./AdaptiveModal";
 import {
   UserOutlined,
   EditOutlined,
@@ -208,7 +208,7 @@ export default function StudentDetailModal({
   const firstChar = studentName ? studentName.slice(0, 1) : "";
 
   return (
-    <Modal
+    <AdaptiveModal
       open={open}
       onCancel={onClose}
       footer={null}
@@ -626,7 +626,7 @@ export default function StudentDetailModal({
       </Spin>
 
       {/* 弹窗：编辑基本信息 */}
-      <Modal
+      <AdaptiveModal
         title="编辑学生档案"
         open={editBasicOpen}
         onCancel={() => setEditBasicOpen(false)}
@@ -644,10 +644,10 @@ export default function StudentDetailModal({
             <Input placeholder="如班长、课代表、组员" />
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
 
       {/* 弹窗：记一次沟通 */}
-      <Modal
+      <AdaptiveModal
         title={`记一次家校沟通（${studentName}）`}
         open={commOpen}
         onCancel={() => setCommOpen(false)}
@@ -670,7 +670,7 @@ export default function StudentDetailModal({
             <Input placeholder="如：家长表示今晚督促背诵" />
           </Form.Item>
         </Form>
-      </Modal>
-    </Modal>
+      </AdaptiveModal>
+    </AdaptiveModal>
   );
 }

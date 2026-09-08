@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Table, Button, Select, Modal, Form, Input, Space, Popconfirm, message, Tag } from "antd";
+import { Table, Button, Select, Form, Input, Space, Popconfirm, message, Tag } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import { PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createRow, deleteRow, listTable, updateRow } from "../api";
@@ -69,7 +70,7 @@ export default function Duties() {
       </Space>
       <Table rowKey="id" loading={isLoading} dataSource={filtered} columns={columns} pagination={{ pageSize: 15 }} size="middle" scroll={{ x: "max-content" }} />
 
-      <Modal title={editing ? "编辑班务" : "添加班务"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
+      <AdaptiveModal title={editing ? "编辑班务" : "添加班务"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
         <Form form={form} layout="vertical" onFinish={(v) => save.mutate(v)}>
           <Form.Item name="岗位" label="岗位" rules={[{ required: true }]}>
             <Input placeholder="例如：班长 / 扫地" />
@@ -87,7 +88,7 @@ export default function Duties() {
             <Input />
           </Form.Item>
         </Form>
-      </Modal>
+      </AdaptiveModal>
     </div>
   );
 }

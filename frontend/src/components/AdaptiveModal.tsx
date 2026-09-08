@@ -1,5 +1,7 @@
 import React from "react";
-import { Modal, Drawer, Grid, Button, Space, type ModalProps } from "antd";
+import { Modal, Grid, Button, type ModalProps } from "antd";
+import { Popup } from "antd-mobile";
+import { CloseOutlined } from "@ant-design/icons";
 
 const { useBreakpoint } = Grid;
 
@@ -11,8 +13,8 @@ export interface AdaptiveModalProps extends Omit<ModalProps, "styles"> {
 
 /**
  * 响应式弹窗容器：
- * - 📱 手机端（屏幕宽度 < 768px）：自动降级为底部半屏抽屉（Bottom Sheet），适配单手操作与虚拟键盘；
- * - 💻 iPad / 平板（>= 768px）及 PC 桌面端：自动保持为优雅精致的居中 Modal，视觉比例完美，绝不拉伸变形。
+ * - 📱 手机端（屏幕宽度 < 768px）：基于 antd-mobile 的原生 Popup 底栏弹层，手感顺滑、物理阻尼、单手友好并适配底部安全区；
+ * - 💻 iPad / 平板（>= 768px）及 PC 桌面端：自动保持为优雅精致的居中 Modal，视觉比例完美。
  */
 export const AdaptiveModal: React.FC<AdaptiveModalProps> = ({
   open,
@@ -27,7 +29,7 @@ export const AdaptiveModal: React.FC<AdaptiveModalProps> = ({
   children,
   footer,
   width,
-  drawerHeight = "auto",
+  drawerHeight,
   styles,
   drawerStyles,
   destroyOnClose = true,
@@ -36,18 +38,29 @@ export const AdaptiveModal: React.FC<AdaptiveModalProps> = ({
 }) => {
   const screens = useBreakpoint();
   // screens.md 为 >= 768px（标准 iPad 竖屏宽度为 768px 及以上）
-  // 仅在真实手机小屏（< 768px）时切换为底部抽屉；
-  // iPad 与 PC 桌面端保持精致居中的 Modal，视觉体验零负面影响！
+  // 仅在真实手机小屏（< 768px）时切换为 antd-mobile Popup；
+  // iPad 与 PC 桌面端保持精致居中的 antd Modal
   const isPhone = !screens.md;
 
   if (isPhone) {
-    // 处理移动端底部抽屉的默认按钮操作栏
-    const drawerFooterNode: React.ReactNode =
+    // 处理移动端底部的按钮操作栏
+    const mobileFooterNode: React.ReactNode =
       typeof footer === "function"
         ? (footer as any)(null, { OkBtn: () => null, CancelBtn: () => null })
         : footer === undefined && (onOk || onCancel)
         ? (
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              alignItems: "center",
+              gap: 10,
+              padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 16px)) 20px",
+              borderTop: "1px solid #f1f5f9",
+              background: "#fff",
+              ...drawerStyles?.footer,
+            }}
+          >
             {onCancel && (
               <Button onClick={onCancel as any} {...cancelButtonProps}>
                 {cancelText}
@@ -65,47 +78,104 @@ export const AdaptiveModal: React.FC<AdaptiveModalProps> = ({
             )}
           </div>
         )
-        : (footer as React.ReactNode);
+        : footer !== null && footer !== undefined
+        ? (
+          <div
+            style={{
+              padding: "12px 20px calc(16px + env(safe-area-inset-bottom, 16px)) 20px",
+              borderTop: "1px solid #f1f5f9",
+              background: "#fff",
+              ...drawerStyles?.footer,
+            }}
+          >
+            {footer as React.ReactNode}
+          </div>
+        )
+        : null;
 
     return (
-      <Drawer
-        placement="bottom"
-        height={drawerHeight}
-        open={open}
-        onClose={onCancel as any}
-        title={title}
-        footer={drawerFooterNode}
-        closable={closable}
+      <Popup
+        visible={open}
+        onMaskClick={onCancel as any}
+        position="bottom"
         destroyOnClose={destroyOnClose}
-        styles={{
-          content: {
-            maxWidth: 600,
-            margin: "0 auto",
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            overflow: "hidden",
-            maxHeight: "90vh",
-            ...drawerStyles?.content,
-          },
-          header: {
-            padding: "16px 20px 12px",
-            borderBottom: "1px solid #F1F5F9",
-            ...drawerStyles?.header,
-          },
-          body: {
-            padding: "16px 20px 24px",
-            overflowY: "auto",
-            ...drawerStyles?.body,
-          },
-          footer: {
-            padding: "12px 20px 16px",
-            borderTop: "1px solid #F1F5F9",
-            ...drawerStyles?.footer,
-          },
+        bodyStyle={{
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          maxHeight: drawerHeight || "88vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          background: "#fff",
+          ...drawerStyles?.content,
         }}
       >
-        {children}
-      </Drawer>
+        {/* 顶部指示把手 */}
+        <div
+          style={{
+            width: 36,
+            height: 4,
+            background: "#cbd5e1",
+            borderRadius: 2,
+            margin: "10px auto 4px",
+            flexShrink: 0,
+          }}
+        />
+
+        {/* 顶栏（标题与关闭按钮） */}
+        {(title || closable) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "10px 20px 12px",
+              borderBottom: "1px solid #f1f5f9",
+              flexShrink: 0,
+              ...drawerStyles?.header,
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 16, color: "#1e293b" }}>
+              {title}
+            </div>
+            {closable && (
+              <div
+                onClick={onCancel as any}
+                style={{
+                  cursor: "pointer",
+                  width: 28,
+                  height: 28,
+                  borderRadius: "50%",
+                  background: "#f1f5f9",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#64748b",
+                  fontSize: 12,
+                }}
+              >
+                <CloseOutlined />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 内容滚动区域 */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            padding: "16px 20px",
+            ...drawerStyles?.body,
+          }}
+        >
+          {children}
+        </div>
+
+        {/* 底部操作区 */}
+        {mobileFooterNode}
+      </Popup>
     );
   }
 

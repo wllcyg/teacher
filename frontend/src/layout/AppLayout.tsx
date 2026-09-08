@@ -2,6 +2,8 @@ import { useState, useRef } from "react";
 import { Layout, Menu, Tag } from "antd";
 import { useLocation, useNavigate, useOutlet, Outlet } from "react-router-dom";
 import { AnimatePresence, motion, type Variants } from "framer-motion";
+import { NavBar } from "antd-mobile";
+import { HomeOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { NAV_GROUPS, ALL_ITEMS } from "../nav";
 import AppLogo from "../components/AppLogo";
@@ -22,23 +24,23 @@ function currentPageLabel(pathname: string): string {
 
 // Framer Motion 移动端进出场过渡配置
 const pageVariants: Variants = {
-  initial: (dir: number) => ({
+  initial: (custom: { dir: number; isSubPage: boolean }) => ({
     opacity: 0,
-    x: dir === 0 ? 0 : dir > 0 ? 20 : -20,
+    x: custom.isSubPage ? 24 : custom.dir === 0 ? 0 : custom.dir > 0 ? 20 : -20,
   }),
   animate: {
     opacity: 1,
     x: 0,
     transition: {
-      duration: 0.16,
+      duration: 0.18,
       ease: [0.16, 1, 0.3, 1],
     },
   },
-  exit: (dir: number) => ({
+  exit: (custom: { dir: number; isSubPage: boolean }) => ({
     opacity: 0,
-    x: dir === 0 ? 0 : dir > 0 ? -16 : 16,
+    x: custom.isSubPage ? -16 : custom.dir === 0 ? 0 : custom.dir > 0 ? -16 : 16,
     transition: {
-      duration: 0.12,
+      duration: 0.14,
       ease: "easeOut",
     },
   }),
@@ -103,53 +105,112 @@ export default function AppLayout() {
   };
 
   if (isMobile) {
+    const currentKey = location.pathname === "/" ? "/today" : location.pathname;
+    const isSubPage = !MOBILE_TABS.includes(currentKey);
+
     const tabItems = MOBILE_TABS.map((key) =>
       ALL_ITEMS.find((it) => it.key === key)
     ).filter((it): it is (typeof ALL_ITEMS)[number] => Boolean(it));
 
     return (
       <Layout style={{ minHeight: "100vh" }}>
-        <Header
-          className="app-header"
-          style={{
-            background: "#fff",
-            padding: "0 12px",
-            paddingTop: "env(safe-area-inset-top, 0px)",
-            height: "calc(48px + env(safe-area-inset-top, 0px))",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid #f0f0f0",
-            position: "sticky",
-            top: 0,
-            zIndex: 90,
-          }}
-        >
-          <AppLogo isMobile />
-          <Tag color="blue" style={{ margin: 0, fontWeight: 500 }}>
-            {currentPageLabel(location.pathname)}
-          </Tag>
-        </Header>
+        {/* 顶部导航：子页面展示带返回的 NavBar，一级页面展示 AppLogo + 标签 */}
+        {isSubPage ? (
+          <div
+            style={{
+              background: "#fff",
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              position: "sticky",
+              top: 0,
+              zIndex: 90,
+              borderBottom: "1px solid #f1f5f9",
+            }}
+          >
+            <NavBar
+              onBack={() => {
+                triggerHaptic("light");
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate("/more");
+                }
+              }}
+              right={
+                <div
+                  onClick={() => {
+                    triggerHaptic("light");
+                    navigate("/today");
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "6px 10px",
+                    color: "#64748b",
+                    fontSize: 18,
+                    cursor: "pointer",
+                  }}
+                  title="回到今日主页"
+                >
+                  <HomeOutlined />
+                </div>
+              }
+              style={{
+                "--height": "48px",
+                fontWeight: 600,
+                fontSize: 16,
+              }}
+            >
+              {currentPageLabel(location.pathname)}
+            </NavBar>
+          </div>
+        ) : (
+          <Header
+            className="app-header"
+            style={{
+              background: "#fff",
+              padding: "0 14px",
+              paddingTop: "env(safe-area-inset-top, 0px)",
+              height: "calc(48px + env(safe-area-inset-top, 0px))",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              borderBottom: "1px solid #f0f0f0",
+              position: "sticky",
+              top: 0,
+              zIndex: 90,
+            }}
+          >
+            <AppLogo isMobile />
+            <Tag color="blue" style={{ margin: 0, fontWeight: 500, borderRadius: 12 }}>
+              {currentPageLabel(location.pathname)}
+            </Tag>
+          </Header>
+        )}
 
         <Content
           style={{
             background: "transparent",
             overflowX: "hidden",
-            minHeight: "calc(100vh - 48px - 60px)",
+            minHeight: isSubPage
+              ? "calc(100vh - 48px)"
+              : "calc(100vh - 48px - 60px)",
+            paddingBottom: isSubPage
+              ? "calc(24px + env(safe-area-inset-bottom, 16px))"
+              : "calc(64px + env(safe-area-inset-bottom, 16px))",
           }}
         >
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
+          <AnimatePresence mode="wait" custom={{ dir: direction, isSubPage }} initial={false}>
             {outlet && (
               <motion.div
                 key={location.pathname}
-                custom={direction}
+                custom={{ dir: direction, isSubPage }}
                 variants={pageVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"
                 style={{
                   width: "100%",
-                  minHeight: "calc(100vh - 48px - 60px)",
                 }}
               >
                 {outlet}
@@ -158,40 +219,42 @@ export default function AppLayout() {
           </AnimatePresence>
         </Content>
 
-        {/* 底部 Tab 栏（5个等分一级入口） */}
-        <div
-          className="app-bottom-bar"
-          style={{
-            position: "fixed",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: "#fff",
-            borderTop: "1px solid #eee",
-            display: "flex",
-            zIndex: 100,
-            paddingBottom: "env(safe-area-inset-bottom, 0px)",
-          }}
-        >
-          {tabItems.map((it) => (
-            <div
-              key={it.key}
-              onClick={() => go(it.key)}
-              style={{
-                flex: 1,
-                textAlign: "center",
-                padding: "8px 0 6px",
-                fontSize: 11,
-                color: selectedKey === it.key ? "#2f6fed" : "#666",
-                cursor: "pointer",
-                transition: "color 0.15s ease",
-              }}
-            >
-              <div style={{ fontSize: 20 }}>{it.icon}</div>
-              <div style={{ fontWeight: selectedKey === it.key ? 600 : 400 }}>{it.label}</div>
-            </div>
-          ))}
-        </div>
+        {/* 底部 Tab 栏：仅在一级页面展示，进入二级子页面时自动隐藏，给内容留出全屏空间 */}
+        {!isSubPage && (
+          <div
+            className="app-bottom-bar"
+            style={{
+              position: "fixed",
+              bottom: 0,
+              left: 0,
+              right: 0,
+              background: "#fff",
+              borderTop: "1px solid #eee",
+              display: "flex",
+              zIndex: 100,
+              paddingBottom: "max(8px, env(safe-area-inset-bottom, 8px))",
+            }}
+          >
+            {tabItems.map((it) => (
+              <div
+                key={it.key}
+                onClick={() => go(it.key)}
+                style={{
+                  flex: 1,
+                  textAlign: "center",
+                  padding: "8px 0 4px",
+                  fontSize: 11,
+                  color: selectedKey === it.key ? "#2f6fed" : "#666",
+                  cursor: "pointer",
+                  transition: "color 0.15s ease",
+                }}
+              >
+                <div style={{ fontSize: 20 }}>{it.icon}</div>
+                <div style={{ fontWeight: selectedKey === it.key ? 600 : 400 }}>{it.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </Layout>
     );
   }

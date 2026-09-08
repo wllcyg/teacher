@@ -1,10 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { Spin } from "antd";
 import AppLayout from "./layout/AppLayout";
-import { ReloadPrompt } from "./components/ReloadPrompt";
-import { NotificationScheduler } from "./components/NotificationScheduler";
 import { useAuthStore } from "./store/auth";
+import { clearAppBadge } from "./utils/notifications";
+
+
 
 const Login = lazy(() => import("./pages/Login"));
 const Today = lazy(() => import("./pages/Today"));
@@ -43,7 +44,13 @@ function PageSkeleton() {
 export default function App() {
   const token = useAuthStore((s) => s.token);
 
+  useEffect(() => {
+    // 每次打开或激活应用时自动清除桌面图标上的未读红点角标
+    clearAppBadge();
+  }, []);
+
   // 未登录时只渲染全屏密码页，不渲染任何业务路由/发起任何业务请求；
+
   // Login 也懒加载，避免它的 antd 依赖被打包进主 chunk
   if (!token) {
     return (
@@ -54,10 +61,9 @@ export default function App() {
   }
 
   return (
-    <>
-      <ReloadPrompt />
-      <NotificationScheduler />
-      <Suspense fallback={<PageSkeleton />}>
+    <Suspense fallback={<PageSkeleton />}>
+
+
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/" element={<Navigate to="/today" replace />} />
@@ -81,6 +87,6 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
-    </>
   );
 }
+

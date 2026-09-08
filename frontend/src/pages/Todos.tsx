@@ -3,7 +3,6 @@ import {
   Table,
   Button,
   Select,
-  Modal,
   Form,
   Input,
   Space,
@@ -16,6 +15,7 @@ import {
   Badge,
   Tooltip,
 } from "antd";
+import { SwipeAction, PullToRefresh, Skeleton, Toast } from "antd-mobile";
 import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   PlusOutlined,
@@ -140,6 +140,12 @@ export default function Todos() {
       状态: "未办",
     });
     setOpen(true);
+  };
+
+  const handleRefreshTodos = async () => {
+    triggerHaptic("light");
+    await qc.invalidateQueries({ queryKey: ["todos"] });
+    Toast.show({ content: "已刷新待办事项", duration: 1000 });
   };
 
   // 数据统计
@@ -338,8 +344,9 @@ export default function Todos() {
   ];
 
   return (
-    <div className="page" style={{ maxWidth: 1000, margin: "0 auto" }}>
-      {/* 头部标题与新建入口 */}
+    <PullToRefresh onRefresh={handleRefreshTodos}>
+      <div className="page" style={{ maxWidth: 1000, margin: "0 auto" }}>
+        {/* 头部标题与新建入口 */}
       <div
         style={{
           display: "flex",
@@ -584,8 +591,25 @@ export default function Todos() {
         </div>
       </div>
 
-      {/* 主展示区：卡片清单模式 (移动端 / iPad 默认) vs 传统表格模式 */}
-      {viewMode === "card" ? (
+      {/* 主展示区：加载骨架屏 / 卡片清单模式 (移动端 / iPad 默认) vs 传统表格模式 */}
+      {isLoading ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: "8px 0" }}>
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              style={{
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                borderRadius: 14,
+                padding: "16px",
+              }}
+            >
+              <Skeleton.Title animated style={{ width: "55%", marginBottom: 12 }} />
+              <Skeleton.Paragraph lineCount={2} animated />
+            </div>
+          ))}
+        </div>
+      ) : viewMode === "card" ? (
         filteredData.length === 0 ? (
           <div
             style={{
@@ -686,144 +710,179 @@ export default function Todos() {
                 border: "#cbd5e1",
               };
 
-              return (
-                <div
-                  key={r.id}
-                  style={{
-                    background: isDone ? "#f8fafc" : "#ffffff",
-                    border: `1px solid ${isDone ? "#e2e8f0" : "#e2e8f0"}`,
-                    borderRadius: 14,
-                    padding: "13px 14px",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12,
-                    boxShadow: isDone ? "none" : "0 1px 3px rgba(15, 23, 42, 0.04)",
-                    transition: "all 0.18s ease",
-                    position: "relative",
-                  }}
-                >
-                  {/* 左侧大触控圆形 Checkbox */}
-                  <div
-                    onClick={() => toggle.mutate(r)}
-                    role="button"
-                    tabIndex={0}
-                    style={{
-                      width: 34,
-                      height: 34,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      flexShrink: 0,
-                      borderRadius: "50%",
-                      userSelect: "none",
-                      WebkitTapHighlightColor: "transparent",
-                    }}
-                    title={isDone ? "标记为未办" : "标记为已办"}
-                  >
-                    {isDone ? (
-                      <CheckCircleFilled
-                        style={{
-                          fontSize: 23,
-                          color: "#10b981",
-                          transition: "transform 0.15s ease",
-                        }}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 21,
-                          height: 21,
-                          borderRadius: "50%",
-                          border: "2px solid #cbd5e1",
-                          background: "#fff",
-                          transition: "all 0.15s ease",
-                        }}
-                      />
-                    )}
-                  </div>
+              const rightActions = [
+                {
+                  key: "toggle",
+                  text: isDone ? "重开" : "完成",
+                  color: isDone ? "warning" : "success",
+                  onClick: () => {
+                    triggerHaptic("light");
+                    toggle.mutate(r);
+                  },
+                },
+                {
+                  key: "edit",
+                  text: "编辑",
+                  color: "primary",
+                  onClick: () => {
+                    triggerHaptic("light");
+                    openEditModal(r);
+                  },
+                },
+                {
+                  key: "delete",
+                  text: "删除",
+                  color: "danger",
+                  onClick: () => {
+                    triggerHaptic("medium");
+                    del.mutate(r.id);
+                  },
+                },
+              ];
 
-                  {/* 中间核心内容 */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* 事项标题 */}
+              return (
+                <SwipeAction
+                  key={r.id}
+                  rightActions={rightActions}
+                  style={{ borderRadius: 14, overflow: "hidden" }}
+                >
+                  <div
+                    style={{
+                      background: isDone ? "#f8fafc" : "#ffffff",
+                      border: `1px solid ${isDone ? "#e2e8f0" : "#e2e8f0"}`,
+                      borderRadius: 14,
+                      padding: "13px 14px",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12,
+                      boxShadow: isDone ? "none" : "0 1px 3px rgba(15, 23, 42, 0.04)",
+                      transition: "all 0.18s ease",
+                      position: "relative",
+                    }}
+                  >
+                    {/* 左侧大触控圆形 Checkbox */}
                     <div
                       onClick={() => toggle.mutate(r)}
+                      role="button"
+                      tabIndex={0}
                       style={{
-                        fontSize: 15,
-                        lineHeight: 1.45,
-                        fontWeight: isDone ? 400 : 500,
-                        color: isDone ? "#94a3b8" : "#0f172a",
-                        textDecoration: isDone ? "line-through" : "none",
+                        width: 34,
+                        height: 34,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         cursor: "pointer",
-                        wordBreak: "break-word",
-                        marginBottom: 6,
+                        flexShrink: 0,
+                        borderRadius: "50%",
+                        userSelect: "none",
+                        WebkitTapHighlightColor: "transparent",
                       }}
+                      title={isDone ? "标记为未办" : "标记为已办"}
                     >
-                      {r.事项}
+                      {isDone ? (
+                        <CheckCircleFilled
+                          style={{
+                            fontSize: 23,
+                            color: "#10b981",
+                            transition: "transform 0.15s ease",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 21,
+                            height: 21,
+                            borderRadius: "50%",
+                            border: "2px solid #cbd5e1",
+                            background: "#fff",
+                            transition: "all 0.15s ease",
+                          }}
+                        />
+                      )}
                     </div>
 
-                    {/* 标签与日期栏 */}
+                    {/* 中间核心内容 */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* 事项标题 */}
+                      <div
+                        onClick={() => toggle.mutate(r)}
+                        style={{
+                          fontSize: 15,
+                          lineHeight: 1.45,
+                          fontWeight: isDone ? 400 : 500,
+                          color: isDone ? "#94a3b8" : "#0f172a",
+                          textDecoration: isDone ? "line-through" : "none",
+                          cursor: "pointer",
+                          wordBreak: "break-word",
+                          marginBottom: 6,
+                        }}
+                      >
+                        {r.事项}
+                      </div>
+
+                      {/* 标签与日期栏 */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: 6,
+                        }}
+                      >
+                        {r.类别 && (
+                          <Tag
+                            style={{
+                              margin: 0,
+                              color: theme.color,
+                              background: theme.bg,
+                              borderColor: theme.border,
+                              borderRadius: 6,
+                              fontSize: 11,
+                              padding: "0 6px",
+                            }}
+                          >
+                            {r.类别}
+                          </Tag>
+                        )}
+                        {renderDateBadge(r.日期, isDone)}
+                      </div>
+                    </div>
+
+                    {/* 右侧快捷动作按钮 */}
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        flexWrap: "wrap",
-                        gap: 6,
+                        gap: 2,
+                        flexShrink: 0,
                       }}
                     >
-                      {r.类别 && (
-                        <Tag
-                          style={{
-                            margin: 0,
-                            color: theme.color,
-                            background: theme.bg,
-                            borderColor: theme.border,
-                            borderRadius: 6,
-                            fontSize: 11,
-                            padding: "0 6px",
-                          }}
-                        >
-                          {r.类别}
-                        </Tag>
-                      )}
-                      {renderDateBadge(r.日期, isDone)}
+                      <Tooltip title="编辑">
+                        <Button
+                          type="text"
+                          size="small"
+                          shape="circle"
+                          icon={<EditOutlined style={{ color: "#94a3b8" }} />}
+                          onClick={() => openEditModal(r)}
+                        />
+                      </Tooltip>
+                      <Popconfirm
+                        title="确定删除该待办？"
+                        onConfirm={() => del.mutate(r.id)}
+                        okText="删除"
+                        cancelText="取消"
+                      >
+                        <Button
+                          type="text"
+                          size="small"
+                          shape="circle"
+                          danger
+                          icon={<DeleteOutlined />}
+                        />
+                      </Popconfirm>
                     </div>
                   </div>
-
-                  {/* 右侧快捷动作按钮 */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 2,
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Tooltip title="编辑">
-                      <Button
-                        type="text"
-                        size="small"
-                        shape="circle"
-                        icon={<EditOutlined style={{ color: "#94a3b8" }} />}
-                        onClick={() => openEditModal(r)}
-                      />
-                    </Tooltip>
-                    <Popconfirm
-                      title="确定删除该待办？"
-                      onConfirm={() => del.mutate(r.id)}
-                      okText="删除"
-                      cancelText="取消"
-                    >
-                      <Button
-                        type="text"
-                        size="small"
-                        shape="circle"
-                        danger
-                        icon={<DeleteOutlined />}
-                      />
-                    </Popconfirm>
-                  </div>
-                </div>
+                </SwipeAction>
               );
             })}
           </div>
@@ -911,5 +970,6 @@ export default function Todos() {
         </Form>
       </AdaptiveModal>
     </div>
+    </PullToRefresh>
   );
 }

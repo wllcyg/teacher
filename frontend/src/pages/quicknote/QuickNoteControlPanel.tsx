@@ -89,7 +89,7 @@ export const QuickNoteControlPanel: React.FC<QuickNoteControlPanelProps> = ({
         borderRadius: 12,
         boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
       }}
-      bodyStyle={{ padding: isMobile ? "10px 12px" : "12px 16px" }}
+      styles={{ body: { padding: isMobile ? "10px 12px" : "12px 16px" } }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {/* 行 1：班级切换 */}

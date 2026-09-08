@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt",
+      registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "pwa-192x192.svg", "pwa-512x512.svg", "sw-notification.js"],
       manifest: {
         name: "教师工作台",
@@ -34,8 +34,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         importScripts: ["/sw-notification.js"],
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
+
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
@@ -93,6 +96,18 @@ export default defineConfig({
         // 只把与 UI 框架无耗合、变动频率低的独立工具库拆出来单独缓存。
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react/") || id.includes("react-dom/") || id.includes("react-router-dom/")) {
+            return "react-vendor";
+          }
+          if (id.includes("antd-mobile")) {
+            return "mobile-vendor";
+          }
+          if (id.includes("antd/") || id.includes("@ant-design/") || id.includes("rc-")) {
+            return "antd-vendor";
+          }
+          if (id.includes("framer-motion")) {
+            return "motion-vendor";
+          }
           if (id.includes("dayjs") || id.includes("axios") || id.includes("zustand") || id.includes("boring-avatars")) {
             return "utils-vendor";
           }
@@ -107,7 +122,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       "/api": {
-        target: process.env.VITE_DEV_API_TARGET || "http://127.0.0.1:9001",
+        target: process.env.VITE_DEV_API_TARGET || "http://127.0.0.1:9003",
         changeOrigin: true,
       },
     },

@@ -21,7 +21,9 @@ from . import models  # noqa: F401  确保模型注册到 Base.metadata
 from .auth import require_auth
 from .auth_router import auth_router
 from .database import Base, engine
+from .push_router import push_router
 from .routers import router
+
 
 
 @asynccontextmanager
@@ -72,6 +74,8 @@ app.add_middleware(
 # 未带有效 Token 一律 401（vault 导入导出、CRUD、report、settings 等自动全部被保护）。
 app.include_router(auth_router)
 app.include_router(router, dependencies=[Depends(require_auth)])
+app.include_router(push_router, dependencies=[Depends(require_auth)])
+
 
 
 @app.get("/api/health")
@@ -81,5 +85,5 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=9001, reload=True)
+    uvicorn.run("app.main:app", host="127.0.0.1", port=9003, reload=True)
 

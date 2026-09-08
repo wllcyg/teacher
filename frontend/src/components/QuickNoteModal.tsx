@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Modal, Tabs, Form, Input, Select, DatePicker, Button, InputNumber, message } from "antd";
+import { Tabs, Form, Input, Select, DatePicker, Button, InputNumber, message } from "antd";
+import { AdaptiveModal } from "./AdaptiveModal";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import { createRow, listTable } from "../api";
@@ -58,7 +59,7 @@ export default function QuickNoteModal({
   const roster = activeRoster(students, 班级);
 
   return (
-    <Modal
+    <AdaptiveModal
       title="记一笔"
       open={open}
       onCancel={onClose}
@@ -123,6 +124,6 @@ export default function QuickNoteModal({
           },
         ]}
       />
-    </Modal>
+    </AdaptiveModal>
   );
 }

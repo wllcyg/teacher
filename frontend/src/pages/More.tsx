@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Modal, Tag, Button } from "antd";
+import { Tag, Button } from "antd";
+import { AdaptiveModal } from "../components/AdaptiveModal";
 import {
   LogoutOutlined,
   RightOutlined,
@@ -354,7 +355,7 @@ export default function More() {
       </div>
 
       {/* 退出确认弹窗 */}
-      <Modal
+      <AdaptiveModal
         title="确认退出登录？"
         open={logoutModalOpen}
         onOk={handleLogout}
@@ -362,12 +363,11 @@ export default function More() {
         okText="确认退出"
         cancelText="取消"
         okButtonProps={{ danger: true }}
-        centered
       >
         <p style={{ color: "#64748b", margin: "12px 0 6px" }}>
           退出后将清除本地会话缓存，下次使用时需重新输入教师密码。
         </p>
-      </Modal>
+      </AdaptiveModal>
     </div>
   );
 }

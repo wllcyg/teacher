@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Drawer, Button, Input, Tag, message, Spin, Popconfirm } from "antd";
-import { Toast, DatePicker as MobileDatePicker, Dialog } from "antd-mobile";
+import { Toast, DatePicker as MobileDatePicker, Dialog, Popup } from "antd-mobile";
 import {
   BookOutlined,
   CheckCircleFilled,
   DeleteOutlined,
   EditOutlined,
   CalendarOutlined,
+  CloseOutlined,
 } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -234,99 +235,73 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
     });
   };
 
-  return (
-    <Drawer
-      placement="bottom"
-      height="auto"
-      open={open}
-      onClose={onClose}
-      destroyOnClose
-      styles={{
-        content: {
-          maxWidth: 600,
-          margin: "0 auto",
-          borderTopLeftRadius: 16,
-          borderTopRightRadius: 16,
-          overflow: "hidden",
-          maxHeight: "85vh",
-        },
-        header: {
-          padding: "16px 20px 12px",
-          borderBottom: "1px solid #F1F5F9",
-        },
-        body: {
-          padding: "16px 20px 24px",
-          overflowY: "auto",
-        },
-      }}
-      title={
-        allowEditContext ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: "#EEF2FF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#4F46E5",
-                  fontSize: 16,
-                }}
-              >
-                <BookOutlined />
-              </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>
-                {existingRecord ? "编辑课堂记录" : "补录课堂记录"}
-              </div>
-            </div>
-            {existingRecord && (
-              <Tag color="success" icon={<CheckCircleFilled />} style={{ margin: 0, borderRadius: 12 }}>
-                已记录
-              </Tag>
-            )}
+  const titleNode = allowEditContext ? (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: "#EEF2FF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#4F46E5",
+            fontSize: 16,
+          }}
+        >
+          <BookOutlined />
+        </div>
+        <div style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>
+          {existingRecord ? "编辑课堂记录" : "补录课堂记录"}
+        </div>
+      </div>
+      {existingRecord && (
+        <Tag color="success" icon={<CheckCircleFilled />} style={{ margin: 0, borderRadius: 12 }}>
+          已记录
+        </Tag>
+      )}
+    </div>
+  ) : lessonContext ? (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: "#EEF2FF",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "#4F46E5",
+            fontSize: 16,
+          }}
+        >
+          <BookOutlined />
+        </div>
+        <div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", lineHeight: 1.2 }}>
+            {activePeriod} · {activeClass} {lessonContext.科目 ? `· ${lessonContext.科目}` : ""}
           </div>
-        ) : lessonContext ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: "#EEF2FF",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#4F46E5",
-                  fontSize: 16,
-                }}
-              >
-                <BookOutlined />
-              </div>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", lineHeight: 1.2 }}>
-                  {activePeriod} · {activeClass} {lessonContext.科目 ? `· ${lessonContext.科目}` : ""}
-                </div>
-                <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
-                  {activeDate} 课堂记录
-                </div>
-              </div>
-            </div>
-            {existingRecord && (
-              <Tag color="success" icon={<CheckCircleFilled />} style={{ margin: 0, borderRadius: 12 }}>
-                已记录
-              </Tag>
-            )}
+          <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
+            {activeDate} 课堂记录
           </div>
-        ) : (
-          "课堂记录"
-        )
-      }
-    >
-      <Spin spinning={loadingLog}>
+        </div>
+      </div>
+      {existingRecord && (
+        <Tag color="success" icon={<CheckCircleFilled />} style={{ margin: 0, borderRadius: 12 }}>
+          已记录
+        </Tag>
+      )}
+    </div>
+  ) : (
+    "课堂记录"
+  );
+
+  const bodyContent = (
+    <Spin spinning={loadingLog}>
         {/* 手动补录时的班级/节次/日期选择器（全面贴合移动端触控设计） */}
         {allowEditContext && (
           <div
@@ -622,6 +597,109 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
           </Button>
         </div>
       </Spin>
+    );
+
+  if (isMobile) {
+    return (
+      <Popup
+        position="bottom"
+        visible={open}
+        onMaskClick={onClose}
+        destroyOnClose
+        bodyStyle={{
+          borderTopLeftRadius: 20,
+          borderTopRightRadius: 20,
+          maxHeight: "88vh",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          background: "#fff",
+        }}
+      >
+        <div
+          style={{
+            width: 36,
+            height: 4,
+            background: "#cbd5e1",
+            borderRadius: 2,
+            margin: "10px auto 4px",
+            flexShrink: 0,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "10px 16px 12px",
+            borderBottom: "1px solid #f1f5f9",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+            {titleNode}
+          </div>
+          <div
+            onClick={onClose}
+            style={{
+              cursor: "pointer",
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "#f1f5f9",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#64748b",
+              fontSize: 12,
+              flexShrink: 0,
+            }}
+          >
+            <CloseOutlined />
+          </div>
+        </div>
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            WebkitOverflowScrolling: "touch",
+            padding: "16px 16px calc(24px + env(safe-area-inset-bottom, 16px)) 16px",
+          }}
+        >
+          {bodyContent}
+        </div>
+      </Popup>
+    );
+  }
+
+  return (
+    <Drawer
+      placement="bottom"
+      height="auto"
+      open={open}
+      onClose={onClose}
+      destroyOnClose
+      styles={{
+        content: {
+          maxWidth: 600,
+          margin: "0 auto",
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          overflow: "hidden",
+          maxHeight: "85vh",
+        },
+        header: {
+          padding: "16px 20px 12px",
+          borderBottom: "1px solid #F1F5F9",
+        },
+        body: {
+          padding: "16px 20px 24px",
+          overflowY: "auto",
+        },
+      }}
+      title={titleNode}
+    >
+      {bodyContent}
     </Drawer>
   );
 };
