@@ -193,9 +193,8 @@ export const QuickNoteStudentGrid: React.FC<QuickNoteStudentGridProps> = ({
                       gap: 10,
                     }}
                   >
-                    {group.students.map((s, idx) => {
-                      const isLeader =
-                        (s.标签 || "").includes("组长") || idx === 0;
+                    {group.students.map((s) => {
+                      const isLeader = (s.标签 || "").includes("组长");
                       return (
                         <QuickNoteCard
                           key={s.学号 || s.姓名}
