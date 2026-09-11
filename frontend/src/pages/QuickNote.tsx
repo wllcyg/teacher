@@ -110,9 +110,13 @@ export default function QuickNote() {
     return Array.from(map.entries())
       .map(([groupName, groupStudents]) => ({
         groupName,
-        students: groupStudents.sort(
-          (a, b) => (parseInt(a.学号, 10) || 0) - (parseInt(b.学号, 10) || 0)
-        ),
+        students: groupStudents.sort((a, b) => {
+          const aLeader = (a.标签 || "").includes("组长");
+          const bLeader = (b.标签 || "").includes("组长");
+          if (aLeader && !bLeader) return -1;
+          if (!aLeader && bLeader) return 1;
+          return (parseInt(a.学号, 10) || 0) - (parseInt(b.学号, 10) || 0);
+        }),
       }))
       .sort((a, b) => {
         if (a.groupName === "未分组") return 1;
