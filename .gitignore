@@ -62,3 +62,5 @@ pnpm-debug.log*
 *.sw?
 .DS_Store
 Thumbs.db
+project.private.config.json
+*.private.config.json

@@ -1,0 +1,10 @@
+{
+  "name": "teacher-service",
+  "version": "1.0.0",
+  "description": "教师工作台核心云函数服务",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3",
+    "@cloudbase/node-sdk": "^3.16.0"
+  }
+}
