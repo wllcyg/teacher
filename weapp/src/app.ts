@@ -1,28 +1,33 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
+import { Component, PropsWithChildren } from 'react'
 import Taro from '@tarojs/taro'
-
-import '@nutui/nutui-taro/dist/style.css'
+import { CLOUD_ENV, DB_SCHEMA } from './services/env'
+import { initTestDataIfEmpty } from './services/cloudApi'
+import { TEST_SEED_DATA } from './services/seedData'
 import './app.less'
 
-const App = createApp({
-  onLaunch() {
+class App extends Component<PropsWithChildren> {
+  componentDidMount() {
     if (process.env.TARO_ENV === 'weapp') {
       if (!Taro.cloud) {
-        console.error('请使用 2.2.3 或以上的基础库以使用云能力')
+        console.error('请使用 2.2.3 或以上的基础库以使用微信云能力')
       } else {
         Taro.cloud.init({
-          env: 'teacher-d4g74wc9be2d5b1f5',
+          env: CLOUD_ENV,
           traceUser: true,
         })
+        console.log(`[CloudBase] 微信云开发已连接，环境 ID: ${CLOUD_ENV}，数据隔离分区: ${DB_SCHEMA}`)
+      }
+
+      // 测试环境自动注入隔离测试种子数据（生产环境绝对跳过）
+      if (DB_SCHEMA === 'test') {
+        initTestDataIfEmpty(TEST_SEED_DATA)
       }
     }
-  },
-  onShow(options) {
-  },
-  // 入口组件不需要实现 render 方法，即使实现了也会被 taro 所覆盖
-})
+  }
 
-App.use(createPinia())
+  render() {
+    return this.props.children
+  }
+}
 
 export default App

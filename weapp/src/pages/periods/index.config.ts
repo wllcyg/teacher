@@ -1,0 +1,3 @@
+export default {
+  navigationBarTitleText: '作息时间表',
+}

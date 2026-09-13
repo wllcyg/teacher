@@ -1,0 +1,286 @@
+.lessonlog-edit-page {
+  padding-bottom: 160rpx;
+
+  /* 顶部标题栏 */
+  .edit-header {
+    align-items: center;
+    margin-bottom: 24rpx;
+
+    .header-left {
+      align-items: center;
+
+      .header-icon-box {
+        width: 64rpx;
+        height: 64rpx;
+        border-radius: 16rpx;
+        background: #EEF2FF;
+        margin-right: 16rpx;
+      }
+
+      .header-title {
+        font-size: 36rpx;
+        font-weight: 700;
+        color: #1E293B;
+      }
+    }
+
+    .tag-saved {
+      background: #ECFDF5;
+      color: #059669;
+      border: 1rpx solid #A7F3D0;
+      padding: 6rpx 18rpx;
+      border-radius: 999rpx;
+      font-size: 22rpx;
+      font-weight: 600;
+    }
+  }
+
+  /* 主选择面板卡片 */
+  .selector-card {
+    padding: 28rpx;
+    background: #FFFFFF;
+    border-radius: 20rpx;
+    border: 1rpx solid #E2E8F0;
+    margin-bottom: 24rpx;
+
+    .section-block {
+      margin-bottom: 30rpx;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .section-title-row {
+        align-items: center;
+        margin-bottom: 16rpx;
+
+        .block-label {
+          font-size: 26rpx;
+          font-weight: 600;
+          color: #475569;
+        }
+
+        .active-highlight {
+          font-size: 24rpx;
+          color: #4F46E5;
+          font-weight: 600;
+        }
+
+        .quick-date-tabs {
+          gap: 12rpx;
+
+          .quick-pill {
+            font-size: 24rpx;
+            padding: 6rpx 20rpx;
+            border-radius: 999rpx;
+            background: #FFFFFF;
+            color: #64748B;
+            border: 1rpx solid #E2E8F0;
+
+            &.active {
+              background: #EEF2FF;
+              color: #4F46E5;
+              border-color: #C7D2FE;
+              font-weight: 600;
+            }
+          }
+        }
+      }
+
+      /* 日期选择展示框 */
+      .date-picker-box {
+        background: #FFFFFF;
+        border: 1.5rpx solid #CBD5E1;
+        border-radius: 16rpx;
+        padding: 20rpx 24rpx;
+        align-items: center;
+
+        .date-val-group {
+          align-items: center;
+
+          .date-text {
+            font-size: 28rpx;
+            font-weight: 600;
+            color: #1E293B;
+            margin-left: 14rpx;
+          }
+        }
+
+        .change-hint {
+          font-size: 24rpx;
+          color: #4F46E5;
+          font-weight: 500;
+        }
+      }
+
+      /* 班级选择横向网格 */
+      .classes-grid {
+        gap: 16rpx;
+        flex-wrap: wrap;
+
+        .class-chip {
+          padding: 14rpx 32rpx;
+          border-radius: 16rpx;
+          font-size: 26rpx;
+          font-weight: 500;
+          background: #FFFFFF;
+          color: #334155;
+          border: 1.5rpx solid #E2E8F0;
+          transition: all 0.15s ease;
+
+          &.active {
+            background: #4F46E5;
+            color: #FFFFFF;
+            border-color: #4F46E5;
+            font-weight: 600;
+            box-shadow: 0 4rpx 12rpx rgba(79, 70, 229, 0.25);
+          }
+        }
+      }
+
+      /* 节次选择 4 列网格 */
+      .periods-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16rpx;
+
+        .period-cell {
+          padding: 16rpx 8rpx;
+          border-radius: 16rpx;
+          text-align: center;
+          background: #FFFFFF;
+          color: #334155;
+          border: 1.5rpx solid #E2E8F0;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.15s ease;
+
+          .period-name {
+            font-size: 26rpx;
+            font-weight: 600;
+            line-height: 1.2;
+          }
+
+          .period-time {
+            font-size: 20rpx;
+            margin-top: 6rpx;
+            color: #94A3B8;
+            line-height: 1;
+          }
+
+          &.active {
+            background: #4F46E5;
+            color: #FFFFFF;
+            border-color: #4F46E5;
+            box-shadow: 0 4rpx 14rpx rgba(79, 70, 229, 0.3);
+
+            .period-name {
+              color: #FFFFFF;
+              font-weight: 700;
+            }
+
+            .period-time {
+              color: rgba(255, 255, 255, 0.85);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /* 快捷短语标签 */
+  .quick-tags-section {
+    margin-bottom: 24rpx;
+
+    .tags-hint {
+      font-size: 24rpx;
+      color: #64748B;
+      display: block;
+      margin-bottom: 14rpx;
+    }
+
+    .tags-flow {
+      gap: 14rpx;
+      flex-wrap: wrap;
+
+      .tag-chip {
+        padding: 10rpx 22rpx;
+        background: #F1F5F9;
+        border: 1rpx solid #E2E8F0;
+        border-radius: 999rpx;
+        font-size: 24rpx;
+        color: #334155;
+      }
+    }
+  }
+
+  /* 文本输入卡片 */
+  .textarea-card {
+    background: #FFFFFF;
+    border-radius: 20rpx;
+    border: 1rpx solid #E2E8F0;
+    padding: 24rpx;
+    margin-bottom: 30rpx;
+
+    .log-textarea {
+      width: 100%;
+      height: 240rpx;
+      font-size: 28rpx;
+      color: #0F172A;
+      line-height: 1.6;
+      box-sizing: border-box;
+    }
+
+    .textarea-placeholder {
+      color: #94A3B8;
+      font-size: 26rpx;
+      line-height: 1.6;
+    }
+
+    .textarea-footer {
+      align-items: center;
+      margin-top: 16rpx;
+      padding-top: 16rpx;
+      border-top: 1rpx dashed #F1F5F9;
+
+      .char-counter {
+        font-size: 24rpx;
+        color: #94A3B8;
+      }
+    }
+  }
+
+  /* 底部固定保存栏 */
+  .bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20rpx 32rpx calc(20rpx + env(safe-area-inset-bottom));
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: blur(20px);
+    border-top: 1rpx solid #E2E8F0;
+    z-index: 99;
+
+    .btn-save-record {
+      width: 100%;
+      height: 88rpx;
+      background: #4F46E5;
+      border-radius: 20rpx;
+      box-shadow: 0 6rpx 20rpx rgba(79, 70, 229, 0.35);
+
+      .save-btn-text {
+        color: #FFFFFF;
+        font-size: 30rpx;
+        font-weight: 600;
+        margin-left: 12rpx;
+      }
+
+      &.loading {
+        opacity: 0.7;
+      }
+    }
+  }
+}

@@ -1,619 +1,166 @@
 .my-page {
-  min-height: 100vh;
-  background-color: #f8fafc;
-  padding-bottom: calc(48rpx + env(safe-area-inset-bottom));
-  box-sizing: border-box;
+  .user-card {
+    padding: 32rpx 28rpx;
+    background: #FFFFFF;
 
-  /* 教师档案名片卡 */
-  .teacher-profile-card {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    padding: 48rpx 36rpx 40rpx;
-    color: #ffffff;
-    box-shadow: 0 8rpx 24rpx rgba(15, 23, 42, 0.12);
+    .avatar-circle {
+      width: 110rpx;
+      height: 110rpx;
+      border-radius: 50%;
+      background: #EFF6FF;
+      margin-right: 24rpx;
 
-    .profile-header {
-      display: flex;
-      align-items: center;
-      position: relative;
-
-      .avatar-box {
-        width: 110rpx;
-        height: 110rpx;
-        border-radius: 50%;
-        border: 4rpx solid rgba(255, 255, 255, 0.2);
-        overflow: hidden;
-        margin-right: 24rpx;
-        flex-shrink: 0;
-
-        .avatar-img {
-          width: 100%;
-          height: 100%;
-        }
-
-        .avatar-placeholder {
-          width: 100%;
-          height: 100%;
-          background: #2563eb;
-          color: #ffffff;
-          font-size: 44rpx;
-          font-weight: 700;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
-
-      .teacher-details {
-        flex: 1;
-
-        .teacher-name-row {
-          display: flex;
-          align-items: center;
-          gap: 12rpx;
-
-          .teacher-name {
-            font-size: 36rpx;
-            font-weight: 700;
-            color: #ffffff;
-          }
-
-          .teacher-role-tag {
-            font-size: 20rpx;
-            padding: 4rpx 12rpx;
-            border-radius: 999rpx;
-            background: rgba(37, 99, 235, 0.35);
-            color: #93c5fd;
-            border: 1rpx solid rgba(147, 197, 253, 0.3);
-          }
-        }
-
-        .teacher-school {
-          margin-top: 8rpx;
-          font-size: 24rpx;
-          color: #94a3b8;
-        }
-      }
-
-      .schema-badge {
-        position: absolute;
-        top: 0;
-        right: 0;
-        display: inline-flex;
-        align-items: center;
-        gap: 8rpx;
-        background: rgba(255, 255, 255, 0.1);
-        padding: 6rpx 16rpx;
-        border-radius: 999rpx;
-        backdrop-filter: blur(8px);
-
-        .schema-dot {
-          width: 12rpx;
-          height: 12rpx;
-          border-radius: 50%;
-          background: #10b981;
-        }
-
-        .schema-text {
-          font-size: 20rpx;
-          color: #cbd5e1;
-        }
+      .avatar-emoji {
+        font-size: 56rpx;
       }
     }
-  }
 
-  /* 通用区块容器 */
-  .section-container {
-    padding: 32rpx 32rpx 0;
+    .user-info {
+      flex: 1;
 
-    .section-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20rpx;
-
-      .section-title-wrap {
-        display: flex;
-        align-items: center;
-        gap: 8rpx;
-
-        .section-title {
-          font-size: 32rpx;
-          font-weight: 700;
-          color: #0f172a;
-        }
-
-        .section-count {
-          font-size: 28rpx;
-          font-weight: 600;
-          color: #64748b;
-        }
-      }
-
-      .header-action-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 6rpx;
-        padding: 10rpx 20rpx;
-        background: #eff6ff;
-        border-radius: 999rpx;
-        transition: opacity 0.15s ease;
-
-        &.action-hover {
-          opacity: 0.8;
-        }
-
-        .action-plus {
-          font-size: 30rpx;
-          color: #2563eb;
-          font-weight: 700;
-          line-height: 1;
-        }
-
-        .action-text {
-          font-size: 24rpx;
-          color: #2563eb;
-          font-weight: 600;
-        }
-      }
-    }
-  }
-
-  /* 班级列表 */
-  .class-card-list {
-    display: flex;
-    flex-direction: column;
-    gap: 20rpx;
-
-    .class-manage-card {
-      background: #ffffff;
-      border-radius: 20rpx;
-      padding: 24rpx;
-      box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.03);
-      border: 1rpx solid #f1f5f9;
-      position: relative;
-      transition: all 0.2s ease;
-
-      &.is-current {
-        border-color: #93c5fd;
-        background: #fdfeff;
-      }
-
-      .card-main-info {
-        margin-bottom: 20rpx;
-
-        .class-title-row {
-          display: flex;
-          align-items: center;
-          gap: 14rpx;
-
-          .class-title {
-            font-size: 32rpx;
-            font-weight: 700;
-            color: #0f172a;
-          }
-
-          .role-pill {
-            font-size: 20rpx;
-            padding: 4rpx 12rpx;
-            border-radius: 6rpx;
-            font-weight: 600;
-
-            &.headmaster {
-              background: #fff7e6;
-              color: #d46b08;
-              border: 1rpx solid #ffd591;
-            }
-
-            &.subject-teacher {
-              background: #eff6ff;
-              color: #2563eb;
-              border: 1rpx solid #bfdbfe;
-            }
-          }
-        }
-
-        .class-sub-meta {
-          display: flex;
-          align-items: center;
-          gap: 12rpx;
-          margin-top: 10rpx;
-
-          .meta-tag {
-            font-size: 22rpx;
-            padding: 4rpx 12rpx;
-            border-radius: 6rpx;
-            background: #f1f5f9;
-            color: #64748b;
-
-            &.subject {
-              color: #ffffff;
-            }
-          }
-
-          .current-tag {
-            font-size: 22rpx;
-            color: #10b981;
-            font-weight: 600;
-            margin-left: auto;
-          }
-        }
-      }
-
-      /* 加入码盒子与一键复制 */
-      .invite-code-box {
-        background: #f8fafc;
-        border-radius: 12rpx;
-        padding: 16rpx 20rpx;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 20rpx;
-        border: 1rpx dashed #cbd5e1;
-
-        .code-left {
-          display: flex;
-          flex-direction: column;
-
-          .code-label {
-            font-size: 20rpx;
-            color: #64748b;
-          }
-
-          .code-value {
-            font-size: 32rpx;
-            font-family: monospace;
-            font-weight: 700;
-            color: #1e293b;
-            letter-spacing: 2rpx;
-            margin-top: 2rpx;
-          }
-        }
-
-        .copy-btn {
-          padding: 10rpx 22rpx;
-          background: #ffffff;
-          border-radius: 999rpx;
-          border: 1rpx solid #cbd5e1;
-          box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.04);
-          transition: background-color 0.15s ease;
-
-          &.copy-btn-hover {
-            background: #f1f5f9;
-          }
-
-          .copy-text {
-            font-size: 22rpx;
-            font-weight: 600;
-            color: #2563eb;
-          }
-        }
-      }
-
-      /* 底部操作 */
-      .card-actions {
-        display: flex;
-        align-items: center;
-        justify-content: flex-end;
-        gap: 16rpx;
-        border-top: 1rpx solid #f8fafc;
-        padding-top: 18rpx;
-
-        .action-pill {
-          padding: 12rpx 28rpx;
-          border-radius: 999rpx;
-          font-size: 24rpx;
-          font-weight: 600;
-
-          &.outline {
-            background: #f8fafc;
-            color: #475569;
-            border: 1rpx solid #e2e8f0;
-          }
-
-          &.primary {
-            background: #2563eb;
-            color: #ffffff;
-          }
-        }
-      }
-    }
-  }
-
-  /* 班级为空状态 */
-  .empty-classes-card {
-    background: #ffffff;
-    border-radius: 20rpx;
-    padding: 48rpx 32rpx;
-    text-align: center;
-    border: 1rpx dashed #cbd5e1;
-
-    .empty-text {
-      font-size: 28rpx;
-      color: #64748b;
-      margin-bottom: 28rpx;
-    }
-
-    .empty-btns {
-      display: flex;
-      justify-content: center;
-      gap: 20rpx;
-
-      .e-btn {
-        padding: 16rpx 36rpx;
-        border-radius: 999rpx;
-        font-size: 26rpx;
-        font-weight: 600;
-
-        &.primary {
-          background: #2563eb;
-          color: #ffffff;
-        }
-
-        &.secondary {
-          background: #f1f5f9;
-          color: #334155;
-        }
-      }
-    }
-  }
-
-  /* 快捷操作网格 */
-  .action-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20rpx;
-
-    .action-tile {
-      background: #ffffff;
-      border-radius: 20rpx;
-      padding: 24rpx;
-      border: 1rpx solid #f1f5f9;
-      box-shadow: 0 2rpx 10rpx rgba(0, 0, 0, 0.02);
-      transition: opacity 0.15s ease;
-
-      &.tile-hover {
-        opacity: 0.8;
-      }
-
-      .tile-icon-box {
-        width: 72rpx;
-        height: 72rpx;
-        border-radius: 16rpx;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16rpx;
-
-        &.blue {
-          background: #eff6ff;
-        }
-
-        &.amber {
-          background: #fffbeb;
-        }
-      }
-
-      .tile-title {
-        font-size: 28rpx;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 6rpx;
-      }
-
-      .tile-desc {
-        font-size: 22rpx;
-        color: #94a3b8;
-        line-height: 1.4;
-      }
-    }
-  }
-}
-
-/* ==========================================================================
-   底部半屏抽屉面板 (NutUI Bottom Sheet Panel · 移动端高保真设计)
-   ========================================================================== */
-.my-bottom-panel {
-  background-color: #FFFFFF;
-  padding: 24rpx 36rpx calc(36rpx + env(safe-area-inset-bottom));
-  transition: padding-bottom 0.15s ease;
-  box-sizing: border-box;
-  width: 100%;
-  max-height: 82vh;
-  display: flex;
-  flex-direction: column;
-
-  /* 键盘弹起时清零安全区与多余间距，无缝贴合键盘顶部 */
-  &.keyboard-opened {
-    padding-bottom: 24rpx !important;
-  }
-
-  /* 顶部优雅拖拽把手 */
-  .panel-drag-handle {
-    width: 64rpx;
-    height: 8rpx;
-    border-radius: 4rpx;
-    background-color: #CBD5E1;
-    margin: 0 auto 24rpx;
-    flex-shrink: 0;
-  }
-
-  .panel-head {
-    margin-bottom: 28rpx;
-    padding-bottom: 16rpx;
-    border-bottom: 1rpx solid #F1F5F9;
-    flex-shrink: 0;
-
-    .panel-header-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .panel-title {
+      .user-name {
         font-size: 34rpx;
         font-weight: 700;
-        color: #0F172A;
-        letter-spacing: 0.5rpx;
+        color: #1E293B;
+        display: block;
       }
 
-      .panel-close-btn {
-        width: 52rpx;
-        height: 52rpx;
-        border-radius: 50%;
-        background-color: #F1F5F9;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s ease;
-
-        .close-symbol {
-          font-size: 26rpx;
-          color: #64748B;
-          line-height: 1;
-        }
-
-        &.close-btn-active {
-          background-color: #E2E8F0;
-          transform: scale(0.92);
-        }
+      .user-openid {
+        font-size: 22rpx;
+        color: #94A3B8;
+        margin-top: 4rpx;
+        display: block;
       }
-    }
 
-    .panel-desc {
-      font-size: 24rpx;
-      color: #64748B;
-      margin-top: 6rpx;
-      display: block;
-      line-height: 1.4;
+      .wx-badge {
+        display: inline-block;
+        font-size: 20rpx;
+        color: #059669;
+        background: #ECFDF5;
+        padding: 4rpx 14rpx;
+        border-radius: 999rpx;
+        margin-top: 10rpx;
+        font-weight: 500;
+      }
     }
   }
 
-  .panel-body {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 20rpx;
+  .env-card {
+    padding: 28rpx;
 
-    .field-item {
-      margin-bottom: 24rpx;
+    .env-header {
+      padding-bottom: 16rpx;
+      border-bottom: 1rpx solid #F1F5F9;
+      margin-bottom: 20rpx;
 
-      .field-label {
-        font-size: 26rpx;
+      .env-title {
+        font-size: 28rpx;
         font-weight: 600;
-        color: #334155;
-        margin-bottom: 12rpx;
-        display: flex;
-        align-items: center;
-
-        .req {
-          color: #EF4444;
-          margin-left: 6rpx;
-          font-weight: 700;
-        }
+        color: #1E293B;
       }
 
-      .field-input,
-      .custom-nut-input {
-        width: 100%;
-        height: 88rpx !important; /* 44px 黄金触控区 */
-        background-color: #F8FAFC !important;
-        border: 1.5rpx solid #E2E8F0 !important;
-        border-radius: 16rpx !important;
-        padding: 0 24rpx !important;
-        box-sizing: border-box !important;
-        font-size: 28rpx !important;
-        color: #0F172A !important;
-        transition: all 0.2s ease !important;
-        display: flex;
-        align-items: center;
+      .env-status-tag {
+        font-size: 22rpx;
+        padding: 4rpx 14rpx;
+        border-radius: 8rpx;
+        font-weight: 600;
 
-        .nut-input-inner {
-          font-size: 28rpx;
-          color: #0F172A;
+        &.test {
+          background: #FEF3C7;
+          color: #B45309;
         }
 
-        &:focus,
-        &:focus-within {
-          border-color: #2563EB !important;
-          background-color: #FFFFFF !important;
+        &.prod {
+          background: #D1FAE5;
+          color: #065F46;
+        }
+      }
+    }
+
+    .env-details {
+      .detail-row {
+        padding: 12rpx 0;
+
+        .d-label {
+          font-size: 26rpx;
+          color: #64748B;
         }
 
-        &.code-input,
-        &.code-nut-input {
-          .nut-input-inner,
-          input {
-            letter-spacing: 6rpx;
-            font-weight: 700;
-            font-size: 34rpx;
-            text-transform: uppercase;
-            color: #2563EB;
-            font-family: monospace, sans-serif;
+        .d-val {
+          font-size: 26rpx;
+          color: #1E293B;
+          font-weight: 500;
+
+          &.lock-ok {
+            color: #059669;
+            font-weight: 600;
           }
         }
       }
+    }
 
-      &.mt-20 {
-        margin-top: 24rpx;
+    .test-actions {
+      margin-top: 24rpx;
+      padding-top: 20rpx;
+      border-top: 1rpx dashed #E2E8F0;
+
+      .test-tips {
+        font-size: 22rpx;
+        color: #94A3B8;
+        line-height: 1.4;
+        display: block;
+        margin-bottom: 16rpx;
+      }
+
+      .btn-reset-test {
+        margin: 0;
+        background: #EFF6FF;
+        color: #2563EB;
+        font-size: 26rpx;
+        font-weight: 500;
+        border: 1rpx solid #BFDBFE;
+        border-radius: 14rpx;
+        height: 76rpx;
+        line-height: 76rpx;
       }
     }
 
-    /* 4 列弹性紧凑学科点选网格 */
-    .subject-chips-wrap {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14rpx;
-      padding-top: 6rpx;
+    .prod-lock-tips {
+      margin-top: 20rpx;
+      background: #F8FAFC;
+      padding: 16rpx 20rpx;
+      border-radius: 12rpx;
 
-      .subject-chip-item {
-        height: 68rpx;
-        border-radius: 12rpx;
-        background-color: #F1F5F9;
-        font-size: 26rpx;
-        color: #475569;
-        border: 1.5rpx solid transparent;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s ease;
-        box-sizing: border-box;
+      .lock-icon {
+        margin-right: 12rpx;
+      }
 
-        &:active {
-          transform: scale(0.96);
-        }
-
-        &.active {
-          background-color: #EFF6FF;
-          color: #2563EB;
-          border-color: #2563EB;
-          font-weight: 600;
-          box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.12);
-        }
+      .lock-text {
+        font-size: 24rpx;
+        color: #64748B;
       }
     }
   }
 
-  .panel-foot {
-    padding-top: 16rpx;
-    flex-shrink: 0;
+  .info-card {
+    padding: 24rpx;
 
-    .save-submit-btn {
-      width: 100%;
-      height: 88rpx; /* 44px 移动端黄金触控大按钮 */
-      background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
-      border-radius: 16rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FFFFFF;
-      font-size: 30rpx;
-      font-weight: 600;
-      letter-spacing: 1rpx;
-      box-shadow: 0 6rpx 20rpx rgba(37, 99, 235, 0.25);
-      transition: all 0.15s ease;
+    .info-row {
+      padding: 16rpx 0;
+      border-bottom: 1rpx solid #F8FAFC;
 
-      &:active {
-        transform: scale(0.98);
-        opacity: 0.9;
-        background: #1D4ED8;
+      &:last-child {
+        border-bottom: none;
+      }
+
+      .i-title {
+        font-size: 26rpx;
+        color: #64748B;
+      }
+
+      .i-desc {
+        font-size: 26rpx;
+        color: #1E293B;
       }
     }
   }

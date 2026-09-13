@@ -1,0 +1,132 @@
+.periods-page {
+  .time-board-card {
+    background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
+    color: #FFFFFF;
+    padding: 32rpx 28rpx;
+
+    .board-sub {
+      font-size: 24rpx;
+      color: #94A3B8;
+      display: block;
+    }
+
+    .board-time {
+      font-size: 44rpx;
+      font-weight: 700;
+      color: #38BDF8;
+      letter-spacing: 2rpx;
+      margin-top: 6rpx;
+      display: block;
+    }
+
+    .status-badge {
+      padding: 12rpx 24rpx;
+      border-radius: 999rpx;
+
+      &.on-duty {
+        background: rgba(37, 99, 235, 0.3);
+        border: 1rpx solid #3B82F6;
+        color: #93C5FD;
+      }
+
+      &.off-duty {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1rpx solid rgba(255, 255, 255, 0.2);
+        color: #CBD5E1;
+      }
+
+      .status-text {
+        font-size: 24rpx;
+        font-weight: 500;
+      }
+    }
+  }
+
+  .section-card {
+    padding: 24rpx;
+
+    .section-header {
+      padding-bottom: 16rpx;
+      border-bottom: 1rpx solid #F1F5F9;
+      margin-bottom: 16rpx;
+
+      .section-title {
+        font-size: 28rpx;
+        font-weight: 600;
+        color: #334155;
+      }
+    }
+
+    .period-items-list {
+      .period-row {
+        padding: 20rpx 16rpx;
+        border-radius: 14rpx;
+        margin-bottom: 8rpx;
+        background: #F8FAFC;
+        border: 1rpx solid transparent;
+
+        &.is-active {
+          background: #EFF6FF;
+          border-color: #BFDBFE;
+        }
+
+        .num-tag {
+          width: 52rpx;
+          height: 52rpx;
+          border-radius: 12rpx;
+          background: #E2E8F0;
+          color: #475569;
+          font-weight: 600;
+          font-size: 26rpx;
+          margin-right: 20rpx;
+
+          &.active {
+            background: #2563EB;
+            color: #FFFFFF;
+          }
+        }
+
+        .time-info {
+          .period-label {
+            font-size: 28rpx;
+            font-weight: 500;
+            color: #1E293B;
+            display: block;
+          }
+
+          .period-span {
+            font-size: 22rpx;
+            color: #64748B;
+            margin-top: 4rpx;
+            display: block;
+          }
+        }
+
+        .active-pill {
+          background: #2563EB;
+          padding: 6rpx 18rpx;
+          border-radius: 999rpx;
+
+          .pulse-dot {
+            width: 10rpx;
+            height: 10rpx;
+            border-radius: 50%;
+            background: #FFFFFF;
+            margin-right: 8rpx;
+          }
+
+          .active-text {
+            color: #FFFFFF;
+            font-size: 22rpx;
+            font-weight: 500;
+          }
+        }
+
+        .duration-text {
+          font-size: 24rpx;
+          color: #94A3B8;
+        }
+      }
+    }
+  }
+}

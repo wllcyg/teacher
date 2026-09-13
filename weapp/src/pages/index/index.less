@@ -1,668 +1,1083 @@
-/* ==========================================================================
-   教师工作台首页 · 微信原生风格页面样式
-   全面引用系统级设计令牌 (Design Tokens: Education Academic Blue)
-   ========================================================================== */
-
-.wechat-page {
-  min-height: 100vh;
-  background-color: var(--theme-bg-canvas);
-  padding: 20rpx 24rpx calc(48rpx + env(safe-area-inset-bottom));
-  box-sizing: border-box;
-
-  /* 首次加载骨架屏 */
-  .wechat-skeleton-card {
-    height: 320rpx;
-    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
-    background-size: 200% 100%;
-    animation: skeleton-sweep 1.6s infinite;
-    border-radius: var(--theme-radius-lg);
-    margin-bottom: 24rpx;
-  }
-
-  @keyframes skeleton-sweep {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  /* 1. 顶部沉浸式教师信息栏 */
-  .wechat-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--theme-bg-surface);
-    border-radius: var(--theme-radius-lg);
-    padding: 20rpx 24rpx;
+.index-page {
+  /* 顶部问候栏 */
+  .header-greet-bar {
     margin-bottom: 20rpx;
-    border: 1rpx solid var(--theme-border-card);
-    box-shadow: var(--theme-shadow-sm);
+    padding: 8rpx 4rpx;
 
-    .teacher-profile {
-      display: flex;
+    .greet-title {
+      font-size: 38rpx;
+      font-weight: 700;
+      color: #0F172A;
+      display: block;
+    }
+
+    .greet-date {
+      font-size: 24rpx;
+      color: #94A3B8;
+      margin-top: 6rpx;
+      display: block;
+    }
+
+    .env-tag {
+      font-size: 22rpx;
+      font-weight: 600;
+      padding: 6rpx 18rpx;
+      border-radius: 999rpx;
+
+      &.test {
+        background: #FEF3C7;
+        color: #B45309;
+        border: 1rpx solid #FDE68A;
+      }
+
+      &.prod {
+        background: #D1FAE5;
+        color: #065F46;
+        border: 1rpx solid #A7F3D0;
+      }
+    }
+  }
+
+  /* 下课提醒轻通知浮条 */
+  .lesson-end-banner {
+    background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+    border: 1.5rpx solid #C7D2FE;
+    border-radius: 20rpx;
+    padding: 18rpx 22rpx;
+    margin-bottom: 24rpx;
+    align-items: center;
+    box-shadow: 0 6rpx 20rpx rgba(99, 102, 241, 0.12);
+    animation: slideDown 0.3s ease;
+
+    .banner-left {
       align-items: center;
+      flex: 1;
+      min-width: 0;
 
-      .avatar-cell {
-        width: 72rpx;
-        height: 72rpx;
-        border-radius: var(--theme-radius-md);
-        background: var(--theme-primary-gradient);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 20rpx;
+      .banner-icon {
+        width: 60rpx;
+        height: 60rpx;
+        border-radius: 16rpx;
+        background: #FFFFFF;
+        box-shadow: 0 2rpx 8rpx rgba(99, 102, 241, 0.2);
+        margin-right: 14rpx;
         flex-shrink: 0;
-        box-shadow: 0 4rpx 10rpx rgba(37, 99, 235, 0.2);
+      }
 
-        .avatar-letter {
+      .banner-texts {
+        flex: 1;
+        min-width: 0;
+
+        .banner-title {
+          font-size: 26rpx;
+          font-weight: 700;
+          color: #3730A3;
+          display: block;
+          line-height: 1.2;
+        }
+
+        .banner-desc {
+          font-size: 22rpx;
+          color: #4F46E5;
+          display: block;
+          margin-top: 4rpx;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+
+    .banner-right {
+      align-items: center;
+      gap: 12rpx;
+      flex-shrink: 0;
+      margin-left: 12rpx;
+
+      .btn-banner-record {
+        height: 56rpx;
+        padding: 0 20rpx;
+        background: #4F46E5;
+        color: #FFFFFF;
+        border-radius: 12rpx;
+        font-size: 24rpx;
+        font-weight: 600;
+        box-shadow: 0 2rpx 10rpx rgba(79, 70, 229, 0.3);
+      }
+
+      .btn-banner-close {
+        width: 44rpx;
+        height: 44rpx;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.8);
+        color: #64748B;
+        font-size: 32rpx;
+        line-height: 1;
+      }
+    }
+  }
+
+  /* 晨间寄语卡片 */
+  .daily-quote-card {
+    background: linear-gradient(135deg, #F8FAFC 0%, #EEF2FF 50%, #F5F3FF 100%);
+    border: 1rpx solid #E0E7FF;
+    box-shadow: 0 4rpx 16rpx rgba(99, 102, 241, 0.06);
+    padding: 24rpx 28rpx;
+
+    .quote-top {
+      margin-bottom: 12rpx;
+
+      .quote-tag {
+        font-size: 24rpx;
+        font-weight: 700;
+        color: #6366F1;
+        margin-left: 8rpx;
+      }
+
+      .quote-actions {
+        gap: 16rpx;
+
+        .action-btn {
+          font-size: 24rpx;
+          color: #64748B;
+          padding: 6rpx 14rpx;
+          border-radius: 8rpx;
+          background: rgba(255, 255, 255, 0.6);
+
+          &.poster-btn {
+            background: #F5F3FF;
+            border: 1rpx solid #DDD6FE;
+          }
+
+          &.spin {
+            animation: rotate 0.6s linear infinite;
+          }
+        }
+      }
+    }
+
+    .quote-content {
+      font-size: 28rpx;
+      color: #1E293B;
+      font-weight: 500;
+      line-height: 1.55;
+      display: block;
+    }
+  }
+
+  /* 班级切换分段胶囊 */
+  .class-segment-bar {
+    margin: 16rpx 0 24rpx;
+
+    .seg-label {
+      font-size: 26rpx;
+      color: #64748B;
+      white-space: nowrap;
+    }
+
+    .seg-list {
+      gap: 12rpx;
+      overflow-x: auto;
+
+      .seg-item {
+        padding: 8rpx 24rpx;
+        border-radius: 999rpx;
+        background: #FFFFFF;
+        border: 1rpx solid #E2E8F0;
+        font-size: 24rpx;
+        color: #64748B;
+        transition: all 0.15s ease;
+
+        &.active {
+          background: #2563EB;
           color: #FFFFFF;
-          font-size: 32rpx;
+          border-color: #2563EB;
           font-weight: 600;
+          box-shadow: 0 4rpx 12rpx rgba(37, 99, 235, 0.2);
+        }
+      }
+    }
+  }
+
+  /* 主视觉课程板块 */
+  .main-lesson-block {
+    margin-bottom: 24rpx;
+
+    .in-lesson-card {
+      background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+      border: 1rpx solid #C7D2FE;
+      padding: 30rpx 28rpx;
+      margin-bottom: 0;
+      border-radius: 24rpx 24rpx 0 0;
+
+      .in-lesson-top {
+        margin-bottom: 16rpx;
+
+        .pulse-dot {
+          width: 14rpx;
+          height: 14rpx;
+          border-radius: 50%;
+          background: #4F46E5;
+          margin-right: 12rpx;
+          animation: pulse 1.8s ease-in-out infinite;
+        }
+
+        .in-lesson-badge {
+          font-size: 26rpx;
+          font-weight: 700;
+          color: #4F46E5;
+        }
+
+        .remain-pill {
+          font-size: 22rpx;
+          color: #4338CA;
+          background: rgba(255, 255, 255, 0.85);
+          border: 1rpx solid #C7D2FE;
+          border-radius: 999rpx;
+          padding: 2rpx 16rpx;
+          margin-left: 14rpx;
+          font-weight: 500;
+        }
+
+        .time-info {
+          font-size: 24rpx;
+          color: #6366F1;
+
+          .period-span {
+            margin: 0 10rpx;
+          }
+
+          .pct-num {
+            font-weight: 700;
+            color: #818CF8;
+          }
         }
       }
 
-      .profile-info {
-        .teacher-title {
+      .lesson-heading {
+        font-size: 38rpx;
+        font-weight: 700;
+        color: #1E1B4B;
+        margin: 12rpx 0 16rpx;
+        display: block;
+      }
+
+      .progress-bar-bg {
+        height: 8rpx;
+        border-radius: 4rpx;
+        background: rgba(99, 102, 241, 0.15);
+        overflow: hidden;
+        margin-bottom: 24rpx;
+
+        .progress-bar-fill {
+          height: 100%;
+          border-radius: 4rpx;
+          background: linear-gradient(90deg, #6366F1 0%, #818CF8 100%);
+          transition: width 0.4s ease;
+        }
+      }
+
+      .lesson-actions-row {
+        gap: 20rpx;
+
+        .btn-action {
+          flex: 1;
+          height: 80rpx;
+          border-radius: 16rpx;
           display: flex;
           align-items: center;
-          gap: 12rpx;
+          justify-content: center;
+          box-sizing: border-box;
 
-          .name-txt {
-            font-size: 30rpx;
+          .btn-text {
+            font-size: 28rpx;
             font-weight: 600;
-            color: var(--theme-text-title);
-          }
-
-          .role-badge {
-            font-size: 20rpx;
-            color: var(--theme-primary);
-            background-color: var(--theme-primary-light);
-            padding: 2rpx 10rpx;
-            border-radius: var(--theme-radius-sm);
-            font-weight: 500;
+            line-height: 1;
+            white-space: nowrap;
           }
         }
 
-        .school-txt {
+        .btn-record-log {
+          background: #FFFFFF;
+          color: #2563EB;
+          border: 1rpx solid #BFDBFE;
+
+          &.recorded {
+            background: #ECFDF5;
+            color: #059669;
+            border-color: #A7F3D0;
+          }
+        }
+
+        .btn-quick-note {
+          background: #4F46E5;
+          color: #FFFFFF;
+          box-shadow: 0 4rpx 12rpx rgba(79, 70, 229, 0.3);
+        }
+      }
+    }
+
+    .next-lesson-card {
+      background: #FFFFFF;
+      padding: 24rpx 28rpx;
+
+      &.attached-bottom {
+        border-top: 1rpx dashed #E2E8F0;
+        border-radius: 0 0 24rpx 24rpx;
+        background: #F8FAFC;
+      }
+
+      .next-lesson-row {
+        align-items: center;
+        gap: 16rpx;
+      }
+
+      .next-lesson-info {
+        flex: 1;
+        min-width: 0;
+
+        .next-sub {
           font-size: 22rpx;
-          color: var(--theme-text-muted);
-          margin-top: 4rpx;
+          color: #94A3B8;
+          display: block;
+        }
+
+        .next-title {
+          font-size: 30rpx;
+          font-weight: 700;
+          color: #0F172A;
+          margin: 6rpx 0;
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .next-time {
+          font-size: 22rpx;
+          color: #94A3B8;
+        }
+
+        .no-more-text {
+          font-size: 28rpx;
+          font-weight: 600;
+          color: #0F172A;
+          display: block;
+        }
+
+        .no-more-sub {
+          font-size: 22rpx;
+          color: #94A3B8;
+          display: block;
+          margin-top: 6rpx;
+        }
+      }
+
+      .next-lesson-actions {
+        flex-shrink: 0;
+        gap: 12rpx;
+        align-items: center;
+
+        .btn-supplement {
+          height: 64rpx;
+          padding: 0 18rpx;
+          border-radius: 14rpx;
+          background: #EFF6FF;
+          color: #2563EB;
+          border: 1rpx solid #BFDBFE;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+          box-sizing: border-box;
+          flex-shrink: 0;
+
+          .btn-text {
+            font-size: 24rpx;
+            font-weight: 500;
+            line-height: 1;
+            white-space: nowrap;
+          }
+
+          &.done {
+            background: #ECFDF5;
+            color: #059669;
+            border-color: #A7F3D0;
+          }
+        }
+
+        .btn-quick-enter {
+          height: 64rpx;
+          padding: 0 22rpx;
+          border-radius: 14rpx;
+          background: #4F46E5;
+          color: #FFFFFF;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          white-space: nowrap;
+          box-sizing: border-box;
+          flex-shrink: 0;
+          box-shadow: 0 4rpx 10rpx rgba(79, 70, 229, 0.25);
+
+          .btn-text {
+            font-size: 24rpx;
+            font-weight: 600;
+            line-height: 1;
+            color: #FFFFFF;
+            white-space: nowrap;
+          }
+        }
+      }
+    }
+  }
+
+  /* 4 宫格金刚区 */
+  .quick-grid-card {
+    padding: 28rpx 20rpx;
+
+    .grid-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16rpx;
+
+      .nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        .nav-icon-box {
+          width: 96rpx;
+          height: 96rpx;
+          border-radius: 24rpx;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 12rpx;
+        }
+
+        .nav-title {
+          font-size: 26rpx;
+          font-weight: 600;
+          color: #1E293B;
+        }
+
+        .nav-desc {
+          font-size: 20rpx;
+          color: #94A3B8;
+          margin-top: 2rpx;
+        }
+      }
+    }
+  }
+
+  /* 课堂笔记清单 */
+  .section-card {
+    padding: 28rpx;
+
+    .section-head {
+      margin-bottom: 20rpx;
+      padding-bottom: 16rpx;
+      border-bottom: 1rpx solid #F1F5F9;
+
+      .head-title {
+        font-size: 30rpx;
+        font-weight: 700;
+        color: #1E293B;
+      }
+
+      .btn-head-record {
+        height: 52rpx;
+        padding: 0 16rpx;
+        background: #2563EB;
+        color: #FFFFFF;
+        border-radius: 10rpx;
+        font-size: 22rpx;
+        font-weight: 600;
+        align-items: center;
+        box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.25);
+      }
+
+      .head-link {
+        font-size: 24rpx;
+        color: #6366F1;
+        font-weight: 500;
+        align-items: center;
+        gap: 4rpx;
+      }
+    }
+
+    .empty-state {
+      padding: 36rpx 20rpx;
+      text-align: center;
+
+      .empty-text {
+        font-size: 26rpx;
+        color: #94A3B8;
+        margin-bottom: 20rpx;
+        display: block;
+      }
+
+      .empty-action-btn {
+        height: 64rpx;
+        padding: 0 28rpx;
+        background: #2563EB;
+        color: #FFFFFF;
+        border-radius: 14rpx;
+        font-size: 24rpx;
+        font-weight: 600;
+        box-shadow: 0 4rpx 12rpx rgba(37, 99, 235, 0.25);
+      }
+    }
+
+    .logs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16rpx;
+
+      .log-item {
+        padding: 20rpx;
+        background: #F8FAFC;
+        border: 1rpx solid #F1F5F9;
+        margin-bottom: 0;
+
+        .log-item-top {
+          margin-bottom: 12rpx;
+
+          .log-badge {
+            font-size: 22rpx;
+            font-weight: 600;
+          }
+        }
+
+        .log-text {
+          font-size: 26rpx;
+          color: #334155;
+          line-height: 1.55;
           display: block;
         }
       }
     }
+  }
 
-    .greeting-pill {
-      font-size: 24rpx;
-      color: var(--theme-link);
-      background-color: var(--theme-bg-subtle);
-      padding: 6rpx 16rpx;
-      border-radius: var(--theme-radius-full);
-      font-weight: 500;
+  /* 今日节奏三合一 */
+  .rhythm-card {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28rpx;
+
+    .rhythm-left {
+      gap: 20rpx;
+
+      .ring-circle {
+        width: 90rpx;
+        height: 90rpx;
+        border-radius: 50%;
+        border: 6rpx solid #2563EB;
+        background: #EFF6FF;
+
+        .ring-num {
+          font-size: 36rpx;
+          font-weight: 800;
+          color: #2563EB;
+        }
+      }
+
+      .rhythm-title {
+        font-size: 28rpx;
+        font-weight: 700;
+        color: #1E293B;
+        display: block;
+      }
+
+      .rhythm-sub {
+        font-size: 22rpx;
+        color: #94A3B8;
+        display: block;
+      }
+    }
+
+    .rhythm-right {
+      gap: 36rpx;
+
+      .r-stat {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        .r-val {
+          font-size: 32rpx;
+          font-weight: 700;
+          color: #1E293B;
+
+          &.danger {
+            color: #DC2626;
+          }
+
+          &.warning {
+            color: #D97706;
+          }
+
+          &.success {
+            color: #059669;
+          }
+        }
+
+        .r-lbl {
+          font-size: 20rpx;
+          color: #94A3B8;
+          margin-top: 4rpx;
+        }
+      }
     }
   }
 
-  /* 状态 A: 冷启动无班级引导 (微信官方 Empty State 哲学) */
-  .wechat-empty-panel {
-    background-color: var(--theme-bg-surface);
-    border-radius: var(--theme-radius-lg);
-    padding: 48rpx 32rpx;
-    border: 1rpx solid var(--theme-border-card);
-    box-sizing: border-box;
+  /* 紧要待办单手办结列表 */
+  .todos-direct-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12rpx;
 
-    .empty-hero {
-      text-align: center;
-      padding: 20rpx 0 36rpx;
+    .todo-direct-item {
+      padding: 20rpx;
+      border-radius: 14rpx;
 
-      .empty-icon-wrap {
-        width: 120rpx;
-        height: 120rpx;
-        border-radius: var(--theme-radius-full);
-        background-color: var(--theme-primary-light);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 28rpx;
+      &.overdue {
+        background: #FFF5F5;
+        border: 1rpx solid #FED7D7;
       }
 
-      .empty-title {
-        font-size: 34rpx;
-        font-weight: 600;
-        color: var(--theme-text-title);
-        letter-spacing: 0.5rpx;
+      &.normal {
+        background: #FFFAF0;
+        border: 1rpx solid #FEEBC8;
       }
 
-      .empty-subtitle {
-        font-size: 26rpx;
-        color: var(--theme-text-muted);
-        margin-top: 12rpx;
-        line-height: 1.5;
-        padding: 0 20rpx;
+      .check-ring {
+        width: 32rpx;
+        height: 32rpx;
+        border-radius: 50%;
+        border: 2rpx solid #CBD5E1;
+        margin-right: 14rpx;
+        background: #FFFFFF;
       }
-    }
 
-    .empty-cta-box {
-      margin-top: 12rpx;
-
-      .wechat-primary-btn {
-        background-color: var(--theme-primary);
+      .badge-overdue {
+        font-size: 20rpx;
+        background: #EF4444;
         color: #FFFFFF;
-        height: 88rpx;
-        border-radius: var(--theme-radius-md);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12rpx;
-        font-size: 30rpx;
+        padding: 2rpx 10rpx;
+        border-radius: 6rpx;
         font-weight: 600;
-        box-shadow: var(--theme-shadow-md);
-        transition: opacity 0.15s ease;
+        margin-right: 12rpx;
+      }
 
-        &.wechat-btn-active {
-          opacity: 0.88;
-          background-color: var(--theme-primary-hover);
+      .badge-today {
+        font-size: 20rpx;
+        background: #D97706;
+        color: #FFFFFF;
+        padding: 2rpx 10rpx;
+        border-radius: 6rpx;
+        font-weight: 600;
+        margin-right: 12rpx;
+      }
+
+      .todo-content-text {
+        font-size: 26rpx;
+        color: #1E293B;
+        font-weight: 500;
+        max-width: 380rpx;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .click-hint {
+        font-size: 20rpx;
+        color: #94A3B8;
+      }
+    }
+  }
+
+  /* 通用辅助标签 */
+  .badge-warning {
+    background: #FEF3C7;
+    color: #B45309;
+    border: 1rpx solid #FDE68A;
+    font-size: 22rpx;
+    font-weight: 600;
+    padding: 4rpx 14rpx;
+    border-radius: 999rpx;
+  }
+
+  .head-sub-tag {
+    font-size: 22rpx;
+    color: #94A3B8;
+    font-weight: 500;
+  }
+
+  /* 等着补测卡片 */
+  .absentees-tags-wrap {
+    flex-wrap: wrap;
+    gap: 16rpx;
+    margin-top: 12rpx;
+
+    .absentee-tag {
+      background: #FFFBEB;
+      border: 1.5rpx solid #FDE68A;
+      border-radius: 12rpx;
+      padding: 10rpx 20rpx;
+      align-items: center;
+
+      .absentee-name {
+        font-size: 26rpx;
+        font-weight: 600;
+        color: #92400E;
+      }
+
+      .badge-retest {
+        font-size: 20rpx;
+        background: #F59E0B;
+        color: #FFFFFF;
+        padding: 2rpx 8rpx;
+        border-radius: 6rpx;
+        margin-left: 10rpx;
+        font-weight: 500;
+      }
+    }
+  }
+
+  /* 学情概览指标 4 宫格 */
+  .academic-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16rpx;
+    margin-top: 16rpx;
+
+    .stat-card {
+      background: #F8FAFC;
+      border: 1rpx solid #E2E8F0;
+      border-radius: 16rpx;
+      padding: 20rpx 22rpx;
+      display: flex;
+      flex-direction: column;
+
+      .stat-top {
+        font-size: 22rpx;
+        color: #64748B;
+        font-weight: 500;
+      }
+
+      .stat-val-row {
+        align-items: baseline;
+        margin: 8rpx 0 4rpx;
+
+        .stat-val {
+          font-size: 40rpx;
+          font-weight: 800;
+          color: #0F172A;
+          letter-spacing: -0.5rpx;
         }
 
-        .btn-txt {
-          color: #FFFFFF;
+        .stat-unit {
+          font-size: 22rpx;
+          font-weight: 600;
+          color: #64748B;
+          margin-left: 4rpx;
+        }
+      }
+
+      .stat-sub {
+        font-size: 20rpx;
+        color: #94A3B8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+
+  /* 今日课表条一览 */
+  .schedule-tags-wrap {
+    flex-wrap: wrap;
+    gap: 14rpx;
+    margin-top: 14rpx;
+
+    .schedule-pill {
+      background: #F8FAFC;
+      border: 1rpx solid #E2E8F0;
+      border-radius: 12rpx;
+      padding: 10rpx 18rpx;
+      align-items: center;
+      gap: 10rpx;
+
+      .pill-title {
+        font-size: 24rpx;
+        font-weight: 600;
+        color: #334155;
+      }
+
+      .pill-time {
+        font-size: 20rpx;
+        color: #94A3B8;
+      }
+
+      &.current {
+        background: #EEF2FF;
+        border-color: #C7D2FE;
+
+        .pill-title {
+          color: #4F46E5;
+        }
+
+        .pill-time {
+          color: #6366F1;
+        }
+      }
+
+      &.next {
+        background: #EFF6FF;
+        border-color: #BFDBFE;
+
+        .pill-title {
+          color: #2563EB;
         }
       }
     }
   }
 
-  /* 状态 B: 正常工作台 (已有班级) */
-  .wechat-main-content {
+  /* 学业项目完成率卡片 */
+  .rate-items-list {
     display: flex;
     flex-direction: column;
     gap: 20rpx;
+    margin-top: 16rpx;
 
-    /* 1. 当前班级核心卡片 */
-    .class-hero-card {
-      background-color: var(--theme-bg-surface);
-      border-radius: var(--theme-radius-lg);
-      padding: 28rpx;
-      border: 1rpx solid var(--theme-border-card);
-      box-shadow: var(--theme-shadow-sm);
+    .rate-item {
+      .rate-top {
+        margin-bottom: 8rpx;
 
-      .class-hero-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding-bottom: 24rpx;
-        border-bottom: 1rpx solid #F1F5F9;
-
-        .class-title-row {
-          display: flex;
-          align-items: center;
-          gap: 12rpx;
-
-          .hero-class-name {
-            font-size: 34rpx;
-            font-weight: 700;
-            color: var(--theme-text-title);
-          }
-
-          .hero-subject-tag {
-            font-size: 22rpx;
-            font-weight: 500;
-            padding: 4rpx 14rpx;
-            border-radius: var(--theme-radius-sm);
-          }
-        }
-
-        .class-header-actions {
-          display: flex;
-          align-items: center;
-          gap: 16rpx;
-
-          .action-switch-pill {
-            font-size: 24rpx;
-            color: var(--theme-primary);
-            background-color: var(--theme-primary-light);
-            padding: 6rpx 16rpx;
-            border-radius: var(--theme-radius-sm);
-            font-weight: 500;
-
-            &.pill-active {
-              background-color: #DBEAFE;
-            }
-          }
-
-          .action-del-pill {
-            font-size: 24rpx;
-            color: var(--theme-danger);
-            background-color: var(--theme-danger-light);
-            padding: 6rpx 16rpx;
-            border-radius: var(--theme-radius-sm);
-            font-weight: 500;
-
-            &.pill-active {
-              background-color: #FEE2E2;
-            }
-          }
-        }
-      }
-
-      /* 紧凑数据横栏 */
-      .class-metrics-bar {
-        display: flex;
-        align-items: center;
-        justify-content: space-around;
-        padding: 24rpx 0;
-
-        .metric-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-
-          .metric-number {
-            font-size: 38rpx;
-            font-weight: 700;
-            color: var(--theme-text-title);
-            font-variant-numeric: tabular-nums;
-
-            &.font-amber {
-              color: var(--theme-warning);
-            }
-          }
-
-          .metric-caption {
-            font-size: 22rpx;
-            color: var(--theme-text-muted);
-            margin-top: 6rpx;
-          }
-        }
-
-        .metric-divider {
-          width: 1rpx;
-          height: 40rpx;
-          background-color: var(--theme-border-cell);
-        }
-      }
-
-      /* 花名册快速直达条 */
-      .class-roster-entrance {
-        background-color: var(--theme-bg-subtle);
-        border-radius: var(--theme-radius-md);
-        padding: 18rpx 24rpx;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        transition: background-color 0.15s ease;
-
-        &.entrance-active {
-          background-color: var(--theme-bg-active);
-        }
-
-        .entrance-left {
-          display: flex;
-          align-items: center;
-          gap: 12rpx;
-
-          .entrance-title {
-            font-size: 26rpx;
-            font-weight: 600;
-            color: var(--theme-text-primary);
-          }
-        }
-
-        .entrance-right {
-          display: flex;
-          align-items: center;
-          gap: 6rpx;
-
-          .entrance-count {
-            font-size: 24rpx;
-            color: var(--theme-primary);
-            font-weight: 600;
-          }
-        }
-      }
-    }
-
-    /* 2. 微信 WeUI 分组容器 */
-    .wechat-group-wrap {
-      .wechat-group-title {
-        font-size: 26rpx;
-        color: var(--theme-text-muted);
-        padding: 8rpx 16rpx 14rpx;
-        font-weight: 400;
-      }
-    }
-  }
-
-  /* 微信经典 WeUI 列表组 (Cell Group) */
-  .wechat-cell-group {
-    background-color: var(--theme-bg-surface);
-    border-radius: var(--theme-radius-lg);
-    overflow: hidden;
-    border: 1rpx solid var(--theme-border-card);
-    box-shadow: var(--theme-shadow-sm);
-
-    .wechat-cell {
-      position: relative;
-      display: flex;
-      align-items: center;
-      padding: 26rpx 28rpx;
-      background-color: var(--theme-bg-surface);
-      transition: background-color 0.15s ease;
-
-      &.wechat-cell-active {
-        background-color: var(--theme-bg-active) !important;
-      }
-
-      /* 微信标准左边距分割线 (116rpx 留白) */
-      &:not(:last-child)::after {
-        content: '';
-        position: absolute;
-        left: 116rpx;
-        right: 0;
-        bottom: 0;
-        height: 1rpx;
-        background-color: var(--theme-border-cell);
-      }
-
-      .cell-icon-box {
-        width: 68rpx;
-        height: 68rpx;
-        border-radius: var(--theme-radius-md);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 20rpx;
-        flex-shrink: 0;
-
-        &.icon-bg-blue { background-color: var(--theme-primary-light); }
-        &.icon-bg-purple { background-color: #F5F3FF; }
-        &.icon-bg-gray { background-color: var(--theme-bg-subtle); }
-        &.icon-bg-emerald { background-color: var(--theme-success-light); }
-      }
-
-      .cell-main {
-        flex: 1;
-
-        .cell-title {
-          font-size: 30rpx;
-          color: var(--theme-text-primary);
+        .rate-name {
+          font-size: 26rpx;
           font-weight: 500;
-
-          &.text-done {
-            text-decoration: line-through;
-            color: var(--theme-text-muted);
-          }
+          color: #334155;
         }
 
-        .cell-sub {
-          font-size: 24rpx;
-          color: var(--theme-text-muted);
-          margin-top: 4rpx;
-          line-height: 1.3;
+        .rate-num {
+          font-size: 26rpx;
+          font-weight: 700;
+          color: #2563EB;
+
+          &.full {
+            color: #059669;
+          }
         }
       }
 
-      .cell-tail {
-        display: flex;
-        align-items: center;
-        gap: 8rpx;
+      .rate-bar-bg {
+        height: 12rpx;
+        background: #F1F5F9;
+        border-radius: 999rpx;
+        overflow: hidden;
 
-        .badge-count {
-          font-size: 24rpx;
-          color: var(--theme-text-muted);
-        }
+        .rate-bar-fill {
+          height: 100%;
+          background: linear-gradient(90deg, #3B82F6 0%, #2563EB 100%);
+          border-radius: 999rpx;
+          transition: width 0.3s ease;
 
-        .code-copy-tag {
-          background-color: var(--theme-bg-subtle);
-          border: 1rpx solid var(--theme-border-input);
-          padding: 6rpx 16rpx;
-          border-radius: var(--theme-radius-sm);
-
-          .code-txt {
-            font-size: 24rpx;
-            font-weight: 600;
-            color: var(--theme-primary);
-            letter-spacing: 1rpx;
+          &.full {
+            background: linear-gradient(90deg, #10B981 0%, #059669 100%);
           }
-        }
-
-        .todo-pill {
-          font-size: 22rpx;
-          color: var(--theme-text-muted);
-          background-color: var(--theme-bg-subtle);
-          padding: 4rpx 12rpx;
-          border-radius: var(--theme-radius-sm);
-        }
-      }
-
-      /* 待办 Checkbox */
-      .wechat-checkbox {
-        width: 44rpx;
-        height: 44rpx;
-        border-radius: var(--theme-radius-full);
-        border: 2rpx solid #CBD5E1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 20rpx;
-        flex-shrink: 0;
-        transition: all 0.2s ease;
-
-        &.checked {
-          background-color: var(--theme-primary);
-          border-color: var(--theme-primary);
         }
       }
     }
   }
 
-  .mt-24 {
-    margin-top: 24rpx;
+  /* 📱 晨间寄语超清海报弹窗 */
+  .poster-modal-mask {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(15, 23, 42, 0.7);
+    z-index: 1000;
+    padding: 32rpx;
+
+    .poster-modal-content {
+      width: 100%;
+      max-width: 640rpx;
+      background: #FFFFFF;
+      border-radius: 28rpx;
+      padding: 32rpx;
+      box-shadow: 0 20rpx 50rpx rgba(0, 0, 0, 0.25);
+      animation: zoomIn 0.25s ease;
+
+      .poster-modal-header {
+        align-items: center;
+        margin-bottom: 24rpx;
+
+        .poster-modal-title {
+          font-size: 30rpx;
+          font-weight: 700;
+          color: #0F172A;
+        }
+
+        .btn-close-poster {
+          width: 52rpx;
+          height: 52rpx;
+          border-radius: 50%;
+          background: #F1F5F9;
+          color: #64748B;
+          font-size: 36rpx;
+          line-height: 1;
+        }
+      }
+
+      .poster-card-preview {
+        border-radius: 20rpx;
+        border: 2rpx solid;
+        padding: 24rpx;
+        box-shadow: 0 10rpx 30rpx rgba(0, 0, 0, 0.06);
+
+        .poster-inner-border {
+          border: 1rpx dashed rgba(0, 0, 0, 0.15);
+          border-radius: 14rpx;
+          padding: 24rpx 20rpx;
+
+          .poster-card-top {
+            align-items: center;
+            margin-bottom: 20rpx;
+
+            .poster-badge {
+              align-items: center;
+            }
+
+            .poster-date {
+              font-size: 20rpx;
+              font-weight: 600;
+              opacity: 0.85;
+            }
+          }
+
+          .poster-body {
+            padding: 10rpx 0 16rpx;
+
+            .poster-quote-mark {
+              font-size: 48rpx;
+              font-family: Georgia, serif;
+              line-height: 1;
+              display: block;
+              margin-bottom: -10rpx;
+              opacity: 0.6;
+            }
+
+            .poster-quote-text {
+              font-size: 28rpx;
+              font-weight: 600;
+              line-height: 1.65;
+              display: block;
+              margin-bottom: 16rpx;
+              letter-spacing: 0.5rpx;
+            }
+
+            .poster-author {
+              font-size: 22rpx;
+              font-weight: 500;
+              display: block;
+              text-align: right;
+              opacity: 0.8;
+            }
+          }
+
+          .poster-card-footer {
+            margin-top: 16rpx;
+            padding-top: 14rpx;
+            border-top: 1rpx solid rgba(0, 0, 0, 0.08);
+
+            .poster-foot-tag {
+              font-size: 18rpx;
+              font-weight: 500;
+              opacity: 0.8;
+            }
+          }
+        }
+      }
+
+      .poster-themes-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12rpx;
+        margin: 24rpx 0;
+
+        .theme-pill {
+          align-items: center;
+          justify-content: center;
+          gap: 8rpx;
+          padding: 12rpx 0;
+          border-radius: 14rpx;
+          border: 1.5rpx solid #E2E8F0;
+          background: #F8FAFC;
+
+          .theme-dot {
+            width: 14rpx;
+            height: 14rpx;
+            border-radius: 50%;
+          }
+
+          .theme-name {
+            font-size: 20rpx;
+            color: #64748B;
+            font-weight: 500;
+          }
+
+          &.active {
+            border-color: #6366F1;
+            background: #EEF2FF;
+
+            .theme-name {
+              color: #4F46E5;
+              font-weight: 700;
+            }
+          }
+        }
+      }
+
+      .poster-actions-row {
+        gap: 16rpx;
+
+        .btn-poster-action {
+          flex: 1;
+          height: 76rpx;
+          border-radius: 16rpx;
+          font-size: 26rpx;
+          font-weight: 600;
+
+          &.primary {
+            background: linear-gradient(135deg, #6366F1 0%, #4F46E5 100%);
+            color: #FFFFFF;
+            box-shadow: 0 4rpx 14rpx rgba(99, 102, 241, 0.3);
+          }
+
+          &.secondary {
+            background: #F1F5F9;
+            color: #475569;
+          }
+        }
+      }
+    }
   }
 }
 
-/* ==========================================================================
-   底部半屏抽屉面板 (WeChat Bottom Sheet Panel · 移动端高保真设计)
-   ========================================================================== */
-.wechat-bottom-panel {
-  background-color: var(--theme-bg-surface);
-  padding: 24rpx 36rpx calc(36rpx + env(safe-area-inset-bottom));
-  transition: padding-bottom 0.15s ease;
-  box-sizing: border-box;
-  width: 100%;
-  max-height: 82vh;
-  display: flex;
-  flex-direction: column;
+@keyframes pulse {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  50% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(0.95); opacity: 0.8; }
+}
 
-  /* 键盘弹起时清零安全区与多余间距，无缝贴合键盘顶部 */
-  &.keyboard-opened {
-    padding-bottom: 24rpx !important;
-  }
-
-  /* 顶部优雅拖拽把手 */
-  .panel-drag-handle {
-    width: 64rpx;
-    height: 8rpx;
-    border-radius: 4rpx;
-    background-color: #CBD5E1;
-    margin: 0 auto 24rpx;
-    flex-shrink: 0;
-  }
-
-  .panel-header {
-    margin-bottom: 28rpx;
-    padding-bottom: 16rpx;
-    border-bottom: 1rpx solid #F1F5F9;
-    flex-shrink: 0;
-
-    .panel-header-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .panel-main-title {
-        font-size: 34rpx;
-        font-weight: 700;
-        color: var(--theme-text-title);
-        letter-spacing: 0.5rpx;
-      }
-
-      .panel-close-btn {
-        width: 52rpx;
-        height: 52rpx;
-        border-radius: 50%;
-        background-color: #F1F5F9;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s ease;
-
-        .close-symbol {
-          font-size: 26rpx;
-          color: #64748B;
-          line-height: 1;
-        }
-
-        &.close-btn-active {
-          background-color: #E2E8F0;
-          transform: scale(0.92);
-        }
-      }
-    }
-
-    .panel-sub-title {
-      font-size: 24rpx;
-      color: var(--theme-text-muted);
-      margin-top: 6rpx;
-      display: block;
-      line-height: 1.4;
-    }
-  }
-
-  .panel-form {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 20rpx;
-
-    .form-field {
-      margin-bottom: 24rpx;
-
-      .field-label {
-        font-size: 26rpx;
-        font-weight: 600;
-        color: var(--theme-text-primary);
-        margin-bottom: 12rpx;
-        display: flex;
-        align-items: center;
-
-        .field-required {
-          color: var(--theme-danger);
-          margin-left: 6rpx;
-          font-weight: 700;
-        }
-      }
-
-      .field-input,
-      .custom-nut-input {
-        width: 100%;
-        height: 88rpx !important; /* 44px 移动端黄金触控区 */
-        background-color: var(--theme-bg-subtle) !important;
-        border: 1.5rpx solid var(--theme-border-input) !important;
-        border-radius: 16rpx !important;
-        padding: 0 24rpx !important;
-        font-size: 28rpx !important;
-        color: var(--theme-text-primary) !important;
-        box-sizing: border-box !important;
-        transition: all 0.2s ease !important;
-        display: flex;
-        align-items: center;
-
-        .nut-input-inner {
-          font-size: 28rpx;
-          color: var(--theme-text-primary);
-        }
-
-        &:focus,
-        &:focus-within {
-          border-color: var(--theme-primary) !important;
-          background-color: #FFFFFF !important;
-        }
-
-        &.code-input,
-        &.code-nut-input {
-          .nut-input-inner,
-          input {
-            letter-spacing: 6rpx;
-            font-weight: 700;
-            font-size: 34rpx;
-            text-transform: uppercase;
-            color: var(--theme-primary);
-            font-family: monospace, sans-serif;
-          }
-        }
-      }
-
-      &.mt-20 {
-        margin-top: 24rpx;
-      }
-    }
-
-    /* 4 列弹性紧凑学科点选网格 */
-    .panel-subject-chips {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 14rpx;
-      padding-top: 6rpx;
-
-      .subject-chip {
-        height: 68rpx;
-        border-radius: 12rpx;
-        background-color: var(--theme-bg-subtle);
-        font-size: 26rpx;
-        color: var(--theme-text-secondary);
-        border: 1.5rpx solid transparent;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s ease;
-        box-sizing: border-box;
-
-        &:active {
-          transform: scale(0.96);
-        }
-
-        &.active {
-          background-color: var(--theme-primary-light);
-          color: var(--theme-primary);
-          border-color: var(--theme-primary);
-          font-weight: 600;
-          box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.12);
-        }
-      }
-    }
-  }
-
-  .panel-actions {
-    padding-top: 16rpx;
-    flex-shrink: 0;
-
-    .panel-save-btn {
-      width: 100%;
-      height: 88rpx; /* 44px 移动端黄金触控大按钮 */
-      background: var(--theme-primary-gradient);
-      border-radius: 16rpx;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FFFFFF;
-      font-size: 30rpx;
-      font-weight: 600;
-      letter-spacing: 1rpx;
-      box-shadow: var(--theme-shadow-md);
-      transition: all 0.15s ease;
-
-      &.panel-btn-active {
-        transform: scale(0.98);
-        opacity: 0.9;
-        background: var(--theme-primary-hover);
-      }
-    }
-  }
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

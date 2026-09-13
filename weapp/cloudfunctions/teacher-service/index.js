@@ -100,7 +100,25 @@ exports.main = async (event, context) => {
       // 2. 创建新班级并设为班主任
       case 'createClass': {
         const { name, grade, subject_id } = event
-        if (!name) return { code: 400, message: '班级名称不能为空' }
+        const trimmedName = (name || '').trim()
+        if (!trimmedName) return { code: 400, message: '班级名称不能为空' }
+
+        // 校验当前教师名下是否已有同名活跃班级（排除已软删除）
+        const ctListRes = await rdb.from('class_teachers')
+          .select('class_id')
+          .eq('teacher_openid', openid)
+          .is('deleted_at', null)
+        const myClassIds = (ctListRes.data || []).map(i => i.class_id)
+        if (myClassIds.length > 0) {
+          const duplicateClsRes = await rdb.from('classes')
+            .select('id, name')
+            .in('id', myClassIds)
+            .eq('name', trimmedName)
+            .is('deleted_at', null)
+          if (duplicateClsRes.data && duplicateClsRes.data.length > 0) {
+            return { code: 400, message: `您名下已存在同名班级「${trimmedName}」，请勿重复创建` }
+          }
+        }
 
         // 确保教师在 teachers 表已登记
         const tRes = await rdb.from('teachers').select('*').eq('openid', openid)
@@ -114,7 +132,7 @@ exports.main = async (event, context) => {
 
         const invite_code = generateInviteCode()
         const classInsert = await rdb.from('classes').insert({
-          name,
+          name: trimmedName,
           grade: grade || '',
           invite_code,
           created_by: openid
@@ -325,6 +343,57 @@ exports.main = async (event, context) => {
         }
       }
 
+      // 8. 更新单个学生（姓名、学号、所属小组、是否组长、性别）
+      case 'updateStudent': {
+        const { student_id, name, student_no, group_name, is_leader, gender } = event
+        if (!student_id) return { code: 400, message: '请指定学生 ID' }
+
+        const updatePayload = {}
+        if (name !== undefined) updatePayload.name = name.trim()
+        if (student_no !== undefined) updatePayload.student_no = String(student_no).trim()
+        if (group_name !== undefined) updatePayload.group_name = group_name.trim()
+        if (is_leader !== undefined) updatePayload.is_leader = !!is_leader
+        if (gender !== undefined) updatePayload.gender = gender
+
+        const upRes = await rdb.from('students')
+          .update(updatePayload)
+          .eq('id', Number(student_id))
+          .select()
+
+        if (upRes.error) {
+          console.error('更新学生失败:', upRes.error)
+          throw new Error(`更新学生失败: ${upRes.error.message || JSON.stringify(upRes.error)}`)
+        }
+
+        return {
+          code: 0,
+          data: upRes.data && upRes.data[0],
+          message: '学生信息更新成功'
+        }
+      }
+
+      // 9. 软删除单个学生（从班级花名册移出）
+      case 'deleteStudent': {
+        const { student_id } = event
+        if (!student_id) return { code: 400, message: '请指定学生 ID' }
+
+        const now = new Date().toISOString()
+        const delRes = await rdb.from('students')
+          .update({ deleted_at: now })
+          .eq('id', Number(student_id))
+
+        if (delRes.error) {
+          console.error('删除学生失败:', delRes.error)
+          throw new Error(`删除学生失败: ${delRes.error.message || JSON.stringify(delRes.error)}`)
+        }
+
+        return {
+          code: 0,
+          data: { student_id: Number(student_id) },
+          message: '学生已成功移出班级'
+        }
+      }
+
       // 8. 删除班级（级联软删除名下学生、任教关系及班级）
       case 'deleteClass': {
         const { class_id } = event
@@ -367,6 +436,43 @@ exports.main = async (event, context) => {
           code: 0,
           data: { class_id: targetClassId },
           message: '班级及名下学生已安全软删除'
+        }
+      }
+
+      // 9. 更新教师个人资料（如微信头像、姓名）
+      case 'updateProfile': {
+        const { avatar_url, name } = event
+        const updatePayload = {}
+        if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url
+        if (name !== undefined) updatePayload.name = name.trim()
+
+        if (Object.keys(updatePayload).length === 0) {
+          return { code: 400, message: '无有效更新内容' }
+        }
+
+        // 确保教师已登记，未登记则自动插入
+        const tCheck = await rdb.from('teachers').select('id').eq('openid', openid)
+        if (!tCheck.data || tCheck.data.length === 0) {
+          await rdb.from('teachers').insert({
+            openid,
+            name: name ? name.trim() : '老师',
+            avatar_url: avatar_url || null
+          })
+        } else {
+          const upRes = await rdb.from('teachers')
+            .update(updatePayload)
+            .eq('openid', openid)
+
+          if (upRes.error) {
+            console.error('更新教师资料失败:', upRes.error)
+            throw new Error(`更新教师资料失败: ${upRes.error.message || JSON.stringify(upRes.error)}`)
+          }
+        }
+
+        return {
+          code: 0,
+          data: { openid, ...updatePayload },
+          message: '教师资料已更新'
         }
       }
 

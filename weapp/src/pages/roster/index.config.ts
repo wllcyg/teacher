@@ -1,4 +1,4 @@
 export default {
-  navigationBarTitleText: '教师工作台',
+  navigationBarTitleText: '班级花名册',
   enablePullDownRefresh: true,
 }

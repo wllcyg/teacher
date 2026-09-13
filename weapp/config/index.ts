@@ -1,15 +1,15 @@
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
-import Components from 'unplugin-vue-components/vite'
-import NutUIResolver from '@nutui/auto-import-resolver'
+
+import react from '@vitejs/plugin-react'
 import devConfig from './dev'
 import prodConfig from './prod'
 
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig<'vite'>(async (merge, { command, mode }) => {
   const baseConfig: UserConfigExport<'vite'> = {
-    projectName: 'myApp',
-    date: '2026-9-11',
+    projectName: 'teacher-workbench-weapp',
+    date: '2026-9-13',
     designWidth: 750,
     deviceRatio: {
       640: 2.34 / 2,
@@ -28,13 +28,11 @@ export default defineConfig<'vite'>(async (merge, { command, mode }) => {
       options: {
       }
     },
-    framework: 'vue3',
+    framework: 'react',
     compiler: {
       type: 'vite',
       vitePlugins: [
-        Components({
-          resolvers: [NutUIResolver({ taro: true })],
-        }),
+        react(),
       ],
     },
     mini: {

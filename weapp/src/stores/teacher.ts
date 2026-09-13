@@ -160,8 +160,26 @@ export const useTeacherStore = defineStore('teacher', {
       Taro.vibrateShort({ type: 'light' })
       if (res && res.class_id) {
         this.currentClassId = res.class_id
+        // 乐观追加到当前班级列表，确保工作台状态即刻就绪
+        const exists = this.classList.some(c => c.class_id === res.class_id)
+        if (!exists) {
+          this.classList.push({
+            class_id: res.class_id,
+            name: res.name || params.name,
+            grade: res.grade || params.grade || '',
+            invite_code: res.invite_code || '',
+            is_headmaster: true,
+            subject_name: '未设科目',
+            subject_color: '#3b82f6',
+            subject_short: '科'
+          })
+        }
+        this.students = []
       }
-      await this.fetchProfile(true)
+      // 后台静默刷新全量档案，解耦错误传播，避免阻断创建主流程
+      this.fetchProfile(true).catch(err => {
+        console.warn('[createClass] 后台静默同步班级档案:', err)
+      })
       return res
     },
 
@@ -190,7 +208,7 @@ export const useTeacherStore = defineStore('teacher', {
       return res
     },
 
-    // 7. 批量导入学生
+    // 8. 批量导入学生
     async batchImportStudents(students: Array<{ name: string; group_name?: string; is_leader?: boolean; gender?: string; student_no?: string }>) {
       if (!this.currentClassId) return
       const res = await callTeacherService('batchImportStudents', {
@@ -202,7 +220,17 @@ export const useTeacherStore = defineStore('teacher', {
       return res
     },
 
-    // 8. 单个添加学生
+    // 9. 更新教师头像与资料
+    async updateAvatar(avatarUrl: string) {
+      await callTeacherService('updateProfile', {
+        avatar_url: avatarUrl
+      })
+      if (this.teacher) {
+        this.teacher.avatar_url = avatarUrl
+      }
+    },
+
+    // 10. 单个添加学生
     async addStudent(student: { name: string; group_name?: string; is_leader?: boolean; gender?: string; student_no?: string }) {
       if (!this.currentClassId) return
       const res = await callTeacherService('addStudent', {
@@ -211,6 +239,46 @@ export const useTeacherStore = defineStore('teacher', {
       })
       Taro.vibrateShort({ type: 'light' })
       await this.fetchClassStudents(this.currentClassId)
+      return res
+    },
+
+    // 11. 更新单个学生（乐观更新 + 云端持久化）
+    async updateStudent(studentId: number, payload: Partial<StudentItem>) {
+      const target = this.students.find(s => s.id === studentId)
+      if (target) {
+        Object.assign(target, payload)
+      }
+      Taro.vibrateShort({ type: 'light' })
+
+      const res = await callTeacherService('updateStudent', {
+        student_id: studentId,
+        ...payload
+      })
+      return res
+    },
+
+    // 12. 切换组长状态（组长/组员）
+    async toggleStudentLeader(studentId: number) {
+      const target = this.students.find(s => s.id === studentId)
+      if (!target) return
+      const nextState = !target.is_leader
+      target.is_leader = nextState
+      Taro.vibrateShort({ type: 'medium' })
+
+      await callTeacherService('updateStudent', {
+        student_id: studentId,
+        is_leader: nextState
+      })
+    },
+
+    // 13. 从班级中移除单个学生（软删除）
+    async deleteStudent(studentId: number) {
+      this.students = this.students.filter(s => s.id !== studentId)
+      Taro.vibrateShort({ type: 'medium' })
+
+      const res = await callTeacherService('deleteStudent', {
+        student_id: studentId
+      })
       return res
     },
 

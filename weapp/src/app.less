@@ -1,306 +1,117 @@
-/* ==========================================================================
-   教师工作台 · 系统级设计令牌系统 (System Design Tokens)
-   主体基调：教育学术蓝 (Education Academic Blue)
-   适配标准：微信原生 WeUI 规范 + 750rpx 移动响应式 + NutUI 统一变量注入
-   ========================================================================== */
+/**
+ * 微信小程序高质感全局样式 (遵从 WeChat Design System 规范)
+ */
 
-:root, page {
-  /* ==================== 1. 品牌主色系 (Primary Brand - 教育学术蓝) ==================== */
-  --theme-primary: #2563EB;             /* 主色：现代知性学术蓝 */
-  --theme-primary-hover: #1D4ED8;       /* 悬浮/激活色：深沉墨蓝 */
-  --theme-primary-light: #EFF6FF;       /* 浅色背景：天际淡蓝 (用于徽章、选中底色) */
-  --theme-primary-border: rgba(37, 99, 235, 0.25); /* 主色微边框 */
-  --theme-primary-gradient: linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%); /* 渐变色 */
-
-  /* ==================== 2. 功能语义色系 (Semantic Colors) ==================== */
-  /* 成功色 (Success) */
-  --theme-success: #059669;
-  --theme-success-light: #ECFDF5;
-  --theme-success-border: rgba(5, 150, 105, 0.2);
-
-  /* 警示色 / 组长专属金 (Warning / Gold) */
-  --theme-warning: #D97706;
-  --theme-warning-light: #FEF3C7;
-  --theme-warning-border: rgba(217, 119, 6, 0.2);
-
-  /* 危险色 / 删除告警 (Danger) */
-  --theme-danger: #DC2626;
-  --theme-danger-light: #FEF2F2;
-  --theme-danger-border: rgba(220, 38, 38, 0.2);
-
-  /* 链接 / 微信交互蓝 (Link) */
-  --theme-link: #576B95;
-  --theme-link-light: #F2F5F8;
-
-  /* ==================== 3. 画布与容器表面 (Surfaces & Canvas) ==================== */
-  --theme-bg-canvas: #EDEDED;           /* 微信标准浅灰底色 */
-  --theme-bg-surface: #FFFFFF;          /* 卡片纯白表面 */
-  --theme-bg-subtle: #F7F7F7;           /* 次级灰底 (输入框、小胶囊底色) */
-  --theme-bg-active: #ECECEC;           /* 微信 Cell 按压高亮灰底 */
-
-  /* ==================== 4. 文本层级系统 (Typography Scale) ==================== */
-  --theme-text-title: #0F172A;          /* 大标题/重点数据 (Slate 900) */
-  --theme-text-primary: #1E293B;        /* 正文/姓名/主要内容 (Slate 800) */
-  --theme-text-secondary: #475569;      /* 次级正文/说明 (Slate 600) */
-  --theme-text-muted: #888888;          /* 微提示/辅助注释 (Gray 500) */
-  --theme-text-placeholder: #94A3B8;    /* 表单占位符 (Slate 400) */
-
-  /* ==================== 5. 边框与分割线 (Borders & Dividers) ==================== */
-  --theme-border-cell: #ECECEC;         /* 微信标准 116rpx 留白分割线 */
-  --theme-border-card: rgba(0, 0, 0, 0.04); /* 卡片边缘微透边框 */
-  --theme-border-input: #E5E7EB;        /* 输入框中性边框 */
-
-  /* ==================== 6. 圆角层级 (Border Radius) ==================== */
-  --theme-radius-sm: 8rpx;              /* 微标签、小胶囊 */
-  --theme-radius-md: 12rpx;             /* 按钮、输入框、微图标 */
-  --theme-radius-lg: 16rpx;             /* 微信经典卡片圆角 */
-  --theme-radius-full: 9999rpx;         /* 药丸圆形 */
-
-  /* ==================== 7. 阴影系统 (Elevations) ==================== */
-  --theme-shadow-sm: 0 1rpx 3rpx rgba(0, 0, 0, 0.04);
-  --theme-shadow-md: 0 4rpx 12rpx rgba(37, 99, 235, 0.18);
-  --theme-shadow-danger: 0 4rpx 12rpx rgba(220, 38, 38, 0.15);
-
-  /* ==================== 8. NutUI 组件库原生变量全局覆盖 ==================== */
-  --nut-primary-color: var(--theme-primary);
-  --nut-primary-color-end: var(--theme-primary-hover);
-  --nut-button-primary-background-color: var(--theme-primary);
-  --nut-button-primary-border-color: var(--theme-primary);
-  --nut-dialog-confirm-button-color: var(--theme-primary);
-  --nut-action-sheet-item-active-color: var(--theme-primary);
-  --nut-tabs-titles-item-active-color: var(--theme-primary);
-}
-
-/* 全局重置与平滑滚动 */
 page {
-  background-color: var(--theme-bg-canvas);
-  color: var(--theme-text-primary);
+  background-color: #F7F8FA;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
+    Segoe UI, Arial, Roboto, 'PingFang SC', 'miui', 'Hiragino Sans GB',
+    'Microsoft Yahei', sans-serif;
+  color: #1E293B;
+  font-size: 28rpx;
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+view, text, image, input, textarea, button {
   box-sizing: border-box;
 }
 
-/* ==========================================================================
-   移动端专属 · 微信原生高质感底部半屏抽屉 (WeChat Bottom Sheet System)
-   采用 88rpx 移动触控热区、4列弹性学科网格、呼吸感留白与学术蓝渐变大按钮
-   ========================================================================== */
-
-/* 强制 NutUI Popup 底部弹出时的圆角与背景统一 */
-.nut-popup--bottom {
-  border-top-left-radius: 28rpx !important;
-  border-top-right-radius: 28rpx !important;
-  background-color: var(--theme-bg-surface) !important;
-  overflow: hidden !important;
+/* 页面通用安全容器 */
+.page-container {
+  min-height: 100vh;
+  background-color: #F7F8FA;
+  padding: 24rpx 28rpx;
+  padding-bottom: calc(32rpx + env(safe-area-inset-bottom));
 }
 
-.wechat-bottom-panel,
-.my-bottom-panel {
-  background-color: var(--theme-bg-surface);
-  padding: 24rpx 36rpx calc(36rpx + env(safe-area-inset-bottom));
-  transition: padding-bottom 0.15s ease;
-  box-sizing: border-box;
-  width: 100%;
-  max-height: 82vh;
+/* 高质感卡片 Surface */
+.card {
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.03);
+  border: 1rpx solid rgba(0, 0, 0, 0.04);
+  transition: all 0.15s ease;
+}
+
+.card:active {
+  transform: scale(0.99);
+  opacity: 0.95;
+}
+
+/* 按钮点击态 */
+.btn-active:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* 徽标 Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 500;
+}
+
+.badge-primary {
+  background: #EFF6FF;
+  color: #2563EB;
+}
+
+.badge-success {
+  background: #ECFDF5;
+  color: #059669;
+}
+
+.badge-warning {
+  background: #FEF3C7;
+  color: #B45309;
+}
+
+.badge-danger {
+  background: #FEF2F2;
+  color: #DC2626;
+}
+
+/* 弹性排版辅助 */
+.flex-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.flex-between {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 空状态 */
+.empty-state {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80rpx 40rpx;
+  color: #94A3B8;
+  font-size: 26rpx;
+}
 
-  /* 键盘弹起时清零底部安全区与冗余内边距，紧密贴合键盘 */
-  &.keyboard-opened {
-    padding-bottom: 24rpx !important;
-  }
-
-  /* 顶部优雅拖拽小把手 */
-  .panel-drag-handle {
-    width: 64rpx;
-    height: 8rpx;
-    border-radius: 4rpx;
-    background-color: #CBD5E1;
-    margin: 0 auto 24rpx;
-    flex-shrink: 0;
-  }
-
-  .panel-header,
-  .panel-head {
-    margin-bottom: 28rpx;
-    padding-bottom: 18rpx;
-    border-bottom: 1rpx solid #F1F5F9;
-    flex-shrink: 0;
-
-    .panel-header-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-
-      .panel-main-title,
-      .panel-title {
-        font-size: 34rpx;
-        font-weight: 700;
-        color: var(--theme-text-title);
-        letter-spacing: 0.5rpx;
-      }
-
-      .panel-close-btn {
-        width: 52rpx;
-        height: 52rpx;
-        border-radius: 50%;
-        background-color: #F1F5F9;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s ease;
-
-        .close-symbol {
-          font-size: 26rpx;
-          color: #64748B;
-          line-height: 1;
-        }
-
-        &.close-btn-active {
-          background-color: #E2E8F0;
-          transform: scale(0.92);
-        }
-      }
-    }
-
-    .panel-sub-title,
-    .panel-desc {
-      font-size: 24rpx;
-      color: var(--theme-text-muted);
-      margin-top: 8rpx;
-      display: block;
-      line-height: 1.4;
-    }
-  }
-
-  .panel-form,
-  .panel-body {
-    flex: 1;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 24rpx;
-
-    .form-field,
-    .field-item {
-      margin-bottom: 28rpx;
-
-      .field-label {
-        font-size: 28rpx;
-        font-weight: 600;
-        color: var(--theme-text-primary);
-        margin-bottom: 14rpx;
-        display: flex;
-        align-items: center;
-
-        .field-required,
-        .req {
-          color: var(--theme-danger);
-          margin-left: 6rpx;
-          font-weight: 700;
-        }
-      }
-
-      .field-input,
-      .custom-nut-input {
-        width: 100%;
-        height: 88rpx !important; /* 44px 移动端黄金触控热区 */
-        background-color: var(--theme-bg-subtle) !important;
-        border: 1.5rpx solid var(--theme-border-input) !important;
-        border-radius: var(--theme-radius-md) !important;
-        padding: 0 24rpx !important;
-        font-size: 30rpx !important;
-        color: var(--theme-text-primary) !important;
-        box-sizing: border-box !important;
-        transition: all 0.2s ease !important;
-        display: flex;
-        align-items: center;
-
-        .nut-input-inner {
-          font-size: 30rpx;
-          color: var(--theme-text-primary);
-        }
-
-        &:focus,
-        &:focus-within {
-          border-color: var(--theme-primary) !important;
-          background-color: #FFFFFF !important;
-        }
-
-        &.code-input,
-        &.code-nut-input {
-          .nut-input-inner,
-          input {
-            letter-spacing: 8rpx;
-            font-weight: 700;
-            font-size: 36rpx;
-            text-transform: uppercase;
-            color: var(--theme-primary);
-            font-family: monospace, sans-serif;
-          }
-        }
-      }
-    }
-
-    /* 4 列弹性学科微标签选择网格 */
-    .panel-subject-chips,
-    .subject-chips-wrap {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16rpx;
-      padding-top: 6rpx;
-
-      .subject-chip,
-      .subject-chip-item {
-        height: 68rpx;
-        border-radius: var(--theme-radius-sm);
-        background-color: var(--theme-bg-subtle);
-        font-size: 26rpx;
-        color: var(--theme-text-secondary);
-        border: 1rpx solid transparent;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.15s ease;
-        box-sizing: border-box;
-
-        &:active {
-          transform: scale(0.96);
-        }
-
-        &.active {
-          background-color: var(--theme-primary-light);
-          color: var(--theme-primary);
-          border-color: var(--theme-primary);
-          font-weight: 600;
-          box-shadow: 0 2rpx 8rpx rgba(37, 99, 235, 0.12);
-        }
-      }
-    }
-  }
-
-  .panel-actions,
-  .panel-foot {
-    padding-top: 20rpx;
-    flex-shrink: 0;
-
-    .panel-save-btn,
-    .save-submit-btn {
-      width: 100%;
-      height: 88rpx; /* 44px 黄金触控高度 */
-      background: var(--theme-primary-gradient);
-      border-radius: var(--theme-radius-md);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #FFFFFF;
-      font-size: 32rpx;
-      font-weight: 600;
-      letter-spacing: 1rpx;
-      box-shadow: var(--theme-shadow-md);
-      transition: all 0.15s ease;
-
-      &:active {
-        transform: scale(0.98);
-        opacity: 0.9;
-        background: var(--theme-primary-hover);
-      }
-    }
-  }
+.empty-icon {
+  width: 120rpx;
+  height: 120rpx;
+  margin-bottom: 20rpx;
+  opacity: 0.6;
 }

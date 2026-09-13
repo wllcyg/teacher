@@ -1,7 +1,7 @@
 import Taro from '@tarojs/taro'
 
 // @ts-ignore
-const currentSchema = typeof DB_SCHEMA !== 'undefined' ? DB_SCHEMA : 'test'
+const currentSchema = process.env.TARO_APP_DB_SCHEMA || (typeof DB_SCHEMA !== 'undefined' ? DB_SCHEMA : 'test')
 
 export interface CallResult<T = any> {
   code: number

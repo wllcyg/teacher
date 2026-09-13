@@ -1,4 +1,4 @@
 export default {
-  navigationBarTitleText: '教师工作台',
+  navigationBarTitleText: '待办事项',
   enablePullDownRefresh: true,
 }
