@@ -98,17 +98,17 @@ function sanitizeScheduleItem(item) {
 }
 
 const DEFAULT_PERIODS_SEED = [
-  { n: 1, label: '第 1 节', start_time: '08:20', end_time: '09:00', duration: 40 },
-  { n: 2, label: '第 2 节', start_time: '09:10', end_time: '09:50', duration: 40 },
-  { n: 3, label: '第 3 节', start_time: '10:10', end_time: '10:50', duration: 40 },
-  { n: 4, label: '第 4 节', start_time: '11:00', end_time: '11:40', duration: 40 },
-  { n: 5, label: '第 5 节', start_time: '14:00', end_time: '14:40', duration: 40 },
-  { n: 6, label: '第 6 节', start_time: '14:50', end_time: '15:30', duration: 40 },
-  { n: 7, label: '第 7 节', start_time: '15:40', end_time: '16:20', duration: 40 },
-  { n: 8, label: '第 8 节', start_time: '16:30', end_time: '17:10', duration: 40 },
-  { n: 9, label: '第 9 节', start_time: '18:30', end_time: '19:10', duration: 40 },
-  { n: 10, label: '第 10 节', start_time: '19:20', end_time: '20:00', duration: 40 },
-  { n: 11, label: '第 11 节', start_time: '20:10', end_time: '20:50', duration: 40 }
+  { n: 1, label: '第 1 节', start_time: '08:00', end_time: '08:45', duration: 45 },
+  { n: 2, label: '第 2 节', start_time: '09:00', end_time: '09:45', duration: 45 },
+  { n: 3, label: '第 3 节', start_time: '10:15', end_time: '11:00', duration: 45 },
+  { n: 4, label: '第 4 节', start_time: '11:15', end_time: '12:00', duration: 45 },
+  { n: 5, label: '第 5 节', start_time: '14:00', end_time: '14:45', duration: 45 },
+  { n: 6, label: '第 6 节', start_time: '15:00', end_time: '15:45', duration: 45 },
+  { n: 7, label: '第 7 节', start_time: '16:15', end_time: '17:00', duration: 45 },
+  { n: 8, label: '第 8 节', start_time: '17:15', end_time: '18:00', duration: 45 },
+  { n: 9, label: '第 9 节', start_time: '18:50', end_time: '19:30', duration: 40 },
+  { n: 10, label: '第 10 节', start_time: '19:40', end_time: '20:25', duration: 45 },
+  { n: 11, label: '第 11 节', start_time: '20:35', end_time: '21:20', duration: 45 }
 ];
 
 // 刷新班级学生总人数

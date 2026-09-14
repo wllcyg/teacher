@@ -194,3 +194,8 @@ page {
 .popup-footer {
   margin-top: 20rpx;
 }
+
+/* 测试数据重置操作区 */
+.dev-reset-section {
+  margin: 36rpx 24rpx;
+}

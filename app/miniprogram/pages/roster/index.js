@@ -136,7 +136,7 @@ Page({
     }
 
     if (classId) {
-      this.fetchStudents();
+      this.fetchStudents(true);
     } else {
       wx.showToast({
         title: '缺少班级参数',
@@ -145,8 +145,15 @@ Page({
     }
   },
 
+  onShow() {
+    // 页面再次可见或从子页面返回时静默刷新
+    if (this.data.classId && this.data.studentList.length > 0) {
+      this.fetchStudents(false);
+    }
+  },
+
   onPullDownRefresh() {
-    this.fetchStudents().finally(() => {
+    this.fetchStudents(false).finally(() => {
       wx.stopPullDownRefresh();
     });
   },

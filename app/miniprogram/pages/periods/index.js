@@ -37,6 +37,14 @@ Page({
     this.syncFromCloud();
   },
 
+  onShow() {
+    // 页面返回时重新同步最新数据并确保走时定时器正常
+    this.syncFromCloud();
+    if (!this.timer) {
+      this.startClockTimer();
+    }
+  },
+
   onUnload() {
     if (this.timer) {
       clearInterval(this.timer);

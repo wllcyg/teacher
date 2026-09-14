@@ -56,20 +56,28 @@ Page({
       currentAcademicYear: yearConfig.currentAcademicYear,
       'form.academic_year': yearConfig.currentAcademicYear,
     });
-    this.fetchClassList();
+    this.fetchClassList(true);
+  },
+
+  onShow() {
+    // 页面返回时静默刷新最新班级列表及学生人数
+    this.fetchClassList(false);
   },
 
   onPullDownRefresh() {
-    this.fetchClassList().finally(() => {
+    this.fetchClassList(false).finally(() => {
       wx.stopPullDownRefresh();
     });
   },
 
   /**
    * 获取班级列表
+   * @param {boolean} showLoading 是否显示全屏骨架屏（首次加载为true，返回刷新为false）
    */
-  async fetchClassList() {
-    this.setData({ isLoading: true });
+  async fetchClassList(showLoading = false) {
+    if (showLoading || this.data.classList.length === 0) {
+      this.setData({ isLoading: true });
+    }
     try {
       const res = await callCloudFunction('teacher-service', {
         action: 'getMyClasses',

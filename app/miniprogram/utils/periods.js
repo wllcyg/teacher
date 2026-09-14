@@ -9,22 +9,24 @@ export const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五'];
 
 export const DEFAULT_PERIODS = [
   // 上午时段 (1-4节)
-  { n: 1, label: '第 1 节', time: '08:20-09:00', start: '08:20', end: '09:00', section: 'morning' },
-  { n: 2, label: '第 2 节', time: '09:10-09:50', start: '09:10', end: '09:50', section: 'morning' },
-  { n: 3, label: '第 3 节', time: '10:10-10:50', start: '10:10', end: '10:50', section: 'morning' },
-  { n: 4, label: '第 4 节', time: '11:00-11:40', start: '11:00', end: '11:40', section: 'morning' },
+  { n: 1, label: '第 1 节', time: '08:00-08:45', start: '08:00', end: '08:45', section: 'morning' },
+  { n: 2, label: '第 2 节', time: '09:00-09:45', start: '09:00', end: '09:45', section: 'morning' },
+  { n: 3, label: '第 3 节', time: '10:15-11:00', start: '10:15', end: '11:00', section: 'morning' },
+  { n: 4, label: '第 4 节', time: '11:15-12:00', start: '11:15', end: '12:00', section: 'morning' },
   // 下午时段 (5-8节)
-  { n: 5, label: '第 5 节', time: '14:00-14:40', start: '14:00', end: '14:40', section: 'afternoon' },
-  { n: 6, label: '第 6 节', time: '14:50-15:30', start: '14:50', end: '15:30', section: 'afternoon' },
-  { n: 7, label: '第 7 节', time: '15:40-16:20', start: '15:40', end: '16:20', section: 'afternoon' },
-  { n: 8, label: '第 8 节', time: '16:30-17:10', start: '16:30', end: '17:10', section: 'afternoon' },
+  { n: 5, label: '第 5 节', time: '14:00-14:45', start: '14:00', end: '14:45', section: 'afternoon' },
+  { n: 6, label: '第 6 节', time: '15:00-15:45', start: '15:00', end: '15:45', section: 'afternoon' },
+  { n: 7, label: '第 7 节', time: '16:15-17:00', start: '16:15', end: '17:00', section: 'afternoon' },
+  { n: 8, label: '第 8 节', time: '17:15-18:00', start: '17:15', end: '18:00', section: 'afternoon' },
   // 晚自习时段 (9-11节)
-  { n: 9, label: '第 9 节', time: '18:30-19:10', start: '18:30', end: '19:10', section: 'evening' },
-  { n: 10, label: '第 10 节', time: '19:20-20:00', start: '19:20', end: '20:00', section: 'evening' },
-  { n: 11, label: '第 11 节', time: '20:10-20:50', start: '20:10', end: '20:50', section: 'evening' },
+  { n: 9, label: '第 9 节', time: '18:50-19:30', start: '18:50', end: '19:30', section: 'evening' },
+  { n: 10, label: '第 10 节', time: '19:40-20:25', start: '19:40', end: '20:25', section: 'evening' },
+  { n: 11, label: '第 11 节', time: '20:35-21:20', start: '20:35', end: '21:20', section: 'evening' },
 ];
 
 const PERIODS_STORAGE_KEY = 'SCHOOL_PERIODS_CONFIG';
+const PERIODS_VERSION_KEY = 'SCHOOL_PERIODS_VERSION';
+const CURRENT_PERIODS_VERSION = 'v2_web_align';
 
 /**
  * 将 "HH:mm" 格式时间字符串转换为从 00:00 起始的分钟数
@@ -89,6 +91,13 @@ export function normalizePeriods(list) {
  */
 export function getPeriodsConfig() {
   try {
+    const ver = wx.getStorageSync(PERIODS_VERSION_KEY);
+    if (ver !== CURRENT_PERIODS_VERSION) {
+      // 自动清除旧版本缓存，无缝平滑升级为 Web 端对齐的标准作息
+      wx.removeStorageSync(PERIODS_STORAGE_KEY);
+      wx.setStorageSync(PERIODS_VERSION_KEY, CURRENT_PERIODS_VERSION);
+      return normalizePeriods(DEFAULT_PERIODS);
+    }
     const cached = wx.getStorageSync(PERIODS_STORAGE_KEY);
     if (Array.isArray(cached) && cached.length > 0) {
       return normalizePeriods(cached);
@@ -106,6 +115,7 @@ export function getPeriodsConfig() {
 export function savePeriodsConfig(periods) {
   try {
     wx.setStorageSync(PERIODS_STORAGE_KEY, periods);
+    wx.setStorageSync(PERIODS_VERSION_KEY, CURRENT_PERIODS_VERSION);
   } catch (err) {
     console.error('[periods] 写入作息缓存失败:', err);
   }

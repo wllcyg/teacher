@@ -1,0 +1,12 @@
+{
+  "description": "项目私有配置文件。此文件已被 .gitignore 忽略，仅供本地开发使用，不会提交到 Git 仓库。",
+  "appid": "YOUR_WECHAT_APPID",
+  "setting": {
+    "urlCheck": false
+  },
+  "condition": {
+    "miniprogram": {
+      "list": []
+    }
+  }
+}

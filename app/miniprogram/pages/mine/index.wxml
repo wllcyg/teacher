@@ -36,6 +36,13 @@
     </t-cell-group>
   </view>
 
+  <!-- 测试环境专属数据重置操作区（仅开发测试环境展示） -->
+  <view wx:if="{{currentEnv === 'dev'}}" class="dev-reset-section">
+    <t-button theme="danger" variant="outline" size="large" block bindtap="confirmResetMyTestData">
+      清空测试数据 (仅开发环境)
+    </t-button>
+  </view>
+
   <!-- 编辑个人资料弹出层 -->
   <t-popup visible="{{isEditPopupVisible}}" placement="bottom" bind:visible-change="onPopupVisibleChange">
     <view class="edit-popup-content">

@@ -335,4 +335,73 @@ Page({
       icon: 'none',
     });
   },
+
+  /**
+   * 清空测试环境下的个人全部数据（班级、学生、课表、作息配置及本地缓存）
+   */
+  confirmResetMyTestData() {
+    wx.showModal({
+      title: '清空测试数据确认',
+      content: '确定要清空您在测试环境下的全部个人数据吗？将删除您创建的所有班级、学生名单、排课表、重置作息并清空本地缓存。此操作不可撤销。',
+      confirmText: '确定清空',
+      confirmColor: '#e34d59',
+      cancelText: '取消',
+      success: async (res) => {
+        if (!res.confirm) return;
+        wx.vibrateShort?.({ type: 'medium' });
+        wx.showLoading({ title: '正在清理...', mask: true });
+        try {
+          // 1. 获取名下所有班级并逐个解散（云函数端会自动级联删除该班级下所有学生）
+          const classesRes = await callCloudFunction('teacher-service', {
+            action: 'getMyClasses',
+          });
+          const list = classesRes.result?.data?.list || [];
+          for (const item of list) {
+            if (item.id) {
+              await callCloudFunction('teacher-service', {
+                action: 'deleteClass',
+                class_id: item.id,
+              });
+            }
+          }
+
+          // 2. 清空个人任教课表
+          await callCloudFunction('teacher-service', {
+            action: 'clearSchedule',
+          });
+
+          // 3. 重置个人作息时间表至默认
+          await callCloudFunction('teacher-service', {
+            action: 'resetMyPeriods',
+          });
+
+          // 4. 重置教师资料为空
+          await callCloudFunction('teacher-service', {
+            action: 'updateProfile',
+            name: '',
+            school: '',
+            subject: '语文',
+            avatar_url: '',
+          });
+
+          // 5. 清空本地所有缓存
+          wx.clearStorageSync();
+
+          wx.hideLoading();
+          wx.showToast({ title: '测试数据已清空', icon: 'success' });
+
+          // 6. 重置当前页面状态回显
+          this.setData({
+            teacher: { name: '', avatar_url: '', subject: '语文', school: '' },
+            form: { name: '', avatar_url: '', subject: '语文', school: '' },
+            classCountText: '尚未建班 (点击创建)',
+          });
+        } catch (err) {
+          wx.hideLoading();
+          console.error('清空测试数据异常:', err);
+          wx.showToast({ title: '清理失败，请重试', icon: 'none' });
+        }
+      },
+    });
+  },
 });
