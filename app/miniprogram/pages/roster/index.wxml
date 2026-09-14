@@ -1,0 +1,375 @@
+<!--pages/roster/index.wxml-->
+<view class="roster-page">
+  <!-- 顶部班级信息与统计卡片 -->
+  <view class="header-card">
+    <view class="header-main">
+      <view class="class-info">
+        <text class="class-title">{{className || '当前班级'}}</text>
+        <text class="student-count-badge">共 {{studentList.length}} 位学生</text>
+      </view>
+      <!-- 职务概况统计 -->
+      <view class="duty-summary" wx:if="{{cadreSummaryText}}">
+        <text class="summary-text">{{cadreSummaryText}}</text>
+      </view>
+    </view>
+
+    <!-- 快速搜索栏 -->
+    <view class="search-box">
+      <t-search 
+        value="{{searchQuery}}" 
+        placeholder="搜索学生姓名、学号" 
+        shape="round"
+        bindchange="onSearchChange"
+        bindclear="onSearchClear"
+      />
+    </view>
+  </view>
+
+  <!-- 模式 A：无搜索状态下，使用 TDesign t-indexes 支持右侧字母快捷滑动与拼音分组吸顶 -->
+  <view class="indexes-container" wx:if="{{!searchQuery && groupedStudents.length > 0}}">
+    <t-indexes 
+      index-list="{{indexList}}" 
+      bind:select="onIndexSelect"
+    >
+      <block wx:for="{{groupedStudents}}" wx:key="index" wx:for-item="group">
+        <t-indexes-anchor index="{{group.index}}" />
+        <view class="group-student-list">
+          <view 
+            class="student-card" 
+            wx:for="{{group.children}}" 
+            wx:key="id"
+            bindtap="openEditModal"
+            data-item="{{item}}"
+          >
+            <!-- 头像：姓名首字 -->
+            <view class="student-avatar {{item.duty === '班长' ? 'avatar-monitor' : (item.duty === '组长' ? 'avatar-leader' : '')}}">
+              <text>{{item.nameFirstChar}}</text>
+            </view>
+
+            <!-- 信息主体 -->
+            <view class="student-info">
+              <view class="name-row">
+                <text class="student-name">{{item.name}}</text>
+                <!-- 小组标签 -->
+                <view wx:if="{{item.group_name}}" class="group-tag">{{item.group_name}}</view>
+                <!-- 职务标签：仅支持 班长、组长 两种职务 -->
+                <view wx:if="{{item.duty === '班长'}}" class="duty-tag tag-monitor">班长</view>
+                <view wx:elif="{{item.duty === '组长'}}" class="duty-tag tag-leader">组长</view>
+                <text class="gender-text" wx:if="{{item.gender}}">{{item.gender}}</text>
+              </view>
+              <view class="sub-row">
+                <text class="student-no" wx:if="{{item.student_no}}">学号: {{item.student_no}}</text>
+                <text class="student-no" wx:else>暂无学号</text>
+                <text class="remarks-snippet" wx:if="{{item.remarks}}">· {{item.remarks}}</text>
+              </view>
+            </view>
+
+            <!-- 右侧轻量编辑提示符（无呼叫图标） -->
+            <view class="card-arrow">
+              <t-icon name="edit" size="32rpx" color="#86909c" />
+            </view>
+          </view>
+        </view>
+      </block>
+      <!-- 底部安全避让垫片，防止最底部卡片被固定操作栏遮挡 -->
+      <view class="bottom-safe-spacer"></view>
+    </t-indexes>
+  </view>
+
+  <!-- 模式 B：即时搜索结果匹配列表 -->
+  <view class="student-list search-result-list" wx:elif="{{searchQuery && filteredStudents.length > 0}}">
+    <view 
+      class="student-card" 
+      wx:for="{{filteredStudents}}" 
+      wx:key="id"
+      bindtap="openEditModal"
+      data-item="{{item}}"
+    >
+      <!-- 头像：姓名首字 -->
+      <view class="student-avatar {{item.duty === '班长' ? 'avatar-monitor' : (item.duty === '组长' ? 'avatar-leader' : '')}}">
+        <text>{{item.nameFirstChar}}</text>
+      </view>
+
+      <!-- 信息主体 -->
+      <view class="student-info">
+        <view class="name-row">
+          <text class="student-name">{{item.name}}</text>
+          <!-- 小组标签 -->
+          <view wx:if="{{item.group_name}}" class="group-tag">{{item.group_name}}</view>
+          <view wx:if="{{item.duty === '班长'}}" class="duty-tag tag-monitor">班长</view>
+          <view wx:elif="{{item.duty === '组长'}}" class="duty-tag tag-leader">组长</view>
+          <text class="gender-text" wx:if="{{item.gender}}">{{item.gender}}</text>
+        </view>
+
+        <view class="sub-row">
+          <text class="student-no" wx:if="{{item.student_no}}">学号: {{item.student_no}}</text>
+          <text class="student-no" wx:else>暂无学号</text>
+          <text class="remarks-snippet" wx:if="{{item.remarks}}">· {{item.remarks}}</text>
+        </view>
+      </view>
+
+      <view class="card-arrow">
+        <t-icon name="edit" size="32rpx" color="#86909c" />
+      </view>
+    </view>
+    <!-- 搜索结果底部安全避让垫片 -->
+    <view class="bottom-safe-spacer"></view>
+  </view>
+
+  <!-- 搜索无结果 -->
+  <view class="empty-wrap" wx:elif="{{searchQuery && filteredStudents.length === 0}}">
+    <t-empty icon="search" description="未找到匹配「{{searchQuery}}」的学生" />
+  </view>
+
+  <!-- 尚未建档的空状态 -->
+  <view class="empty-wrap" wx:elif="{{!isLoading && studentList.length === 0}}">
+    <t-empty icon="usergroup" description="该班级尚未添加任何学生，请使用底部按钮录入" />
+  </view>
+
+  <!-- 底部固定双操作栏 -->
+  <view class="bottom-bar">
+    <t-button 
+      class="bottom-btn-half" 
+      theme="light" 
+      size="large" 
+      icon="file-paste" 
+      bindtap="openBatchModal"
+    >
+      智能批量录入
+    </t-button>
+    <t-button 
+      class="bottom-btn-half" 
+      theme="primary" 
+      size="large" 
+      icon="add" 
+      bindtap="openCreateModal"
+    >
+      添加单个学生
+    </t-button>
+  </view>
+
+  <!-- 抽屉 1：智能批量录入弹窗 -->
+  <t-popup visible="{{isBatchModalVisible}}" placement="bottom" bind:visible-change="onBatchModalVisibleChange">
+    <view class="modal-content batch-modal">
+      <view class="modal-header">
+        <view class="modal-title-wrap">
+          <text class="modal-title">智能批量录入学生</text>
+          <text class="modal-subtitle">直接粘贴姓名，系统智能识别</text>
+        </view>
+        <view class="modal-close" bindtap="closeBatchModal">
+          <t-icon name="close" size="36rpx" color="#8f959e" />
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <view class="tips-card">
+          <t-icon name="info-circle" size="32rpx" color="#0052d9" />
+          <text class="tips-text">支持带分组与职务识别：如输入「一组：张三(组长) 李四；二组：王五」，或点击右侧【智能解析】一键提炼。</text>
+        </view>
+
+        <!-- 智能解析操作条 -->
+        <view class="batch-action-bar">
+          <text class="bar-left-hint">支持微信群聊口语文本</text>
+          <view class="ai-trigger-btn {{isAiParsing ? 'loading' : ''}}" bindtap="onAiParseClick">
+            <t-icon name="{{isAiParsing ? 'loading' : 'ai'}}" size="28rpx" color="#ffffff" />
+            <text class="ai-btn-title">{{isAiParsing ? '深度解析中...' : '智能解析'}}</text>
+          </view>
+        </view>
+
+        <view class="batch-textarea-wrap">
+          <textarea 
+            class="batch-textarea" 
+            placeholder="例如：\n一组：张三(组长)、李四、王五\n二组：赵六(组长)、孙七\n或直接粘贴群聊长文后点击【智能解析】" 
+            maxlength="2000"
+            value="{{batchRawText}}"
+            bindinput="onBatchTextInput"
+          />
+        </view>
+
+        <!-- 实时智能识别解析预览 -->
+        <view class="parsed-preview-box" wx:if="{{parsedStudents.length > 0}}">
+          <view class="preview-header">
+            <text class="preview-title">已智能识别出 {{parsedStudents.length}} 位学生：</text>
+            <text class="clear-text" bindtap="clearBatchText">清空</text>
+          </view>
+          <view class="chips-container">
+            <view 
+              class="name-chip {{item.duty === '班长' ? 'chip-monitor' : (item.duty === '组长' ? 'chip-leader' : '')}} {{item.isDuplicate ? 'chip-duplicate' : ''}}" 
+              wx:for="{{parsedStudents}}" 
+              wx:key="index"
+            >
+              <text class="chip-name">{{item.name}}</text>
+              <text class="chip-group-badge" wx:if="{{item.group_name}}">{{item.group_name}}</text>
+              <text class="chip-duty-badge" wx:if="{{item.duty}}">{{item.duty}}</text>
+            </view>
+          </view>
+
+          <!-- 同名学生温馨预警提示 -->
+          <view class="duplicate-tips-bar" wx:if="{{duplicateTips}}">
+            <t-icon name="error-circle-filled" size="28rpx" color="#fa8c16" />
+            <text class="duplicate-text">{{duplicateTips}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer">
+        <t-button 
+          theme="primary" 
+          size="large" 
+          block 
+          disabled="{{parsedStudents.length === 0}}"
+          loading="{{isSubmitting}}"
+          bindtap="submitBatchImport"
+        >
+          确认一键录入 ({{parsedStudents.length}}人)
+        </t-button>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 抽屉 2：单个添加 / 编辑学生资料弹窗 -->
+  <t-popup visible="{{isEditModalVisible}}" placement="bottom" bind:visible-change="onEditModalVisibleChange">
+    <view class="modal-content single-modal">
+      <view class="modal-header">
+        <text class="modal-title">{{isEditing ? '编辑学生档案' : '添加单个学生'}}</text>
+        <view class="modal-close" bindtap="closeEditModal">
+          <t-icon name="close" size="36rpx" color="#8f959e" />
+        </view>
+      </view>
+
+      <view class="modal-body">
+        <!-- 姓名 -->
+        <view class="form-row">
+          <text class="form-title">学生姓名 <text class="required">*</text></text>
+          <view class="input-box">
+            <input 
+              class="inner-input" 
+              placeholder="请输入学生姓名" 
+              value="{{singleForm.name}}" 
+              bindinput="onInputSingleName" 
+            />
+          </view>
+        </view>
+
+        <!-- 所属学习小组 -->
+        <view class="form-row">
+          <text class="form-title">所属学习小组</text>
+          <view class="group-chip-group">
+            <view 
+              wx:for="{{commonGroups}}" 
+              wx:key="*this"
+              class="group-select-chip {{singleForm.group_name === item ? 'active' : ''}}"
+              data-group="{{item}}"
+              bindtap="onSelectGroup"
+            >
+              {{item || '未分组'}}
+            </view>
+          </view>
+        </view>
+
+        <!-- 职务选择（按要求严格仅限 班长、组长 两个职务） -->
+        <view class="form-row">
+          <text class="form-title">班级职务</text>
+          <view class="duty-chip-group">
+            <view 
+              class="duty-chip {{singleForm.duty === '' ? 'active' : ''}}"
+              data-duty=""
+              bindtap="onSelectDuty"
+            >
+              无职务 (普通学生)
+            </view>
+            <view 
+              class="duty-chip monitor-chip {{singleForm.duty === '班长' ? 'active' : ''}}"
+              data-duty="班长"
+              bindtap="onSelectDuty"
+            >
+              班长
+            </view>
+            <view 
+              class="duty-chip leader-chip {{singleForm.duty === '组长' ? 'active' : ''}}"
+              data-duty="组长"
+              bindtap="onSelectDuty"
+            >
+              组长
+            </view>
+          </view>
+        </view>
+
+        <!-- 学号 -->
+        <view class="form-row">
+          <text class="form-title">学生学号</text>
+          <view class="input-box">
+            <input 
+              class="inner-input" 
+              placeholder="选填，例如：01 或 202401" 
+              value="{{singleForm.student_no}}" 
+              bindinput="onInputSingleNo" 
+            />
+          </view>
+        </view>
+
+        <!-- 性别 -->
+        <view class="form-row">
+          <text class="form-title">性别</text>
+          <view class="gender-chip-group">
+            <view 
+              class="gender-chip {{singleForm.gender === '' ? 'active' : ''}}"
+              data-gender=""
+              bindtap="onSelectGender"
+            >
+              未设置
+            </view>
+            <view 
+              class="gender-chip {{singleForm.gender === '男' ? 'active' : ''}}"
+              data-gender="男"
+              bindtap="onSelectGender"
+            >
+              男
+            </view>
+            <view 
+              class="gender-chip {{singleForm.gender === '女' ? 'active' : ''}}"
+              data-gender="女"
+              bindtap="onSelectGender"
+            >
+              女
+            </view>
+          </view>
+        </view>
+
+        <!-- 教师备忘备注 -->
+        <view class="form-row">
+          <text class="form-title">私密备注 (选填)</text>
+          <view class="input-box">
+            <input 
+              class="inner-input" 
+              placeholder="例如：特长生、近视坐在前排等" 
+              value="{{singleForm.remarks}}" 
+              bindinput="onInputSingleRemarks" 
+            />
+          </view>
+        </view>
+      </view>
+
+      <view class="modal-footer single-modal-footer">
+        <t-button 
+          wx:if="{{isEditing}}" 
+          theme="danger" 
+          variant="outline" 
+          size="large" 
+          bindtap="confirmDeleteStudent"
+        >
+          移出本班
+        </t-button>
+        <t-button 
+          theme="primary" 
+          size="large" 
+          block 
+          loading="{{isSubmitting}}"
+          bindtap="submitSingleForm"
+        >
+          {{isEditing ? '保存修改' : '确认添加'}}
+        </t-button>
+      </view>
+    </view>
+  </t-popup>
+</view>

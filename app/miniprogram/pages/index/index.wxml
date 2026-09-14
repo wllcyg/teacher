@@ -1,0 +1,11 @@
+<!--pages/index/index.wxml-->
+<view class="index-container">
+  <view class="header-banner">
+    <view class="welcome-title">教师工作台</view>
+    <view class="welcome-sub">欢迎使用教师端小程序</view>
+  </view>
+
+  <view class="placeholder-card">
+    <t-empty icon="info-circle-filled" description="首页功能规划建设中..." />
+  </view>
+</view>

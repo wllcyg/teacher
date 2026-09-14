@@ -1,0 +1,7 @@
+# 微信小程序私有配置文件（含本地开发者真实 AppID 与私有编译设置，禁止提交）
+project.private.config.json
+*.private.config.json
+
+# 依赖包与构建目录
+node_modules/
+miniprogram_npm/

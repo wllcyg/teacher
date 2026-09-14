@@ -1,0 +1,196 @@
+/* pages/mine/index.wxss */
+page {
+  background-color: #f6f7fb;
+  padding-bottom: 60rpx;
+  margin: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.mine-container {
+  padding: 0;
+  margin: 0;
+}
+
+/* 个人信息卡片：通栏平铺 */
+.profile-card {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  padding: 40rpx 32rpx;
+  border-radius: 0;
+  border-bottom: 1rpx solid #f0f2f5;
+  margin-bottom: 20rpx;
+  position: relative;
+}
+
+/* 原生微信头像按钮重置 */
+.avatar-button-wrap {
+  position: relative;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  border: none !important;
+  border-radius: 50%;
+  overflow: visible;
+}
+
+.avatar-button-wrap::after {
+  border: none !important;
+}
+
+.avatar-badge-edit {
+  position: absolute;
+  right: -4rpx;
+  bottom: -4rpx;
+  background: #0052d9;
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid #ffffff;
+}
+
+.profile-info {
+  flex: 1;
+  margin-left: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.profile-name {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.profile-sub {
+  font-size: 26rpx;
+  color: #8f959e;
+}
+
+.profile-edit-btn {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: #8f959e;
+  gap: 4rpx;
+}
+
+/* 菜单区 */
+.menu-section {
+  margin-top: 10rpx;
+}
+
+/* 弹出抽屉样式 */
+.edit-popup-content {
+  background: #ffffff;
+  border-top-left-radius: 28rpx;
+  border-top-right-radius: 28rpx;
+  padding: 32rpx 30rpx 48rpx 30rpx;
+  max-height: 85vh;
+  box-sizing: border-box;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #f0f2f5;
+}
+
+.popup-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.popup-close {
+  padding: 8rpx;
+}
+
+.edit-body {
+  padding: 32rpx 0;
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+}
+
+.edit-avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.avatar-tip {
+  font-size: 24rpx;
+  color: #8f959e;
+}
+
+.form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.form-label {
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1f2329;
+}
+
+.required {
+  color: #e34d59;
+}
+
+.nickname-input-wrap {
+  background: #f7f8fa;
+  border-radius: 12rpx;
+  padding: 22rpx 24rpx;
+}
+
+.nickname-input {
+  font-size: 28rpx;
+  color: #1f2329;
+  width: 100%;
+}
+
+/* 学科快捷标签选择 */
+.subject-tag-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.subject-chip {
+  padding: 12rpx 26rpx;
+  background: #f4f5f7;
+  color: #4e5969;
+  font-size: 26rpx;
+  border-radius: 32rpx;
+  border: 1rpx solid transparent;
+  transition: all 0.2s ease;
+}
+
+.subject-chip.active {
+  background: rgba(0, 82, 217, 0.1);
+  color: #0052d9;
+  border-color: #0052d9;
+  font-weight: 500;
+}
+
+.popup-footer {
+  margin-top: 20rpx;
+}

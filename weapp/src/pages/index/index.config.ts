@@ -1,4 +1,0 @@
-export default {
-  navigationBarTitleText: '教师工作台',
-  enablePullDownRefresh: true,
-}

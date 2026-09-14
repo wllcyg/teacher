@@ -1,0 +1,13 @@
+{
+  "name": "teacher-app",
+  "version": "1.0.0",
+  "description": "微信小程序项目",
+  "main": "miniprogram/app.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "tdesign-miniprogram": "^1.6.4"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "navigationBarTitleText": "班级管理",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "t-popup": "tdesign-miniprogram/popup/popup"
+  }
+}

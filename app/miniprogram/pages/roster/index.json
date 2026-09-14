@@ -1,0 +1,14 @@
+{
+  "navigationBarTitleText": "班级学生花名册",
+  "usingComponents": {
+    "t-button": "tdesign-miniprogram/button/button",
+    "t-tag": "tdesign-miniprogram/tag/tag",
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "t-search": "tdesign-miniprogram/search/search",
+    "t-popup": "tdesign-miniprogram/popup/popup",
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "t-avatar": "tdesign-miniprogram/avatar/avatar",
+    "t-indexes": "tdesign-miniprogram/indexes/indexes",
+    "t-indexes-anchor": "tdesign-miniprogram/indexes-anchor/indexes-anchor"
+  }
+}
