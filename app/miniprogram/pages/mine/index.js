@@ -70,6 +70,12 @@ Page({
     });
   },
 
+  navToLessonLogs() {
+    wx.navigateTo({
+      url: '/pages/lesson-logs/index',
+    });
+  },
+
   /**
    * 从远端数据库拉取教师个人资料并同步缓存
    */

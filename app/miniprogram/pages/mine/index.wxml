@@ -28,6 +28,7 @@
     <t-cell-group>
       <t-cell title="班级管理" note="{{classCountText || '点击管理或创建'}}" arrow hover bindtap="navToClassManage" />
       <t-cell title="我的任教课表" note="全周排课与日程" arrow hover bindtap="navToSchedule" />
+      <t-cell title="课堂教学日志" note="授课笔记流水台账" arrow hover bindtap="navToLessonLogs" />
       <t-cell title="作息时间表" note="标准教学时段" arrow hover bindtap="navToPeriods" />
       <t-cell title="当前数据环境" note="{{currentEnv === 'prd' ? '生产环境 (prd)' : '开发环境 (dev)'}}" hover />
       <t-cell title="消息通知设置" arrow hover bindtap="onTapTip" data-text="通知设置" />

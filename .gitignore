@@ -27,15 +27,22 @@ wheels/
 .coverage
 htmlcov/
 
-# SQLite 数据库文件及临时数据与缓存海报
-*.db
+# SQLite 数据库临时锁与临时日志文件（不纳入版本控制）
 *.db-journal
 *.db-wal
 *.db-shm
 *.sqlite3
 backend/app/data/*.db*
 backend/app/data/cards/
-backend_data/
+backend_data/*.db-shm
+backend_data/*.db-wal
+backend_data/*.db.bak*
+
+# 生产数据目录（用于云端生产迁移）
+!backend_data/
+!backend_data/teacher_workbench.db
+!backend_data/cards/
+!backend_data/cards/*
 .env
 .env.local
 .env.*.local

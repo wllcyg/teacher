@@ -5,7 +5,8 @@
     "pages/class-manage/index",
     "pages/roster/index",
     "pages/periods/index",
-    "pages/schedule/index"
+    "pages/schedule/index",
+    "pages/lesson-logs/index"
   ],
   "window": {
     "backgroundColor": "#F6F7FB",

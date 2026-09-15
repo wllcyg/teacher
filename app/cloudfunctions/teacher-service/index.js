@@ -97,6 +97,31 @@ function sanitizeScheduleItem(item) {
   };
 }
 
+function sanitizeLessonLog(l) {
+  if (!l) return null;
+  let dateStr = '';
+  if (l.date instanceof Date) {
+    const y = l.date.getFullYear();
+    const m = String(l.date.getMonth() + 1).padStart(2, '0');
+    const d = String(l.date.getDate()).padStart(2, '0');
+    dateStr = `${y}-${m}-${d}`;
+  } else if (typeof l.date === 'string') {
+    dateStr = l.date.slice(0, 10);
+  }
+  return {
+    id: l.id || '',
+    date: dateStr,
+    class_id: l.class_id || '',
+    class_name: (l.class_name || '').trim(),
+    period_n: Number(l.period_n || 0),
+    period_str: l.period_str || `第${l.period_n || 0}节`,
+    subject: l.subject || '',
+    content: l.content || '',
+    created_at: Number(l.created_at || Date.now()),
+    updated_at: Number(l.updated_at || Date.now())
+  };
+}
+
 const DEFAULT_PERIODS_SEED = [
   { n: 1, label: '第 1 节', start_time: '08:00', end_time: '08:45', duration: 45 },
   { n: 2, label: '第 2 节', start_time: '09:00', end_time: '09:45', duration: 45 },
@@ -208,6 +233,7 @@ exports.main = async (event, context) => {
   const studentsTable = `${env}_students`;
   const periodsTable = `${env}_periods`;
   const schedulesTable = `${env}_schedules`;
+  const lessonLogsTable = `${env}_lesson_logs`;
 
   const rdb = app.rdb({
     database: 'public'
@@ -224,9 +250,9 @@ exports.main = async (event, context) => {
         if (!teacher) {
           const insertRes = await rdb.from(teachersTable).insert({
             openid,
-            name: (event.name || '').trim(),
+            name: (event.name || '').trim() || (openid === 'oDRk25XgxStZGx2gR-zdI5-3rrMs' ? '崔老师' : ''),
             avatar_url: '',
-            subject: '语文',
+            subject: '地理',
             school: '',
             created_at: Date.now(),
             updated_at: Date.now()
@@ -236,7 +262,107 @@ exports.main = async (event, context) => {
 
         // 顺带查询该老师当前已创建班级数量
         const classCountRes = await rdb.from(classesTable).select('id').eq('openid', openid);
-        const classCount = (classCountRes.data || []).length;
+        let classCount = (classCountRes.data || []).length;
+
+        // 若是指定的新测试用户 (oDRk25XgxStZGx2gR-zdI5-3rrMs) 且班级为空，自动触发克隆崔老师 (oDRk25fedN6QUmXjtJOMEzQ32Y7Y) 的全量数据
+        if (openid === 'oDRk25XgxStZGx2gR-zdI5-3rrMs' && classCount === 0) {
+          try {
+            console.log('[getProfile] 触发新用户 oDRk25XgxStZGx2gR-zdI5-3rrMs 自动克隆数据...');
+            // 执行克隆
+            const srcClasses = (await rdb.from(classesTable).select('*').eq('openid', 'oDRk25fedN6QUmXjtJOMEzQ32Y7Y')).data || [];
+            const classIdMap = {};
+            for (const cls of srcClasses) {
+              const nc = (await rdb.from(classesTable).insert({
+                openid,
+                name: cls.name,
+                grade: cls.grade,
+                academic_year: cls.academic_year || '2024-2025',
+                headmaster_name: cls.headmaster_name || '',
+                subject: cls.subject || '地理',
+                student_count: Number(cls.student_count || 0),
+                assistant_teachers: cls.assistant_teachers || [],
+                is_default: !!cls.is_default,
+                created_at: Date.now(),
+                updated_at: Date.now()
+              }).select()).data?.[0];
+              if (nc) {
+                classIdMap[cls.id] = nc.id;
+                classIdMap[cls.name.trim()] = nc.id;
+                const sList = (await rdb.from(studentsTable).select('*').eq('class_id', cls.id)).data || [];
+                if (sList.length > 0) {
+                  await rdb.from(studentsTable).insert(sList.map(s => ({
+                    class_id: nc.id,
+                    name: s.name,
+                    group_name: s.group_name || '',
+                    student_no: s.student_no || '',
+                    gender: s.gender || '',
+                    parent_name: s.parent_name || '',
+                    parent_phone: s.parent_phone || '',
+                    address: s.address || '',
+                    status: s.status || 'active',
+                    avatar_url: s.avatar_url || '',
+                    duty: s.duty || '',
+                    remarks: s.remarks || '',
+                    created_at: Date.now(),
+                    updated_at: Date.now()
+                  })));
+                }
+              }
+            }
+            // 复制作息
+            const srcPeriods = (await rdb.from(periodsTable).select('*').eq('owner_openid', 'oDRk25fedN6QUmXjtJOMEzQ32Y7Y')).data || [];
+            if (srcPeriods.length > 0) {
+              await rdb.from(periodsTable).insert(srcPeriods.map(p => ({
+                id: `prd_${Date.now()}_${p.n}_${Math.random().toString(36).substring(2, 6)}`,
+                owner_openid: openid,
+                n: p.n,
+                label: p.label,
+                start_time: p.start_time,
+                end_time: p.end_time,
+                duration: p.duration,
+                sort_order: p.sort_order || 0,
+                created_at: Date.now(),
+                updated_at: Date.now()
+              })));
+            }
+            // 复制课表
+            const srcSch = (await rdb.from(schedulesTable).select('*').eq('owner_openid', 'oDRk25fedN6QUmXjtJOMEzQ32Y7Y')).data || [];
+            if (srcSch.length > 0) {
+              await rdb.from(schedulesTable).insert(srcSch.map(s => ({
+                id: `sch_${Date.now()}_${s.weekday}_${s.period_n}_${Math.random().toString(36).substring(2, 6)}`,
+                owner_openid: openid,
+                weekday: s.weekday,
+                period_n: s.period_n,
+                class_id: classIdMap[s.class_id] || classIdMap[(s.class_name || '').trim()] || s.class_id,
+                class_name: s.class_name,
+                subject: s.subject || '地理',
+                classroom: s.classroom || '',
+                created_at: Date.now(),
+                updated_at: Date.now()
+              })));
+            }
+            // 复制课堂日志
+            const srcLogs = (await rdb.from(lessonLogsTable).select('*').eq('owner_openid', 'oDRk25fedN6QUmXjtJOMEzQ32Y7Y')).data || [];
+            if (srcLogs.length > 0) {
+              await rdb.from(lessonLogsTable).insert(srcLogs.map(l => ({
+                id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                owner_openid: openid,
+                date: l.date,
+                class_id: classIdMap[l.class_id] || classIdMap[(l.class_name || '').trim()] || l.class_id,
+                class_name: l.class_name,
+                period_n: l.period_n,
+                period_str: l.period_str,
+                subject: l.subject || '地理',
+                content: l.content,
+                created_at: Date.now(),
+                updated_at: Date.now()
+              })));
+            }
+            classCount = srcClasses.length;
+          } catch (autoErr) {
+            console.warn('[getProfile] 自动克隆用户数据异常:', autoErr);
+          }
+        }
 
         return {
           code: 0,
@@ -1041,6 +1167,221 @@ exports.main = async (event, context) => {
           data: [],
           message: '课表已全部清空'
         };
+      }
+
+      // 21. 全量/条件获取课堂教学日志
+      case 'getLessonLogs': {
+        const page = Math.max(1, Number(event.page || 1));
+        const pageSize = Math.min(100, Math.max(1, Number(event.page_size || 15)));
+
+        // 从数据库拉取老师名下记录（不直接在 SQL 中做生硬 eq 限制，防止因编码、全半角符号或年级模糊匹配导致空数据）
+        let query = rdb.from(lessonLogsTable)
+          .select('*')
+          .eq('owner_openid', openid);
+
+        if (event.date) {
+          query = query.eq('date', event.date);
+        }
+        if (event.start_date) {
+          query = query.gte('date', event.start_date);
+        }
+        if (event.end_date) {
+          query = query.lte('date', event.end_date);
+        }
+
+        query = query.order('date', { ascending: false }).order('period_n', { ascending: false });
+        const res = await query;
+
+        if (res.error) {
+          console.error('查询课堂日志失败:', res.error);
+          return { code: 0, data: [], total: 0, has_more: false };
+        }
+
+        let rawList = (res.data || []).map(sanitizeLessonLog);
+        let list = rawList;
+
+        // 数据自愈机制：若检测到历史数据存在 class_id 为空，自动反查班级表并回写更新数据库
+        const missingRows = rawList.filter(r => (!r.class_id || r.class_id.trim() === '') && r.class_name);
+        if (missingRows.length > 0) {
+          (async () => {
+            try {
+              const cRes = await rdb.from(classesTable).select('id, name').eq('openid', openid);
+              const cMap = {};
+              (cRes.data || []).forEach(c => {
+                cMap[(c.name || '').trim()] = c.id;
+                // 去除所有符号后再建一个映射索引
+                cMap[(c.name || '').replace(/[^\u4e00-\u9fa50-9a-zA-Z]/g, '')] = c.id;
+              });
+              for (const row of missingRows) {
+                const cleanName = (row.class_name || '').replace(/[^\u4e00-\u9fa50-9a-zA-Z]/g, '');
+                const cid = cMap[(row.class_name || '').trim()] || cMap[cleanName];
+                if (cid) {
+                  await rdb.from(lessonLogsTable).update({ class_id: cid }).eq('id', row.id);
+                  row.class_id = cid;
+                }
+              }
+            } catch (err) {
+              console.warn('[getLessonLogs] 历史数据 class_id 自愈异常:', err);
+            }
+          })();
+        }
+
+        const targetClassId = (event.class_id || '').trim();
+        const targetClassName = (event.class_name || event.grade || '').trim();
+
+        // 班级 / 年级智能高鲁棒性匹配（支持 class_id 优先，class_name 保底）
+        if ((targetClassId && targetClassId !== 'ALL') || (targetClassName && targetClassName !== 'ALL')) {
+          const cleanTargetName = targetClassName.replace(/[^\u4e00-\u9fa50-9a-zA-Z]/g, '');
+          const isGradeLevel = /^(七|八|九|初一|初二|初三|高一|高二|高三|一|二|三|四|五|六)年?级?$/.test(cleanTargetName);
+
+          list = list.filter(l => {
+            // 1. 优先使用 class_id 严格比对
+            if (targetClassId && targetClassId !== 'ALL' && l.class_id && l.class_id === targetClassId) {
+              return true;
+            }
+
+            // 2. 班级名称容错匹配（针对历史迁移数据或 class_id 为空的记录）
+            if (cleanTargetName && cleanTargetName !== 'ALL') {
+              const curClass = (l.class_name || '').trim();
+              const cleanCur = curClass.replace(/[^\u4e00-\u9fa50-9a-zA-Z]/g, '');
+
+              if (!cleanCur) return false;
+
+              if (curClass === targetClassName || cleanCur === cleanTargetName) return true;
+              if (cleanCur.includes(cleanTargetName) || cleanTargetName.includes(cleanCur)) return true;
+
+              if (isGradeLevel) {
+                const gradeKeyword = cleanTargetName.replace(/年?级?$/, '');
+                if (gradeKeyword && cleanCur.includes(gradeKeyword)) return true;
+              }
+
+              const numMatch = cleanTargetName.match(/\d+/);
+              if (numMatch) {
+                const curNumMatch = cleanCur.match(/\d+/);
+                if (curNumMatch && numMatch[0] === curNumMatch[0]) {
+                  return true;
+                }
+              }
+            }
+
+            return false;
+          });
+        }
+
+        if (event.keyword && event.keyword.trim()) {
+          const kw = event.keyword.trim().toLowerCase();
+          list = list.filter(l => 
+            (l.content || '').toLowerCase().includes(kw) || 
+            (l.class_name || '').toLowerCase().includes(kw) ||
+            (l.subject || '').toLowerCase().includes(kw)
+          );
+        }
+
+        const total = list.length;
+        const offset = (page - 1) * pageSize;
+        const pageList = list.slice(offset, offset + pageSize);
+        const hasMore = offset + pageSize < total;
+
+        return {
+          code: 0,
+          data: pageList,
+          total,
+          page,
+          page_size: pageSize,
+          has_more: hasMore,
+          message: '获取课堂日志成功'
+        };
+      }
+
+      // 22. 获取指定日期的已记课堂笔记
+      case 'getTodayLessonLogs': {
+        const targetDate = event.date || new Date().toISOString().slice(0, 10);
+        const logsRes = await rdb.from(lessonLogsTable)
+          .select('*')
+          .eq('owner_openid', openid)
+          .eq('date', targetDate)
+          .order('period_n', { ascending: true });
+
+        if (logsRes.error) {
+          console.error('获取今日课堂笔记失败:', logsRes.error);
+          return { code: 0, data: [] };
+        }
+
+        const list = (logsRes.data || []).map(sanitizeLessonLog);
+        return {
+          code: 0,
+          data: list,
+          message: '获取今日课堂笔记成功'
+        };
+      }
+
+      // 22. 保存/更新课堂笔记
+      case 'saveLessonLog': {
+        const { date, class_id, class_name, period_n, period_str, subject, content } = event;
+        const targetDate = date || new Date().toISOString().slice(0, 10);
+        const trimmedContent = (content || '').trim();
+        if (!trimmedContent) {
+          return { code: 400, message: '课堂记录内容不能为空' };
+        }
+        const pNum = Number(period_n || 0);
+        const pStr = period_str || `第${pNum}节`;
+        const now = Date.now();
+
+        let realClassId = class_id || '';
+        if (!realClassId && class_name) {
+          const cRes = await rdb.from(classesTable).select('id').eq('openid', openid).eq('name', (class_name || '').trim()).limit(1);
+          if (cRes.data && cRes.data[0]) {
+            realClassId = cRes.data[0].id;
+          }
+        }
+
+        // 查重：同老师、同日期、同班级、同节次
+        const existRes = await rdb.from(lessonLogsTable)
+          .select('id')
+          .eq('owner_openid', openid)
+          .eq('date', targetDate)
+          .eq('class_name', class_name || '')
+          .eq('period_n', pNum);
+
+        let savedRow = null;
+        if (existRes.data && existRes.data.length > 0) {
+          const logId = existRes.data[0].id;
+          const upRes = await rdb.from(lessonLogsTable).update({
+            content: trimmedContent,
+            subject: subject || '',
+            updated_at: now
+          }).eq('id', logId).select();
+          savedRow = upRes.data && upRes.data[0];
+        } else {
+          const inRes = await rdb.from(lessonLogsTable).insert({
+            id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            owner_openid: openid,
+            date: targetDate,
+            class_id: realClassId || '',
+            class_name: class_name || '',
+            period_n: pNum,
+            period_str: pStr,
+            subject: subject || '',
+            content: trimmedContent,
+            created_at: now,
+            updated_at: now
+          }).select();
+          savedRow = inRes.data && inRes.data[0];
+        }
+
+        return {
+          code: 0,
+          data: sanitizeLessonLog(savedRow),
+          message: '课堂记录已保存'
+        };
+      }
+
+      // 23. 删除课堂笔记
+      case 'deleteLessonLog': {
+        const { id } = event;
+        if (!id) return { code: 400, message: '缺少记录 ID' };
+        await rdb.from(lessonLogsTable).delete().eq('id', id).eq('owner_openid', openid);
+        return { code: 0, message: '课堂记录已删除' };
       }
 
       default:
