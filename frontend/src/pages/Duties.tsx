@@ -69,7 +69,7 @@ export default function Duties() {
       </Space>
       <Table rowKey="id" loading={isLoading} dataSource={filtered} columns={columns} pagination={{ pageSize: 15 }} size="middle" scroll={{ x: "max-content" }} />
 
-      <Modal title={editing ? "编辑班务" : "添加班务"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={editing ? "编辑班务" : "添加班务"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => save.mutate(v)}>
           <Form.Item name="岗位" label="岗位" rules={[{ required: true }]}>
             <Input placeholder="例如：班长 / 扫地" />

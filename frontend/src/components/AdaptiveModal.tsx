@@ -125,7 +125,7 @@ export const AdaptiveModal: React.FC<AdaptiveModalProps> = ({
       width={width}
       centered
       closable={closable}
-      destroyOnClose={destroyOnClose}
+      destroyOnHidden={destroyOnClose}
       styles={styles}
       {...rest}
     >

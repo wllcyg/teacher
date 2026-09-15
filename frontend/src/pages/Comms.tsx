@@ -127,7 +127,7 @@ export default function Comms() {
         ]}
       />
 
-      <Modal title={editing ? "编辑沟通记录" : "添加沟通记录"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnClose>
+      <Modal title={editing ? "编辑沟通记录" : "添加沟通记录"} open={open} onCancel={() => setOpen(false)} onOk={() => form.submit()} destroyOnHidden>
         <Form form={form} layout="vertical" onFinish={(v) => save.mutate({ ...v, 日期: v.日期 ? v.日期.format("YYYY-MM-DD") : "" })}>
           <Form.Item name="日期" label="日期"><DatePicker style={{ width: "100%" }} /></Form.Item>
           <Form.Item name="学生" label="学生" rules={[{ required: true }]}>
