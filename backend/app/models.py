@@ -1,132 +1,197 @@
-"""10 张表的 SQLAlchemy Model。
-
-设计说明：原应用把所有业务值都当字符串处理（textOf / wrap / plain），
-这里为保持 1:1 忠实、避免类型转换 bug，业务列一律用 String；
-数值判断（分值、满分、成绩）在 scoring 层按需转 int/float。
+"""11 张业务表的 SQLAlchemy Model（全面采用标准英文属性与复合索引）。
 """
 
-from sqlalchemy import Column, Integer, String
-
+from sqlalchemy import Column, Index, Integer, String
 from .database import Base
+
+
+class ClassEntity(Base):
+    __tablename__ = "classes"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    class_id = Column(String, unique=True, index=True, default="")
+    name = Column(String, unique=True, index=True, default="")
+    grade = Column(String, default="")
+    seq = Column(Integer, default=0)
+
+    __table_args__ = (
+        Index("ix_classes_sort", "seq", "name"),
+    )
 
 
 class Student(Base):
     __tablename__ = "students"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, unique=True, index=True, default="")
-    班级 = Column(String, default="")
-    姓名 = Column(String, default="")
-    学号 = Column(String, default="")
-    小组 = Column(String, default="")
-    标签 = Column(String, default="")
+    class_id = Column(String, index=True, default="")
+    class_name = Column(String, default="")
+    name = Column(String, default="")
+    student_no = Column(String, default="")
+    group_name = Column(String, default="")
+    tags = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_students_class_sno", "class_name", "student_no"),
+        Index("ix_students_cid_sno", "class_id", "student_no"),
+    )
 
 
 class Schedule(Base):
     __tablename__ = "schedule"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    星期 = Column(String, default="")
-    节次 = Column(String, default="")
-    班级 = Column(String, default="")
-    科目 = Column(String, default="")
+    class_id = Column(String, index=True, default="")
+    weekday = Column(String, default="")
+    period = Column(String, default="")
+    class_name = Column(String, default="")
+    subject = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_schedule_slot", "weekday", "period", "class_name"),
+    )
 
 
 class Item(Base):
     __tablename__ = "items"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    项目名 = Column(String, default="")
-    类型 = Column(String, default="")
-    计分制 = Column(String, default="")
-    满分 = Column(String, default="")
-    类别 = Column(String, default="")
-    权重 = Column(String, default="")
-    周期 = Column(String, default="")
-    学科 = Column(String, default="")
+    item_name = Column(String, default="")
+    item_type = Column(String, default="")
+    scoring_type = Column(String, default="")
+    full_score = Column(String, default="")
+    category = Column(String, default="")
+    weight = Column(String, default="")
+    cycle = Column(String, default="")
+    subject = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_items_name_subject", "item_name", "subject"),
+    )
 
 
 class Academic(Base):
     __tablename__ = "academic"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, index=True, default="")
-    日期 = Column(String, default="")
-    班级 = Column(String, default="")
-    学生 = Column(String, default="")
-    项目 = Column(String, default="")
-    结果 = Column(String, default="")
-    状态 = Column(String, default="")
-    备注 = Column(String, default="")
+    client_id = Column(String, index=True, default="")
+    class_id = Column(String, index=True, default="")
+    date = Column(String, default="")
+    class_name = Column(String, default="")
+    student_name = Column(String, default="")
+    item_name = Column(String, default="")
+    score = Column(String, default="")
+    status = Column(String, default="")
+    notes = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_academic_query", "class_name", "date", "item_name"),
+        Index("ix_academic_stu_date", "student_id", "date"),
+        Index("ix_academic_cid_date", "class_id", "date"),
+    )
 
 
 class Behavior(Base):
     __tablename__ = "behavior"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, index=True, default="")
-    日期 = Column(String, default="")
-    班级 = Column(String, default="")
-    学生 = Column(String, default="")
-    项目 = Column(String, default="")
-    分值 = Column(String, default="")
-    备注 = Column(String, default="")
+    client_id = Column(String, index=True, default="")
+    class_id = Column(String, index=True, default="")
+    date = Column(String, default="")
+    class_name = Column(String, default="")
+    student_name = Column(String, default="")
+    item_name = Column(String, default="")
+    score = Column(String, default="")
+    notes = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_behavior_query", "class_name", "date"),
+        Index("ix_behavior_stu_date", "student_id", "date"),
+        Index("ix_behavior_cid_date", "class_id", "date"),
+    )
 
 
 class Todo(Base):
     __tablename__ = "todos"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    日期 = Column(String, default="")
-    事项 = Column(String, default="")
-    类别 = Column(String, default="")
-    状态 = Column(String, default="")
+    date = Column(String, default="")
+    title = Column(String, default="")
+    category = Column(String, default="")
+    status = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_todos_status_date", "status", "date"),
+    )
 
 
 class Attendance(Base):
     __tablename__ = "attendance"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, index=True, default="")
-    日期 = Column(String, default="")
-    学生 = Column(String, default="")
-    状态 = Column(String, default="")
-    备注 = Column(String, default="")
+    class_id = Column(String, index=True, default="")
+    date = Column(String, default="")
+    class_name = Column(String, default="")
+    student_name = Column(String, default="")
+    status = Column(String, default="")
+    notes = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_attendance_query", "class_name", "date"),
+        Index("ix_attendance_stu_date", "student_id", "date"),
+        Index("ix_attendance_cid_date", "class_id", "date"),
+    )
 
 
 class Parent(Base):
     __tablename__ = "parents"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, index=True, default="")
-    学生 = Column(String, default="")
-    称谓 = Column(String, default="")
-    电话 = Column(String, default="")
-    备注 = Column(String, default="")
+    student_name = Column(String, default="")
+    relationship = Column(String, default="")
+    phone = Column(String, default="")
+    notes = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_parents_phone", "phone"),
+    )
 
 
 class Comm(Base):
     __tablename__ = "comms"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, index=True, default="")
-    日期 = Column(String, default="")
-    学生 = Column(String, default="")
-    对象 = Column(String, default="")
-    方式 = Column(String, default="")
-    内容 = Column(String, default="")
-    结果 = Column(String, default="")
+    date = Column(String, default="")
+    student_name = Column(String, default="")
+    target = Column(String, default="")
+    method = Column(String, default="")
+    content = Column(String, default="")
+    result = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_comms_date", "date"),
+    )
 
 
 class Duty(Base):
     __tablename__ = "duties"
     id = Column(Integer, primary_key=True, autoincrement=True)
     student_id = Column(String, index=True, default="")
-    岗位 = Column(String, default="")
-    学生 = Column(String, default="")
-    类型 = Column(String, default="")
-    时间 = Column(String, default="")
-    备注 = Column(String, default="")
+    duty_name = Column(String, default="")
+    student_name = Column(String, default="")
+    duty_type = Column(String, default="")
+    schedule_time = Column(String, default="")
+    notes = Column(String, default="")
 
 
 class LessonLog(Base):
     __tablename__ = "lesson_log"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    日期 = Column(String, default="")
-    班级 = Column(String, default="")
-    节次 = Column(String, default="")
-    内容 = Column(String, default="")
+    class_id = Column(String, index=True, default="")
+    date = Column(String, default="")
+    class_name = Column(String, default="")
+    period = Column(String, default="")
+    content = Column(String, default="")
+
+    __table_args__ = (
+        Index("ix_lesson_log_class_date", "class_name", "date"),
+        Index("ix_lesson_log_cid_date", "class_id", "date"),
+    )
 
 
 class AppSetting(Base):
@@ -135,8 +200,8 @@ class AppSetting(Base):
     value = Column(String, default="")
 
 
-# 表名 -> Model 类，供通用 CRUD 与报表层按表名取用
-MODELS: dict[str, type] = {
+MODELS = {
+    "classes": ClassEntity,
     "students": Student,
     "schedule": Schedule,
     "items": Item,

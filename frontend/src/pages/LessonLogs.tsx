@@ -11,6 +11,7 @@ import {
   message,
   DatePicker,
   Radio,
+  Pagination,
 } from "antd";
 import {
   PullToRefresh,
@@ -18,6 +19,8 @@ import {
   Dialog,
   Toast,
   Empty as MobileEmpty,
+  InfiniteScroll,
+  FloatingBubble,
 } from "antd-mobile";
 import {
   BookOutlined,
@@ -30,11 +33,12 @@ import {
 } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listTable, deleteRow } from "../api";
 import { useClasses, useCurrentClass, useIsMobileOrTablet } from "../hooks";
 import { triggerHaptic } from "../utils/haptics";
 import LessonLogDrawer, { type LessonContext } from "../components/LessonLogDrawer";
+import type { Row } from "../types";
 
 dayjs.extend(isoWeek);
 
@@ -44,117 +48,151 @@ const DATE_FILTER_TABS: { label: string; value: "all" | "week" | "month" | "toda
   { label: "全部", value: "all" },
   { label: "本周", value: "week" },
   { label: "本月", value: "month" },
-  { label: "今天", value: "today" },
-  { label: "自选范围", value: "custom" },
+  { label: "今日", value: "today" },
+  { label: "自定义", value: "custom" },
 ];
 
 export default function LessonLogs() {
+  const { 班级: defaultClass, classItems } = useCurrentClass();
+  const classes = useClasses();
   const isMobile = useIsMobileOrTablet();
   const qc = useQueryClient();
-  const classes = useClasses();
-  const { 班级: defaultClass } = useCurrentClass();
 
-  // 筛选器状态
+  // 筛选状态
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
   const [dateFilterMode, setDateFilterMode] = useState<"all" | "week" | "month" | "today" | "custom">("all");
   const [customRange, setCustomRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [searchKw, setSearchKw] = useState<string>("");
+
+  // PC 端分页状态
+  const [pcPage, setPcPage] = useState(1);
+  const [pcPageSize, setPcPageSize] = useState(15);
 
   // 抽屉编辑状态
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeContext, setActiveContext] = useState<LessonContext | null>(null);
   const [allowEditContext, setAllowEditContext] = useState(false);
 
-  // 获取所有课堂记录
-  const { data: logs = [], isLoading, refetch } = useQuery({
-    queryKey: ["lesson_log"],
-    queryFn: () => listTable("lesson_log"),
-  });
+  // -------------------------------------------------------------
+  // 🎯 服务端查询参数构造（纯英文规范字段，零映射直接查 SQL）
+  // -------------------------------------------------------------
+  const queryParams = useMemo(() => {
+    const params: Record<string, any> = {};
 
-  // 过滤记录
-  const filteredLogs = useMemo(() => {
-    let result = [...logs];
-
-    // 1. 班级过滤
+    // 1. 班级过滤（优先用 class_id，消除中文编码）
     if (selectedClass !== "ALL") {
-      result = result.filter((r) => r.班级 === selectedClass);
+      const found = classItems?.find((c) => c.name === selectedClass || c.class_id === selectedClass);
+      if (found?.class_id) {
+        params.class_id = found.class_id;
+      } else {
+        params.class_name = selectedClass;
+      }
     }
 
-    // 2. 日期范围过滤
+    // 2. 搜索关键词
+    if (searchKw.trim()) {
+      params.q = searchKw.trim();
+    }
+
+    // 3. 日期范围下沉过滤
     const today = dayjs();
     if (dateFilterMode === "today") {
-      const todayStr = today.format("YYYY-MM-DD");
-      result = result.filter((r) => r.日期 === todayStr);
+      params.date = today.format("YYYY-MM-DD");
     } else if (dateFilterMode === "week") {
-      const weekStart = today.startOf("isoWeek").format("YYYY-MM-DD");
-      const weekEnd = today.endOf("isoWeek").format("YYYY-MM-DD");
-      result = result.filter((r) => r.日期 >= weekStart && r.日期 <= weekEnd);
+      params.date_gte = today.startOf("isoWeek").format("YYYY-MM-DD");
+      params.date_lte = today.endOf("isoWeek").format("YYYY-MM-DD");
     } else if (dateFilterMode === "month") {
-      const monthStart = today.startOf("month").format("YYYY-MM-DD");
-      const monthEnd = today.endOf("month").format("YYYY-MM-DD");
-      result = result.filter((r) => r.日期 >= monthStart && r.日期 <= monthEnd);
+      params.date_gte = today.startOf("month").format("YYYY-MM-DD");
+      params.date_lte = today.endOf("month").format("YYYY-MM-DD");
     } else if (dateFilterMode === "custom" && customRange && customRange[0] && customRange[1]) {
-      const startStr = customRange[0].format("YYYY-MM-DD");
-      const endStr = customRange[1].format("YYYY-MM-DD");
-      result = result.filter((r) => r.日期 >= startStr && r.日期 <= endStr);
+      params.date_gte = customRange[0].format("YYYY-MM-DD");
+      params.date_lte = customRange[1].format("YYYY-MM-DD");
     }
 
-    // 3. 关键字过滤（内容、班级、节次）
-    if (searchKw.trim()) {
-      const kw = searchKw.trim().toLowerCase();
-      result = result.filter((r) => {
-        const c = (r.内容 || "").toLowerCase();
-        const k = (r.班级 || "").toLowerCase();
-        const p = (r.节次 || "").toLowerCase();
-        return c.includes(kw) || k.includes(kw) || p.includes(kw);
-      });
+    return params;
+  }, [selectedClass, searchKw, dateFilterMode, customRange]);
+
+  // -------------------------------------------------------------
+  // 1. 移动端：基于筛选条件的真分页与触底静默加载更多
+  // -------------------------------------------------------------
+  const {
+    data: infiniteLogs,
+    fetchNextPage,
+    hasNextPage,
+    isLoading: mobileLoading,
+    refetch: refetchMobile,
+  } = useInfiniteQuery({
+    queryKey: ["lesson_log-mobile", queryParams],
+    queryFn: ({ pageParam = 1 }) =>
+      listTable("lesson_log", { ...queryParams, page: pageParam, page_size: 15 }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const loaded = lastPage.page * lastPage.page_size;
+      return loaded < lastPage.total ? lastPage.page + 1 : undefined;
+    },
+    enabled: isMobile,
+  });
+
+  // -------------------------------------------------------------
+  // 2. PC 桌面端：服务端真分页
+  // -------------------------------------------------------------
+  const {
+    data: pcPageResult,
+    isLoading: pcLoading,
+    refetch: refetchPc,
+  } = useQuery({
+    queryKey: ["lesson_log-pc", queryParams, pcPage, pcPageSize],
+    queryFn: () =>
+      listTable("lesson_log", { ...queryParams, page: pcPage, page_size: pcPageSize }),
+    enabled: !isMobile,
+  });
+
+  // 统一数据源
+  const logs: Row[] = useMemo(() => {
+    if (isMobile) {
+      return infiniteLogs ? infiniteLogs.pages.flatMap((p) => p.items) : [];
     }
+    return pcPageResult?.items || [];
+  }, [isMobile, infiniteLogs, pcPageResult]);
 
-    // 4. 排序：日期倒序，节次倒序
-    return result.sort((a, b) => {
-      if (a.日期 !== b.日期) {
-        return b.日期.localeCompare(a.日期);
-      }
-      const pA = parseInt(String(a.节次).replace(/\D/g, ""), 10) || 0;
-      const pB = parseInt(String(b.节次).replace(/\D/g, ""), 10) || 0;
-      return pB - pA;
-    });
-  }, [logs, selectedClass, dateFilterMode, customRange, searchKw]);
+  const totalCount = isMobile
+    ? (infiniteLogs?.pages[0]?.total ?? 0)
+    : (pcPageResult?.total ?? 0);
 
-  // 统计数据
-  const stats = useMemo(() => {
-    const today = dayjs();
-    const weekStart = today.startOf("isoWeek").format("YYYY-MM-DD");
-    const weekEnd = today.endOf("isoWeek").format("YYYY-MM-DD");
+  const isLoading = isMobile ? mobileLoading : pcLoading;
 
-    const totalCount = logs.length;
-    const weekCount = logs.filter((r) => r.日期 >= weekStart && r.日期 <= weekEnd).length;
-    const coveredClasses = new Set(logs.map((r) => r.班级)).size;
+  const refreshLogs = () => {
+    qc.invalidateQueries({ queryKey: ["lesson_log-mobile"] });
+    qc.invalidateQueries({ queryKey: ["lesson_log-pc"] });
+  };
 
-    return { totalCount, weekCount, coveredClasses };
-  }, [logs]);
-
-  // 按日期分组
+  // 按日期分组渲染
   const groupedLogs = useMemo(() => {
-    const groups: { [date: string]: any[] } = {};
-    for (const log of filteredLogs) {
-      if (!groups[log.日期]) {
-        groups[log.日期] = [];
+    const groups: { [date: string]: Row[] } = {};
+    for (const log of logs) {
+      const d = log.date || log.日期 || "未设日期";
+      if (!groups[d]) {
+        groups[d] = [];
       }
-      groups[log.日期].push(log);
+      groups[d].push(log);
     }
     return Object.entries(groups).map(([date, items]) => ({
       date,
       items,
     }));
-  }, [filteredLogs]);
+  }, [logs]);
 
-  const handleEditRecord = (log: any) => {
+  const handleEditRecord = (log: Row) => {
     triggerHaptic("light");
+    const found = classItems?.find((c) => c.class_id === log.class_id || c.name === (log.class_name || log.班级));
     setActiveContext({
-      日期: log.日期,
-      班级: log.班级,
-      节次: log.节次,
+      date: log.date || log.日期,
+      class_id: log.class_id || found?.class_id,
+      class_name: log.class_name || log.班级,
+      period: log.period || log.节次,
+      日期: log.date || log.日期,
+      班级: log.class_name || log.班级,
+      节次: log.period || log.节次,
     });
     setAllowEditContext(false);
     setDrawerOpen(true);
@@ -162,9 +200,15 @@ export default function LessonLogs() {
 
   const handleCreateNew = () => {
     triggerHaptic("light");
+    const initClass = selectedClass !== "ALL" ? selectedClass : defaultClass || classes[0] || "";
+    const found = classItems?.find((c) => c.name === initClass || c.class_id === initClass);
     setActiveContext({
+      date: dayjs().format("YYYY-MM-DD"),
+      class_id: found?.class_id,
+      class_name: found?.name || initClass,
+      period: "第1节",
       日期: dayjs().format("YYYY-MM-DD"),
-      班级: selectedClass !== "ALL" ? selectedClass : defaultClass || classes[0] || "",
+      班级: found?.name || initClass,
       节次: "第1节",
     });
     setAllowEditContext(true);
@@ -180,7 +224,7 @@ export default function LessonLogs() {
       } else {
         message.success("课堂笔记已删除");
       }
-      qc.invalidateQueries({ queryKey: ["lesson_log"] });
+      refreshLogs();
     } catch {
       triggerHaptic("warning");
       if (isMobile) {
@@ -191,11 +235,14 @@ export default function LessonLogs() {
     }
   };
 
-  const handleMobileDelete = (log: any) => {
+  const handleMobileDelete = (log: Row) => {
     triggerHaptic("warning");
+    const d = log.date || log.日期;
+    const p = log.period || log.节次;
+    const c = log.class_name || log.班级;
     Dialog.confirm({
       title: "确定删除此课堂笔记？",
-      content: `${log.日期} ${log.节次} (${log.班级}) 的笔记将被彻底删除`,
+      content: `${d} ${p} (${c}) 的笔记将被彻底删除`,
       confirmText: "删除",
       cancelText: "取消",
       onConfirm: async () => {
@@ -206,7 +253,7 @@ export default function LessonLogs() {
 
   const handleMobileRefresh = async () => {
     triggerHaptic("light");
-    await refetch();
+    await refetchMobile();
     Toast.show({
       icon: "success",
       content: "已刷新课堂笔记",
@@ -252,7 +299,7 @@ export default function LessonLogs() {
   };
 
   // -------------------------------------------------------------
-  // 📱 移动端专属布局视图
+  // 📱 移动端专属布局视图（条件过滤下沉 + 上拉触底无限加载）
   // -------------------------------------------------------------
   if (isMobile) {
     return (
@@ -260,102 +307,15 @@ export default function LessonLogs() {
         <div
           style={{
             minHeight: "100vh",
-            padding: "12px 14px calc(90px + env(safe-area-inset-bottom, 16px))",
             background: "#F8FAFC",
+            padding: "12px 14px 80px",
+            boxSizing: "border-box",
           }}
         >
-          {/* 移动端顶部标题栏 */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 12,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: 10,
-                  background: "linear-gradient(135deg, #4F46E5, #6366F1)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#fff",
-                  fontSize: 17,
-                  boxShadow: "0 2px 8px rgba(79, 70, 229, 0.25)",
-                }}
-              >
-                <BookOutlined />
-              </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "#0F172A", lineHeight: 1.2 }}>
-                  课堂笔记
-                </h1>
-                <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>
-                  共 {stats.totalCount} 篇记录 · 本周 {stats.weekCount} 篇
-                </div>
-              </div>
-            </div>
-
-            <Button
-              size="small"
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleCreateNew}
-              style={{
-                borderRadius: 20,
-                background: "#4F46E5",
-                borderColor: "#4F46E5",
-                fontWeight: 600,
-                fontSize: 13,
-                boxShadow: "0 2px 6px rgba(79, 70, 229, 0.2)",
-              }}
-            >
-              补录
-            </Button>
-          </div>
-
-          {/* 移动端紧凑统计指标面板 */}
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: "10px 12px",
-              border: "1px solid #E2E8F0",
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 6,
-              marginBottom: 12,
-              boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-            }}
-          >
-            <div style={{ textAlign: "center", borderRight: "1px solid #F1F5F9" }}>
-              <div style={{ fontSize: 11, color: "#94A3B8" }}>全部笔记</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#1E293B", marginTop: 2 }}>
-                {stats.totalCount} <span style={{ fontSize: 11, fontWeight: 400, color: "#94A3B8" }}>篇</span>
-              </div>
-            </div>
-            <div style={{ textAlign: "center", borderRight: "1px solid #F1F5F9" }}>
-              <div style={{ fontSize: 11, color: "#94A3B8" }}>本周记录</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#4F46E5", marginTop: 2 }}>
-                {stats.weekCount} <span style={{ fontSize: 11, fontWeight: 400, color: "#94A3B8" }}>篇</span>
-              </div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 11, color: "#94A3B8" }}>覆盖班级</div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: "#0D9488", marginTop: 2 }}>
-                {stats.coveredClasses} <span style={{ fontSize: 11, fontWeight: 400, color: "#94A3B8" }}>个</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 移动端专用搜索栏 (antd-mobile SearchBar) */}
+          {/* 移动端搜索栏 */}
           <div style={{ marginBottom: 10 }}>
             <SearchBar
-              placeholder="搜索教学进度、作业、节次、班级..."
+              placeholder="搜索教学进度、课后作业、知识点..."
               value={searchKw}
               onChange={setSearchKw}
               onClear={() => setSearchKw("")}
@@ -490,8 +450,8 @@ export default function LessonLogs() {
           </div>
 
           {/* 移动端笔记列表流 */}
-          <Spin spinning={isLoading}>
-            {groupedLogs.length === 0 ? (
+          <Spin spinning={isLoading && logs.length === 0}>
+            {groupedLogs.length === 0 && !isLoading ? (
               <div
                 style={{
                   background: "#fff",
@@ -597,7 +557,7 @@ export default function LessonLogs() {
                                     padding: "1px 6px",
                                   }}
                                 >
-                                  {log.节次}
+                                  {log.period || log.节次}
                                 </Tag>
                                 <Tag
                                   color="cyan"
@@ -609,7 +569,7 @@ export default function LessonLogs() {
                                     padding: "1px 6px",
                                   }}
                                 >
-                                  {log.班级}
+                                  {log.class_name || log.班级}
                                 </Tag>
                               </div>
 
@@ -638,55 +598,53 @@ export default function LessonLogs() {
                             </div>
 
                             {/* 卡片内容与标签 */}
-                            {renderFormattedContent(log.内容)}
+                            {renderFormattedContent(log.content || log.内容)}
                           </div>
                         ))}
                       </div>
                     </div>
                   );
                 })}
+
+                {/* 移动端上拉触底加载下一页 */}
+                <InfiniteScroll
+                  loadMore={async () => {
+                    await fetchNextPage();
+                  }}
+                  hasMore={Boolean(hasNextPage)}
+                />
               </div>
             )}
           </Spin>
 
-          {/* 移动端右下角悬浮操作按钮 (FAB) */}
-          <div
+          {/* 移动端吸附右侧可拖拽添加按钮 (FloatingBubble) */}
+          <FloatingBubble
+            axis="xy"
+            magnetic="x"
+            style={{
+              "--initial-position-right": "20px",
+              "--initial-position-bottom": "88px",
+              "--z-index": "999",
+              "--size": "54px",
+              "--edge-distance": "16px",
+              "--border-radius": "27px",
+              "--background": "linear-gradient(135deg, #4F46E5, #6366F1)",
+              boxShadow: "0 6px 18px rgba(79, 70, 229, 0.45)",
+            }}
             onClick={() => {
               triggerHaptic("medium");
               handleCreateNew();
             }}
-            style={{
-              position: "fixed",
-              right: 18,
-              bottom: "calc(72px + env(safe-area-inset-bottom, 12px))",
-              zIndex: 80,
-              background: "linear-gradient(135deg, #4F46E5, #6366F1)",
-              color: "#fff",
-              borderRadius: 24,
-              padding: "10px 18px",
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 14,
-              fontWeight: 600,
-              boxShadow: "0 4px 14px rgba(79, 70, 229, 0.4)",
-              cursor: "pointer",
-              userSelect: "none",
-            }}
           >
-            <PlusOutlined style={{ fontSize: 15 }} />
-            <span>补录笔记</span>
-          </div>
+            <PlusOutlined style={{ fontSize: 24, color: "#fff" }} />
+          </FloatingBubble>
 
-          {/* 课堂笔记底部抽屉 */}
           <LessonLogDrawer
             open={drawerOpen}
             onClose={() => setDrawerOpen(false)}
             lessonContext={activeContext}
             allowEditContext={allowEditContext}
-            onSuccess={() => {
-              qc.invalidateQueries({ queryKey: ["lesson_log"] });
-            }}
+            onSuccess={refreshLogs}
           />
         </div>
       </PullToRefresh>
@@ -694,7 +652,7 @@ export default function LessonLogs() {
   }
 
   // -------------------------------------------------------------
-  // 💻 宽屏 / 桌面端排版视图 (保持高效大方)
+  // 💻 PC 桌面端布局视图（服务端分页器 + 筛选下沉）
   // -------------------------------------------------------------
   return (
     <div style={{ maxWidth: 900, margin: "0 auto", padding: "16px 14px 40px" }}>
@@ -732,7 +690,7 @@ export default function LessonLogs() {
                 课堂笔记
               </h1>
               <div style={{ fontSize: 13, color: "#64748B", marginTop: 2 }}>
-                记录授课进度、课后作业及随堂要点
+                记录授课进度、课后作业及随堂要点（服务端实时查询与真分页）
               </div>
             </div>
           </div>
@@ -741,7 +699,7 @@ export default function LessonLogs() {
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => refetch()}
+            onClick={() => refetchPc()}
             style={{ borderRadius: 8 }}
           />
           <Button
@@ -758,59 +716,6 @@ export default function LessonLogs() {
           >
             补录笔记
           </Button>
-        </div>
-      </div>
-
-      {/* 统计指标卡片 */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          gap: 10,
-          marginBottom: 16,
-        }}
-      >
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 12,
-            padding: "12px 14px",
-            border: "1px solid #E2E8F0",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#64748B" }}>全部笔记</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#1E293B", marginTop: 2 }}>
-            {stats.totalCount} <span style={{ fontSize: 12, fontWeight: 400, color: "#94A3B8" }}>篇</span>
-          </div>
-        </div>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 12,
-            padding: "12px 14px",
-            border: "1px solid #E2E8F0",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#64748B" }}>本周记录</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#4F46E5", marginTop: 2 }}>
-            {stats.weekCount} <span style={{ fontSize: 12, fontWeight: 400, color: "#94A3B8" }}>篇</span>
-          </div>
-        </div>
-        <div
-          style={{
-            background: "#fff",
-            borderRadius: 12,
-            padding: "12px 14px",
-            border: "1px solid #E2E8F0",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
-          }}
-        >
-          <div style={{ fontSize: 12, color: "#64748B" }}>覆盖班级</div>
-          <div style={{ fontSize: 20, fontWeight: 700, color: "#0D9488", marginTop: 2 }}>
-            {stats.coveredClasses} <span style={{ fontSize: 12, fontWeight: 400, color: "#94A3B8" }}>个</span>
-          </div>
         </div>
       </div>
 
@@ -903,7 +808,11 @@ export default function LessonLogs() {
                 </span>
               }
             >
-              <Button type="primary" onClick={handleCreateNew} style={{ background: "#4F46E5", borderColor: "#4F46E5", borderRadius: 8 }}>
+              <Button
+                type="primary"
+                onClick={handleCreateNew}
+                style={{ background: "#4F46E5", borderColor: "#4F46E5", borderRadius: 8 }}
+              >
                 记录第一条笔记
               </Button>
             </Empty>
@@ -981,7 +890,7 @@ export default function LessonLogs() {
                                 padding: "2px 8px",
                               }}
                             >
-                              {log.节次}
+                              {log.period || log.节次}
                             </Tag>
                             <Tag
                               color="cyan"
@@ -993,7 +902,7 @@ export default function LessonLogs() {
                                 padding: "2px 8px",
                               }}
                             >
-                              {log.班级}
+                              {log.class_name || log.班级}
                             </Tag>
                           </div>
 
@@ -1030,13 +939,27 @@ export default function LessonLogs() {
                         </div>
 
                         {/* 卡片主体：笔记内容与标签 */}
-                        {renderFormattedContent(log.内容)}
+                        {renderFormattedContent(log.content || log.内容)}
                       </Card>
                     ))}
                   </div>
                 </div>
               );
             })}
+
+            {/* PC 端服务端真分页器 */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+              <Pagination
+                current={pcPage}
+                pageSize={pcPageSize}
+                total={totalCount}
+                showTotal={(total) => `共 ${total} 条笔记`}
+                onChange={(p, ps) => {
+                  setPcPage(p);
+                  setPcPageSize(ps);
+                }}
+              />
+            </div>
           </div>
         )}
       </Spin>
@@ -1047,9 +970,7 @@ export default function LessonLogs() {
         onClose={() => setDrawerOpen(false)}
         lessonContext={activeContext}
         allowEditContext={allowEditContext}
-        onSuccess={() => {
-          qc.invalidateQueries({ queryKey: ["lesson_log"] });
-        }}
+        onSuccess={refreshLogs}
       />
     </div>
   );

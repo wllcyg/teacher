@@ -23,7 +23,7 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { createRow, deleteRow, listTable, updateRow } from "../api";
+import { createRow, deleteRow, listAllTable, updateRow } from "../api";
 import type { Row } from "../types";
 import StudentAvatar from "./StudentAvatar";
 
@@ -39,58 +39,74 @@ export default function StudentDetailModal({
   onClose,
 }: StudentDetailModalProps) {
   const qc = useQueryClient();
-  const studentName = student?.姓名 || "";
-  const studentClass = student?.班级 || "";
+  const studentName = student?.name || student?.姓名 || "";
+  const studentClass = student?.class_name || student?.班级 || "";
 
   // 基础信息编辑弹窗
   const [editBasicOpen, setEditBasicOpen] = useState(false);
   const [basicForm] = Form.useForm();
 
-  // 添加家长联系表单
+  // 添加家长表单
+  const [parentOpen, setParentOpen] = useState(false);
   const [parentForm] = Form.useForm();
 
   // 添加家校沟通表单
   const [commOpen, setCommOpen] = useState(false);
   const [commForm] = Form.useForm();
 
-  // 查询该学生所有数据
+  // 筛选属于当前学生的数据（优先用 student_id 精准匹配，兼容老数据姓名匹配）
+  const studentId = student?.student_id || "";
+  const studentClassId = student?.class_id || "";
+
+  // 构造针对当前学生的精准过滤条件（杜绝全校/全班大表全量拉取）
+  const classFilter = studentClassId
+    ? { class_id: studentClassId }
+    : studentClass
+    ? { class_name: studentClass }
+    : {};
+
+  const studentFilter = {
+    ...classFilter,
+    student_name: studentName,
+  };
+
+  // 查询该学生所有数据（精准下沉到后端 SQL 过滤）
   const { data: allAcademics, isLoading: loadingAcademics } = useQuery({
-    queryKey: ["academic", studentClass],
-    queryFn: () => listTable("academic", { 班级: studentClass }),
-    enabled: !!studentClass && open,
+    queryKey: ["academic-student", studentClass, studentId || studentName],
+    queryFn: () => listAllTable("academic", studentFilter),
+    enabled: !!studentName && open,
   });
 
   const { data: allBehavior, isLoading: loadingBehavior } = useQuery({
-    queryKey: ["behavior", studentClass],
-    queryFn: () => listTable("behavior", { 班级: studentClass }),
-    enabled: !!studentClass && open,
+    queryKey: ["behavior-student", studentClass, studentId || studentName],
+    queryFn: () => listAllTable("behavior", studentFilter),
+    enabled: !!studentName && open,
   });
 
   const { data: allAttendance, isLoading: loadingAttendance } = useQuery({
-    queryKey: ["attendance", studentClass],
-    queryFn: () => listTable("attendance", { 班级: studentClass }),
-    enabled: !!studentClass && open,
+    queryKey: ["attendance-student", studentClass, studentId || studentName],
+    queryFn: () => listAllTable("attendance", studentFilter),
+    enabled: !!studentName && open,
   });
 
   const { data: allParents, isLoading: loadingParents } = useQuery({
-    queryKey: ["parents"],
-    queryFn: () => listTable("parents"),
-    enabled: open,
+    queryKey: ["parents-student", studentId || studentName],
+    queryFn: () => listAllTable("parents", { student_name: studentName }),
+    enabled: !!studentName && open,
   });
 
   const { data: allComms, isLoading: loadingComms } = useQuery({
-    queryKey: ["comms"],
-    queryFn: () => listTable("comms"),
-    enabled: open,
+    queryKey: ["comms-student", studentId || studentName],
+    queryFn: () => listAllTable("comms", { student_name: studentName }),
+    enabled: !!studentName && open,
   });
 
-  // 筛选属于当前学生的数据（优先用 student_id 精准匹配，兼容老数据姓名匹配）
-  const studentId = student?.student_id || "";
   const matchStudent = (r: Row) => {
     if (studentId && r.student_id) {
       return r.student_id === studentId;
     }
-    return r.学生 === studentName;
+    const rName = r.student_name || r.学生 || r.姓名;
+    return rName === studentName;
   };
 
   const academics = useMemo(
@@ -105,12 +121,11 @@ export default function StudentDetailModal({
 
   const attendances = useMemo(
     () =>
-      (allAttendance ?? []).filter(
-        (r) =>
-          matchStudent(r) &&
-          r.状态 &&
-          !["正常", "全勤", "系统核对"].includes(r.状态)
-      ),
+      (allAttendance ?? []).filter((r) => {
+        if (!matchStudent(r)) return false;
+        const st = r.status || r.状态;
+        return st && !["正常", "全勤", "系统核对"].includes(st);
+      }),
     [allAttendance, studentName, studentId]
   );
 
@@ -126,7 +141,7 @@ export default function StudentDetailModal({
 
   // 表现总分
   const totalBehavior = useMemo(() => {
-    return behaviors.reduce((acc, r) => acc + (parseFloat(r.分值) || 0), 0);
+    return behaviors.reduce((acc, r) => acc + (parseFloat(r.score || r.分值 || r.成绩) || 0), 0);
   }, [behaviors]);
 
   // ---------- 删除各模块记录 ----------
@@ -160,15 +175,15 @@ export default function StudentDetailModal({
   };
 
   // ---------- 添加一条家长联系 ----------
-  const handleAddParent = async (vals: { 称谓: string; 电话: string; 备注?: string }) => {
+  const handleAddParent = async (vals: { relationship?: string; 称谓?: string; phone?: string; 电话?: string; notes?: string; 备注?: string }) => {
     if (!studentName) return;
     try {
       await createRow("parents", {
         student_id: studentId,
-        学生: studentName,
-        称谓: vals.称谓.trim(),
-        电话: vals.电话.trim(),
-        备注: (vals.备注 || "").trim(),
+        student_name: studentName,
+        relationship: ((vals.relationship || vals.称谓) || "").trim(),
+        phone: ((vals.phone || vals.电话) || "").trim(),
+        notes: ((vals.notes || vals.备注) || "").trim(),
       });
       message.success("已添加家长联系方式");
       parentForm.resetFields();
@@ -179,17 +194,17 @@ export default function StudentDetailModal({
   };
 
   // ---------- 添加一条沟通记录 ----------
-  const handleAddComm = async (vals: { 方式: string; 内容: string; 结果?: string }) => {
+  const handleAddComm = async (vals: { method?: string; 方式?: string; content?: string; 内容?: string; result?: string; 结果?: string }) => {
     if (!studentName) return;
     try {
       await createRow("comms", {
         student_id: studentId,
-        日期: dayjs().format("YYYY-MM-DD"),
-        学生: studentName,
-        对象: "家长",
-        方式: vals.方式,
-        内容: vals.内容.trim(),
-        结果: (vals.结果 || "").trim(),
+        date: dayjs().format("YYYY-MM-DD"),
+        student_name: studentName,
+        target: "家长",
+        method: vals.method || vals.方式 || "电话",
+        content: ((vals.content || vals.内容) || "").trim(),
+        result: ((vals.result || vals.结果) || "").trim(),
       });
       message.success("已记录沟通痕迹");
       setCommOpen(false);
@@ -256,9 +271,12 @@ export default function StudentDetailModal({
               icon={<EditOutlined />}
               onClick={() => {
                 basicForm.setFieldsValue({
-                  小组: student.小组,
-                  学号: student.学号,
-                  标签: student.标签,
+                  group_name: student.group_name || student.小组,
+                  student_no: student.student_no || student.学号,
+                  tags: student.tags || student.标签,
+                  小组: student.group_name || student.小组,
+                  学号: student.student_no || student.学号,
+                  标签: student.tags || student.标签,
                 });
                 setEditBasicOpen(true);
               }}
@@ -269,9 +287,9 @@ export default function StudentDetailModal({
           </div>
 
           <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
-            {student.小组 ? `${student.小组}` : "未分组"}
-            {student.标签 ? ` · ${student.标签}` : " · 组员"}
-            {student.学号 ? ` · 学号 ${student.学号}` : ""}
+            {(student.group_name || student.小组) ? `${student.group_name || student.小组}` : "未分组"}
+            {(student.tags || student.标签) ? ` · ${student.tags || student.标签}` : " · 组员"}
+            {(student.student_no || student.学号) ? ` · 学号 ${student.student_no || student.学号}` : ""}
           </div>
         </div>
       </div>
@@ -309,22 +327,22 @@ export default function StudentDetailModal({
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.日期}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.date || r.日期}</div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", marginTop: 2 }}>
-                        {r.项目}:{" "}
+                        {r.item_name || r.项目}:{" "}
                         <span
                           style={{
                             color:
-                              r.结果 === "过关" || r.结果 === "√"
+                              (r.score || r.结果) === "过关" || (r.score || r.结果) === "√"
                                 ? "#16a34a"
-                                : r.结果 === "未过"
+                                : (r.score || r.结果) === "未过"
                                 ? "#ea580c"
                                 : "#1677ff",
                           }}
                         >
-                          {r.结果}
+                          {r.score || r.结果}
                         </span>
-                        {r.备注 && (
+                        {(r.notes || r.备注) && (
                           <span
                             style={{
                               fontSize: 12,
@@ -333,7 +351,7 @@ export default function StudentDetailModal({
                               marginLeft: 6,
                             }}
                           >
-                            （{r.备注}）
+                            （{r.notes || r.备注}）
                           </span>
                         )}
                       </div>
@@ -370,7 +388,7 @@ export default function StudentDetailModal({
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {behaviors.map((r) => {
-                  const val = parseFloat(r.分值) || 0;
+                  const val = parseFloat(r.score || r.分值 || r.成绩) || 0;
                   return (
                     <div
                       key={r.id}
@@ -385,15 +403,15 @@ export default function StudentDetailModal({
                       }}
                     >
                       <div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.日期}</div>
+                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.date || r.日期}</div>
                         <div style={{ fontSize: 14, fontWeight: 600, color: "#1e293b", marginTop: 2 }}>
-                          {r.项目}:{" "}
+                          {r.item_name || r.项目}:{" "}
                           <span style={{ color: val > 0 ? "#1677ff" : "#cf1322" }}>
                             {val > 0 ? `+${val}` : val}
                           </span>
-                          {r.备注 && (
+                          {(r.notes || r.备注) && (
                             <span style={{ color: "#94a3b8", fontSize: 12, marginLeft: 8 }}>
-                              ({r.备注})
+                              ({r.notes || r.备注})
                             </span>
                           )}
                         </div>
@@ -444,12 +462,12 @@ export default function StudentDetailModal({
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.日期}</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.date || r.日期}</div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#cf1322", marginTop: 2 }}>
-                        {r.状态}
-                        {r.备注 && (
+                        {r.status || r.状态}
+                        {(r.notes || r.备注) && (
                           <span style={{ color: "#64748b", fontSize: 12, marginLeft: 8 }}>
-                            ({r.备注})
+                            ({r.notes || r.备注})
                           </span>
                         )}
                       </div>
@@ -475,7 +493,7 @@ export default function StudentDetailModal({
           <Card size="small" style={{ borderRadius: 10 }}>
             <div style={{ marginBottom: 8 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
-                家长联系
+                家长联系方式
               </span>
             </div>
 
@@ -515,9 +533,9 @@ export default function StudentDetailModal({
                     }}
                   >
                     <Space size={12}>
-                      <Tag color="blue">{p.称谓 || "家长"}</Tag>
-                      <strong style={{ fontSize: 14 }}>{p.电话}</strong>
-                      {p.备注 && <span style={{ color: "#64748b", fontSize: 12 }}>({p.备注})</span>}
+                      <Tag color="blue">{p.relationship || p.称谓 || "家长"}</Tag>
+                      <strong style={{ fontSize: 14 }}>{p.phone || p.电话}</strong>
+                      {(p.notes || p.备注) && <span style={{ color: "#64748b", fontSize: 12 }}>({p.notes || p.备注})</span>}
                     </Space>
                     <Popconfirm
                       title="确定删除此联系人吗？"
@@ -535,13 +553,13 @@ export default function StudentDetailModal({
 
             {/* 加一条家长联系 */}
             <Form form={parentForm} layout="inline" onFinish={handleAddParent}>
-              <Form.Item name="称谓" rules={[{ required: true, message: "如妈妈" }]}>
+              <Form.Item name="relationship" rules={[{ required: true, message: "如妈妈" }]}>
                 <Input placeholder="称谓（如妈妈）" style={{ width: 110 }} />
               </Form.Item>
-              <Form.Item name="电话" rules={[{ required: true, message: "手机号" }]}>
+              <Form.Item name="phone" rules={[{ required: true, message: "手机号" }]}>
                 <Input placeholder="手机号" style={{ width: 130 }} />
               </Form.Item>
-              <Form.Item name="备注">
+              <Form.Item name="notes">
                 <Input placeholder="什么时候方便联系" style={{ width: 160 }} />
               </Form.Item>
               <Form.Item>
@@ -595,14 +613,14 @@ export default function StudentDetailModal({
                   >
                     <div>
                       <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                        {c.日期} · 方式: {c.方式 || "电话"}
+                        {c.date || c.日期} · 方式: {c.method || c.方式 || "电话"}
                       </div>
                       <div style={{ fontSize: 13, color: "#1e293b", marginTop: 2 }}>
-                        {c.内容}
+                        {c.content || c.内容}
                       </div>
-                      {c.结果 && (
+                      {(c.result || c.结果) && (
                         <div style={{ fontSize: 12, color: "#16a34a", marginTop: 2 }}>
-                          结果: {c.结果}
+                          结果: {c.result || c.结果}
                         </div>
                       )}
                     </div>

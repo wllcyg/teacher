@@ -65,7 +65,7 @@ export const QuickNoteStudentGrid: React.FC<QuickNoteStudentGridProps> = ({
       >
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span>
-            {currentClass} | {currentItem?.项目名}
+            {currentClass} | {currentItem?.item_name || currentItem?.项目名}
           </span>
           <span style={{ fontSize: 12, fontWeight: 400, opacity: 0.85 }}>
             （共 {studentGroups.length} 组 / {roster.length} 人）
@@ -105,11 +105,12 @@ export const QuickNoteStudentGrid: React.FC<QuickNoteStudentGridProps> = ({
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {studentGroups.map((group) => {
               const leader =
-                group.students.find((s) => (s.标签 || "").includes("组长")) ||
+                group.students.find((s) => ((s.tags || s.标签) || "").includes("组长")) ||
                 group.students[0];
-              const passCount = group.students.filter(
-                (s) => studentAcademicMap.get(s.姓名)?.结果 === "过关"
-              ).length;
+              const passCount = group.students.filter((s) => {
+                const stat = studentAcademicMap.get(s.name || s.姓名);
+                return (stat?.score || stat?.结果) === "过关";
+              }).length;
               const isAllPassed =
                 group.students.length > 0 && passCount === group.students.length;
 
@@ -148,7 +149,7 @@ export const QuickNoteStudentGrid: React.FC<QuickNoteStudentGridProps> = ({
                       </span>
                       {leader && (
                         <Tag color="gold" style={{ margin: 0, fontSize: 11, fontWeight: 600 }}>
-                          组长：{leader.姓名}
+                          组长：{leader.name || leader.姓名}
                         </Tag>
                       )}
                       <span style={{ fontSize: 12, color: "#64748b" }}>
@@ -194,16 +195,18 @@ export const QuickNoteStudentGrid: React.FC<QuickNoteStudentGridProps> = ({
                     }}
                   >
                     {group.students.map((s) => {
-                      const isLeader = (s.标签 || "").includes("组长");
+                      const sName = s.name || s.姓名;
+                      const sNo = s.student_no || s.学号;
+                      const isLeader = ((s.tags || s.标签) || "").includes("组长");
                       return (
                         <QuickNoteCard
-                          key={s.学号 || s.姓名}
+                          key={sNo || sName}
                           student={s}
                           isLeader={isLeader}
                           showGroupName={false}
                           scoreKind={scoreKind}
-                          behaviorStat={studentBehaviorMap.get(s.姓名)}
-                          academicStat={studentAcademicMap.get(s.姓名)}
+                          behaviorStat={studentBehaviorMap.get(sName)}
+                          academicStat={studentAcademicMap.get(sName)}
                           onTapBehavior={onTapBehavior}
                           onSetPass={onSetPass}
                           onToggleCheck={onToggleCheck}
@@ -226,16 +229,18 @@ export const QuickNoteStudentGrid: React.FC<QuickNoteStudentGridProps> = ({
             }}
           >
             {roster.map((s) => {
-              const isLeader = (s.标签 || "").includes("组长");
+              const sName = s.name || s.姓名;
+              const sNo = s.student_no || s.学号;
+              const isLeader = ((s.tags || s.标签) || "").includes("组长");
               return (
                 <QuickNoteCard
-                  key={s.学号 || s.姓名}
+                  key={sNo || sName}
                   student={s}
                   isLeader={isLeader}
                   showGroupName={true}
                   scoreKind={scoreKind}
-                  behaviorStat={studentBehaviorMap.get(s.姓名)}
-                  academicStat={studentAcademicMap.get(s.姓名)}
+                  behaviorStat={studentBehaviorMap.get(sName)}
+                  academicStat={studentAcademicMap.get(sName)}
                   onTapBehavior={onTapBehavior}
                   onSetPass={onSetPass}
                   onToggleCheck={onToggleCheck}

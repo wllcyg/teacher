@@ -35,6 +35,7 @@ export default function StudentAvatar({
     student?.student_id ||
     studentId ||
     (student?.id ? `STU${student.id}` : "") ||
+    student?.name ||
     student?.姓名 ||
     name ||
     "student";

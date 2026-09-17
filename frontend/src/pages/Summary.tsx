@@ -27,7 +27,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
 import isoWeek from "dayjs/plugin/isoWeek";
-import { listTable } from "../api";
+import { listAllTable } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import { useAppStore } from "../store/app";
 import type { Row as DataRow } from "../types";
@@ -36,7 +36,7 @@ import StudentDetailModal from "../components/StudentDetailModal";
 dayjs.extend(isoWeek);
 
 export default function Summary() {
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes } = useCurrentClass();
   const 今天 = useAppStore((s) => s.今天) || dayjs().format("YYYY-MM-DD");
 
   // 顶部一级视图切换
@@ -48,60 +48,86 @@ export default function Summary() {
   // 考勤下钻弹窗
   const [attendanceModalOpen, setAttendanceModalOpen] = useState(false);
 
-  // 学生个人学情档案弹窗
+  // 学生详情弹窗状态
   const [detailStudent, setDetailStudent] = useState<DataRow | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  // 个人雷达/详情点击
   const openStudentDetail = (studentName: string) => {
-    const stu =
-      roster.find((s) => s.姓名 === studentName) ||
-      (students ?? []).find((s) => s.姓名 === studentName);
+    const stu = (students ?? []).find(
+      (s) => (s.name || s.姓名) === studentName && ((s.class_id && s.class_id === class_id) || (s.class_name || s.班级) === 班级)
+    );
     if (stu) {
       setDetailStudent(stu);
       setDetailOpen(true);
     }
   };
 
-  // ---- 数据查询 ----
+  // ---- 数据查询（优先按 class_id 查询，彻底避免 URL 中文编码） ----
+  const queryClass = class_id || 班级;
+  const classFilter = class_id ? { class_id } : { class_name: 班级 };
+
   const { data: students, isLoading: loadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: () => listTable("students"),
+    queryKey: ["students-all", queryClass],
+    queryFn: () => listAllTable("students", classFilter),
+    enabled: !!queryClass,
   });
   const { data: items, isLoading: loadingItems } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => listTable("items"),
+    queryKey: ["items-all"],
+    queryFn: () => listAllTable("items"),
+    staleTime: 10 * 60 * 1000,
   });
   const { data: allAcademics, isLoading: loadingAcademics } = useQuery({
-    queryKey: ["academic", 班级],
-    queryFn: () => listTable("academic", { 班级 }),
-    enabled: !!班级,
+    queryKey: ["academic-all", queryClass],
+    queryFn: () => listAllTable("academic", classFilter),
+    enabled: !!queryClass,
   });
   const { data: allBehavior, isLoading: loadingBehavior } = useQuery({
-    queryKey: ["behavior", 班级],
-    queryFn: () => listTable("behavior", { 班级 }),
-    enabled: !!班级,
+    queryKey: ["behavior-all", queryClass],
+    queryFn: () => listAllTable("behavior", classFilter),
+    enabled: !!queryClass,
   });
   const { data: allAttendance, isLoading: loadingAttendance } = useQuery({
-    queryKey: ["attendance", 班级],
-    queryFn: () => listTable("attendance", { 班级 }),
-    enabled: !!班级,
+    queryKey: ["attendance-all", queryClass],
+    queryFn: () => listAllTable("attendance", classFilter),
+    enabled: !!queryClass,
   });
 
   const roster = useMemo(() => activeRoster(students, 班级), [students, 班级]);
-  const rosterNames = useMemo(() => new Set(roster.map((s) => s.姓名)), [roster]);
+  const rosterNames = useMemo(() => new Set(roster.map((s) => s.name || s.姓名)), [roster]);
 
   // ---------- 指标 1：待补测名单计算 ----------
   const retestList = useMemo(() => {
-    const list: { 学生: string; 学号: string; 项目: string; 日期: string; 状态: string }[] = [];
+    const list: {
+      student_name: string;
+      student_no: string;
+      item_name: string;
+      date: string;
+      status: string;
+      学生: string;
+      学号: string;
+      项目: string;
+      日期: string;
+    }[] = [];
     (allAcademics ?? []).forEach((r) => {
-      if (rosterNames.has(r.学生) && (r.状态 === "未过" || r.结果 === "未过")) {
-        const stu = roster.find((s) => s.姓名 === r.学生);
+      const sName = r.student_name || r.学生;
+      const st = r.status || r.状态;
+      const sc = r.score || r.结果;
+      if (rosterNames.has(sName) && (st === "未过" || sc === "未过")) {
+        const stu = roster.find((s) => (s.name || s.姓名) === sName);
+        const itName = r.item_name || r.项目;
+        const rDate = r.date || r.日期;
+        const sNo = (stu?.student_no || stu?.学号) ?? "";
         list.push({
-          学生: r.学生,
-          学号: stu?.学号 ?? "",
-          项目: r.项目,
-          日期: r.日期,
-          状态: "未过关",
+          student_name: sName,
+          student_no: sNo,
+          item_name: itName,
+          date: rDate,
+          status: "未过关",
+          学生: sName,
+          学号: sNo,
+          项目: itName,
+          日期: rDate,
         });
       }
     });
@@ -110,44 +136,68 @@ export default function Summary() {
 
   // ---------- 指标 2：最新考试 ----------
   const scoreItems = useMemo(
-    () => (items ?? []).filter((it) => it.计分制 && it.计分制.includes("分数")),
+    () =>
+      (items ?? []).filter((it) => {
+        const scoring = it.scoring_type || it.计分制 || "";
+        return scoring.includes("分数");
+      }),
     [items]
   );
 
   const examExams = useMemo(() => {
-    const map = new Map<string, { 项目: string; 日期: string; 满分: number; 分数列表: number[] }>();
+    const map = new Map<
+      string,
+      {
+        item_name: string;
+        date: string;
+        full_score: number;
+        scores: number[];
+        项目: string;
+        日期: string;
+        满分: number;
+        分数列表: number[];
+      }
+    >();
     (allAcademics ?? []).forEach((r) => {
-      const it = scoreItems.find((x) => x.项目名 === r.项目);
-      if (!it || !r.日期) return;
-      const key = `${r.项目}@@${r.日期}`;
+      const itName = r.item_name || r.项目;
+      const rDate = r.date || r.日期;
+      const it = scoreItems.find((x) => (x.item_name || x.项目名) === itName);
+      if (!it || !rDate) return;
+      const key = `${itName}@@${rDate}`;
       if (!map.has(key)) {
+        const full = parseFloat(it.full_score || it.满分) || 100;
         map.set(key, {
-          项目: r.项目,
-          日期: r.日期,
-          满分: parseFloat(it.满分) || 100,
+          item_name: itName,
+          date: rDate,
+          full_score: full,
+          scores: [],
+          项目: itName,
+          日期: rDate,
+          满分: full,
           分数列表: [],
         });
       }
-      const score = parseFloat(r.结果);
+      const score = parseFloat(r.score || r.结果);
       if (!isNaN(score)) {
+        map.get(key)!.scores.push(score);
         map.get(key)!.分数列表.push(score);
       }
     });
 
     const list = Array.from(map.values())
       .map((e) => {
-        const total = e.分数列表.reduce((acc, v) => acc + v, 0);
-        const avg = e.分数列表.length > 0 ? Math.round((total / e.分数列表.length) * 10) / 10 : 0;
-        const passCount = e.分数列表.filter((v) => v >= e.满分 * 0.6).length;
-        const passRate = e.分数列表.length > 0 ? Math.round((passCount / e.分数列表.length) * 100) : 0;
+        const total = e.scores.reduce((acc, v) => acc + v, 0);
+        const avg = e.scores.length > 0 ? Math.round((total / e.scores.length) * 10) / 10 : 0;
+        const passCount = e.scores.filter((v) => v >= e.full_score * 0.6).length;
+        const passRate = e.scores.length > 0 ? Math.round((passCount / e.scores.length) * 100) : 0;
         return {
           ...e,
           平均: avg,
           及格率: passRate,
-          实录: e.分数列表.length,
+          实录: e.scores.length,
         };
       })
-      .sort((a, b) => a.日期.localeCompare(b.日期));
+      .sort((a, b) => a.date.localeCompare(b.date));
 
     return list;
   }, [allAcademics, scoreItems]);
@@ -164,8 +214,10 @@ export default function Summary() {
     let add = 0;
     let sub = 0;
     (allBehavior ?? []).forEach((r) => {
-      if (r.日期 >= weekStart && r.日期 <= weekEnd && rosterNames.has(r.学生)) {
-        const v = parseFloat(r.分值) || 0;
+      const rDate = r.date || r.日期;
+      const sName = r.student_name || r.学生;
+      if (rDate >= weekStart && rDate <= weekEnd && rosterNames.has(sName)) {
+        const v = parseFloat(r.score || r.分值 || r.成绩) || 0;
         if (v > 0) add += v;
         else if (v < 0) sub += Math.abs(v);
       }
@@ -181,12 +233,15 @@ export default function Summary() {
   const thisWeekAttendance = useMemo(() => {
     const list: DataRow[] = [];
     (allAttendance ?? []).forEach((r) => {
+      const rDate = r.date || r.日期;
+      const sName = r.student_name || r.学生;
+      const st = r.status || r.状态;
       if (
-        r.日期 >= weekStart &&
-        r.日期 <= weekEnd &&
-        rosterNames.has(r.学生) &&
-        r.状态 &&
-        !["正常", "全勤", "系统核对"].includes(r.状态)
+        rDate >= weekStart &&
+        rDate <= weekEnd &&
+        rosterNames.has(sName) &&
+        st &&
+        !["正常", "全勤", "系统核对"].includes(st)
       ) {
         list.push(r);
       }
@@ -205,25 +260,39 @@ export default function Summary() {
 
   const dailyItems = useMemo(() => {
     const targetItems = (items ?? []).filter(
-      (it) => it.类型 === "学业" && !it.计分制?.includes("分数")
+      (it) =>
+        (it.item_type || it.类型) === "学业" &&
+        !(it.scoring_type || it.计分制)?.includes("分数")
     );
 
     return targetItems.map((it) => {
-      const records = (allAcademics ?? []).filter((r) => r.项目 === it.项目名);
+      const itName = it.item_name || it.项目名;
+      const records = (allAcademics ?? []).filter(
+        (r) => (r.item_name || r.项目) === itName
+      );
       const totalRecordedStudents = new Set(
         records
-          .filter((r) => r.状态 === "完成" || r.结果 === "过关" || r.结果 === "√")
-          .map((r) => r.学生)
+          .filter((r) => {
+            const st = r.status || r.状态;
+            const res = r.score || r.结果;
+            return st === "完成" || res === "过关" || res === "√";
+          })
+          .map((r) => r.student_name || r.学生)
       ).size;
       const overallRate =
         roster.length > 0 ? Math.round((totalRecordedStudents / roster.length) * 100) : 0;
 
       // 统计近 10 天每天的完成率
       const dailyTrend = dailyDates.map((d) => {
-        const dayRecords = records.filter(
-          (r) => r.日期 === d && (r.状态 === "完成" || r.结果 === "过关" || r.结果 === "√")
-        );
-        const dayStudentCount = new Set(dayRecords.map((r) => r.学生)).size;
+        const dayRecords = records.filter((r) => {
+          const rDate = r.date || r.日期;
+          const st = r.status || r.状态;
+          const res = r.score || r.结果;
+          return rDate === d && (st === "完成" || res === "过关" || res === "√");
+        });
+        const dayStudentCount = new Set(
+          dayRecords.map((r) => r.student_name || r.学生)
+        ).size;
         const rate =
           roster.length > 0 ? Math.round((dayStudentCount / roster.length) * 100) : null;
         return {
@@ -238,8 +307,8 @@ export default function Summary() {
         item: it,
         overallRate,
         dailyTrend,
-        isPassKind: it.计分制?.includes("过关"),
-        isCheckKind: it.计分制?.includes("打钩"),
+        isPassKind: (it.scoring_type || it.计分制)?.includes("过关"),
+        isCheckKind: (it.scoring_type || it.计分制)?.includes("打钩"),
       };
     });
   }, [items, allAcademics, roster.length, dailyDates]);
@@ -253,8 +322,10 @@ export default function Summary() {
       let add = 0;
       let sub = 0;
       (allBehavior ?? []).forEach((r) => {
-        if (r.日期 >= wStart && r.日期 <= wEnd && rosterNames.has(r.学生)) {
-          const v = parseFloat(r.分值) || 0;
+        const rDate = r.date || r.日期;
+        const sName = r.student_name || r.学生;
+        if (rDate >= wStart && rDate <= wEnd && rosterNames.has(sName)) {
+          const v = parseFloat(r.score || r.分值 || r.成绩) || 0;
           if (v > 0) add += v;
           else if (v < 0) sub += Math.abs(v);
         }
@@ -272,30 +343,45 @@ export default function Summary() {
   // ---------- 花名册总览表格数据 ----------
   const rosterTableData = useMemo(() => {
     return roster.map((s) => {
+      const sName = s.name || s.姓名;
+      const sNo = s.student_no || s.学号 || "";
+      const grp = s.group_name || s.小组 || "-";
+
       // 表现积分
       let score = 0;
       (allBehavior ?? []).forEach((r) => {
-        if (r.学生 === s.姓名) {
-          score += parseFloat(r.分值) || 0;
+        if ((r.student_name || r.学生) === sName) {
+          score += parseFloat(r.score || r.分值 || r.成绩) || 0;
         }
       });
 
       // 待补测数
-      const retests = retestList.filter((r) => r.学生 === s.姓名);
+      const retests = retestList.filter((r) => (r.student_name || r.学生) === sName);
 
       // 学业日常完成数
-      const completedAcademic = (allAcademics ?? []).filter(
-        (r) => r.学生 === s.姓名 && (r.状态 === "完成" || r.结果 === "过关" || r.结果 === "√")
-      ).length;
+      const completedAcademic = (allAcademics ?? []).filter((r) => {
+        const matchName = (r.student_name || r.学生) === sName;
+        const st = r.status || r.状态;
+        const res = r.score || r.结果;
+        return matchName && (st === "完成" || res === "过关" || res === "√");
+      }).length;
 
       return {
-        key: s.姓名,
-        学号: s.学号,
-        姓名: s.姓名,
-        小组: s.小组 || "-",
+        key: sName,
+        student_no: sNo,
+        student_name: sName,
+        group_name: grp,
+        score,
+        retests_count: retests.length,
+        retests_items: retests.map((r) => r.item_name || r.项目).join("、"),
+        completed_academic: completedAcademic,
+        // 兼容原字段
+        学号: sNo,
+        姓名: sName,
+        小组: grp,
         表现分: score,
         待补测数: retests.length,
-        待补测项目: retests.map((r) => r.项目).join("、"),
+        待补测项目: retests.map((r) => r.item_name || r.项目).join("、"),
         学业完成次数: completedAcademic,
       };
     });
@@ -304,12 +390,13 @@ export default function Summary() {
   // ---------- 表现排行榜数据 ----------
   const behaviorLeaderboard = useMemo(() => {
     const map = new Map<string, { 加: number; 减: number; 净: number }>();
-    roster.forEach((s) => map.set(s.姓名, { 加: 0, 减: 0, 净: 0 }));
+    roster.forEach((s) => map.set(s.name || s.姓名, { 加: 0, 减: 0, 净: 0 }));
 
     (allBehavior ?? []).forEach((r) => {
-      if (map.has(r.学生)) {
-        const v = parseFloat(r.分值) || 0;
-        const cur = map.get(r.学生)!;
+      const sName = r.student_name || r.学生;
+      if (sName && map.has(sName)) {
+        const v = parseFloat(r.score || r.分值 || r.成绩) || 0;
+        const cur = map.get(sName)!;
         if (v > 0) cur.加 += v;
         else if (v < 0) cur.减 += Math.abs(v);
         cur.净 = cur.加 - cur.减;
@@ -784,10 +871,10 @@ export default function Summary() {
                         renderItem={(item) => (
                           <List.Item style={{ padding: "6px 0", fontSize: 13 }}>
                             <Space>
-                              <Tag color="red">{item.状态}</Tag>
-                              <strong>{item.学生}</strong>
-                              <span style={{ color: "#94a3b8" }}>{item.日期}</span>
-                              {item.备注 && <span style={{ color: "#64748b" }}>({item.备注})</span>}
+                              <Tag color="red">{item.status || item.状态}</Tag>
+                              <strong>{item.student_name || item.学生}</strong>
+                              <span style={{ color: "#94a3b8" }}>{item.date || item.日期}</span>
+                              {(item.notes || item.备注) && <span style={{ color: "#64748b" }}>({item.notes || item.备注})</span>}
                             </Space>
                           </List.Item>
                         )}
@@ -803,32 +890,32 @@ export default function Summary() {
           {activeTab === "roster" && (
             <Card size="small" title={`${班级} 全体学生学情总览`}>
               <Table
-                rowKey="姓名"
+                rowKey={(r) => r.student_name || r.姓名}
                 dataSource={rosterTableData}
                 size="small"
                 pagination={false}
                 bordered
                 scroll={{ x: "max-content" }}
                 onRow={(record) => ({
-                  onClick: () => openStudentDetail(record.姓名),
+                  onClick: () => openStudentDetail(record.student_name || record.姓名),
                   style: { cursor: "pointer" },
                 })}
                 columns={[
-                  { title: "学号", dataIndex: "学号", width: 70, fixed: "left" },
+                  { title: "学号", dataIndex: "student_no", width: 70, fixed: "left" },
                   {
                     title: "姓名",
-                    dataIndex: "姓名",
+                    dataIndex: "student_name",
                     width: 100,
                     fixed: "left",
-                    render: (t) => <a style={{ fontWeight: 600 }}>{t}</a>,
+                    render: (t, r) => <a style={{ fontWeight: 600 }}>{t || r.姓名}</a>,
                   },
-                  { title: "小组", dataIndex: "小组", width: 90 },
+                  { title: "小组", dataIndex: "group_name", width: 90 },
                   {
                     title: "表现净积分",
-                    dataIndex: "表现分",
+                    dataIndex: "score",
                     width: 110,
                     align: "center",
-                    sorter: (a, b) => a.表现分 - b.表现分,
+                    sorter: (a, b) => (a.score ?? a.表现分) - (b.score ?? b.表现分),
                     render: (v) => (
                       <span
                         style={{
@@ -842,13 +929,13 @@ export default function Summary() {
                   },
                   {
                     title: "待补测项",
-                    dataIndex: "待补测数",
+                    dataIndex: "retests_count",
                     width: 120,
                     align: "center",
                     render: (num, row) =>
                       num > 0 ? (
                         <Tag color="orange">
-                          {num} 项 ({row.待补测项目})
+                          {num} 项 ({row.retests_items || row.待补测项目})
                         </Tag>
                       ) : (
                         <Tag color="green">全过关</Tag>
@@ -856,10 +943,10 @@ export default function Summary() {
                   },
                   {
                     title: "日常完成次数",
-                    dataIndex: "学业完成次数",
+                    dataIndex: "completed_academic",
                     width: 120,
                     align: "center",
-                    sorter: (a, b) => a.学业完成次数 - b.学业完成次数,
+                    sorter: (a, b) => (a.completed_academic ?? a.学业完成次数) - (b.completed_academic ?? b.学业完成次数),
                   },
                 ]}
               />
@@ -965,24 +1052,24 @@ export default function Summary() {
           <Table
             size="small"
             pagination={false}
-            rowKey={(r) => `${r.学号}-${r.项目}-${r.日期}`}
+            rowKey={(r) => `${r.student_no || r.学号}-${r.item_name || r.项目}-${r.date || r.日期}`}
             dataSource={retestList}
             columns={[
-              { title: "学号", dataIndex: "学号", width: 70 },
+              { title: "学号", dataIndex: "student_no", width: 70 },
               {
                 title: "姓名",
-                dataIndex: "学生",
-                render: (s) => (
-                  <a onClick={() => openStudentDetail(s)} style={{ fontWeight: 600 }}>
-                    {s}
+                dataIndex: "student_name",
+                render: (s, r) => (
+                  <a onClick={() => openStudentDetail(s || r.学生)} style={{ fontWeight: 600 }}>
+                    {s || r.学生}
                   </a>
                 ),
               },
-              { title: "待补测项目", dataIndex: "项目" },
-              { title: "记录日期", dataIndex: "日期", width: 110 },
+              { title: "待补测项目", dataIndex: "item_name", render: (v, r) => v || r.项目 },
+              { title: "记录日期", dataIndex: "date", width: 110, render: (v, r) => v || r.日期 },
               {
                 title: "状态",
-                dataIndex: "状态",
+                dataIndex: "status",
                 width: 90,
                 render: () => <Tag color="orange">未过关</Tag>,
               },
@@ -1008,25 +1095,25 @@ export default function Summary() {
           <Table
             size="small"
             pagination={false}
-            rowKey="id"
+            rowKey={(r) => r.id || `${r.student_name}-${r.date}`}
             dataSource={thisWeekAttendance}
             columns={[
               {
                 title: "学生",
-                dataIndex: "学生",
-                render: (s) => (
-                  <a onClick={() => openStudentDetail(s)} style={{ fontWeight: 600 }}>
-                    {s}
+                dataIndex: "student_name",
+                render: (s, r) => (
+                  <a onClick={() => openStudentDetail(s || r.学生)} style={{ fontWeight: 600 }}>
+                    {s || r.学生}
                   </a>
                 ),
               },
-              { title: "日期", dataIndex: "日期" },
+              { title: "日期", dataIndex: "date", render: (v, r) => v || r.日期 },
               {
                 title: "状态",
-                dataIndex: "状态",
-                render: (v) => <Tag color="red">{v}</Tag>,
+                dataIndex: "status",
+                render: (v, r) => <Tag color="red">{v || r.状态}</Tag>,
               },
-              { title: "备注", dataIndex: "备注" },
+              { title: "备注", dataIndex: "notes", render: (v, r) => v || r.备注 },
             ]}
           />
         )}

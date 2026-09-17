@@ -21,12 +21,12 @@ import {
 import { CheckCircleOutlined, FormOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs, { type Dayjs } from "dayjs";
-import { batchUpsertAcademic, listTable } from "../api";
+import { batchUpsertAcademic, listAllTable } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
 
 export default function Scores() {
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes } = useCurrentClass();
   const qc = useQueryClient();
 
   // 考试名称（AutoComplete 可搜可建）
@@ -38,8 +38,8 @@ export default function Scores() {
   const [pasteText, setPasteText] = useState<string>("");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [parsedResults, setParsedResults] = useState<{
-    matched: { 学生: string; 学号: string; 结果: string }[];
-    absent: { 学生: string; 学号: string }[];
+    matched: { student_name: string; student_no: string; score: string; 学生?: string; 学号?: string; 结果?: string }[];
+    absent: { student_name: string; student_no: string; 学生?: string; 学号?: string }[];
     unrecognized: string[];
   }>({ matched: [], absent: [], unrecognized: [] });
 
@@ -49,19 +49,24 @@ export default function Scores() {
   // 贴分区是否展开
   const [pasteExpanded, setPasteExpanded] = useState(true);
 
-  // 数据查询
+  // 数据查询（优先按 class_id 查询，避免 URL 中文编码）
+  const queryClass = class_id || 班级;
+  const classFilter = class_id ? { class_id } : { class_name: 班级 };
+
   const { data: students, isLoading: loadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: () => listTable("students"),
+    queryKey: ["students-all", queryClass],
+    queryFn: () => listAllTable("students", classFilter),
+    enabled: !!queryClass,
   });
   const { data: items, isLoading: loadingItems } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => listTable("items"),
+    queryKey: ["items-all"],
+    queryFn: () => listAllTable("items"),
+    staleTime: 10 * 60 * 1000,
   });
   const { data: allAcademics, isLoading: loadingAcademics } = useQuery({
-    queryKey: ["academic", 班级],
-    queryFn: () => listTable("academic", { 班级 }),
-    enabled: !!班级,
+    queryKey: ["academic-all", queryClass],
+    queryFn: () => listAllTable("academic", classFilter),
+    enabled: !!queryClass,
   });
 
   // 在册学生列表（按学号自然序）
@@ -69,24 +74,32 @@ export default function Scores() {
 
   // 所有「分数」类考试项目
   const scoreItems = useMemo(
-    () => (items ?? []).filter((it) => it.计分制 && it.计分制.includes("分数")),
+    () =>
+      (items ?? []).filter((it) => {
+        const scoring = it.scoring_type || it.计分制 || "";
+        return scoring.includes("分数");
+      }),
     [items]
   );
 
   // AutoComplete 下拉选项：已有考试名列表，模糊匹配
   const examOptions = useMemo(() => {
-    return scoreItems.map((it) => ({
-      value: it.项目名 as string,
-      label: `${it.项目名}（满分 ${it.满分 || 100}）`,
-    }));
+    return scoreItems.map((it) => {
+      const name = it.item_name || it.项目名;
+      const full = it.full_score || it.满分 || 100;
+      return {
+        value: name as string,
+        label: `${name}（满分 ${full}）`,
+      };
+    });
   }, [scoreItems]);
 
   // 当用户选中已有考试时，自动回填满分
   const handleExamSelect = (value: string) => {
     setExamName(value);
-    const existing = scoreItems.find((it) => it.项目名 === value);
+    const existing = scoreItems.find((it) => (it.item_name || it.项目名) === value);
     if (existing) {
-      const full = parseFloat(existing.满分) || 100;
+      const full = parseFloat(existing.full_score || existing.满分) || 100;
       setExamFullScore(full);
     }
   };
@@ -123,13 +136,14 @@ export default function Scores() {
       lines.forEach((line, idx) => {
         const num = parseFloat(line);
         if (!isNaN(num) && idx < roster.length) {
-          matchedMap.set(roster[idx].姓名, String(num));
+          const sName = roster[idx].name || roster[idx].姓名;
+          matchedMap.set(sName, String(num));
         } else {
           unrecognized.push(`第 ${idx + 1} 行: ${line}`);
         }
       });
     } else {
-      const rosterNames = new Set(roster.map((s) => s.姓名));
+      const rosterNames = new Set(roster.map((s) => s.name || s.姓名));
       lines.forEach((line, idx) => {
         const parts = line.split(/[\t,，\s]+/).filter(Boolean);
         if (parts.length >= 2) {
@@ -156,18 +170,28 @@ export default function Scores() {
       });
     }
 
-    const matchedList: { 学生: string; 学号: string; 结果: string }[] = [];
-    const absentList: { 学生: string; 学号: string }[] = [];
+    const matchedList: { student_name: string; student_no: string; score: string; 学生: string; 学号: string; 结果: string }[] = [];
+    const absentList: { student_name: string; student_no: string; 学生: string; 学号: string }[] = [];
 
     roster.forEach((s) => {
-      if (matchedMap.has(s.姓名)) {
+      const sName = s.name || s.姓名;
+      const sNo = s.student_no || s.学号 || "";
+      if (matchedMap.has(sName)) {
         matchedList.push({
-          学生: s.姓名,
-          学号: s.学号,
-          结果: matchedMap.get(s.姓名)!,
+          student_name: sName,
+          student_no: sNo,
+          score: matchedMap.get(sName)!,
+          学生: sName,
+          学号: sNo,
+          结果: matchedMap.get(sName)!,
         });
       } else {
-        absentList.push({ 学生: s.姓名, 学号: s.学号 });
+        absentList.push({
+          student_name: sName,
+          student_no: sNo,
+          学生: sName,
+          学号: sNo,
+        });
       }
     });
 
@@ -179,28 +203,31 @@ export default function Scores() {
   const commitMutation = useMutation({
     mutationFn: async () => {
       const records = parsedResults.matched.map((m) => ({
-        学生: m.学生,
-        结果: m.结果,
-        状态: "完成",
-        备注: "",
+        student_name: m.student_name || m.学生,
+        score: m.score || m.结果,
+        status: "完成",
+        notes: "",
+        client_id: crypto.randomUUID(),
       }));
       return batchUpsertAcademic({
-        班级,
-        项目: examName.trim(),
-        日期: examDate.format("YYYY-MM-DD"),
-        满分: examFullScore,
-        学科: "地理",
+        class_id: class_id,
+        class_name: 班级,
+        item_name: examName.trim(),
+        date: examDate.format("YYYY-MM-DD"),
+        full_score: examFullScore,
+        subject: "地理",
         records,
       });
     },
     onSuccess: (res) => {
-      const extra = res.项目自动创建 ? `（已自动创建考试「${examName}」）` : "";
-      message.success(`成功入库！已录入 ${res.总录入} 条成绩记录。${extra}`);
+      const extra = res.item_auto_created || res.项目自动创建 ? `（已自动创建考试「${examName}」）` : "";
+      const count = res.total_inserted ?? res.总录入 ?? parsedResults.matched.length;
+      message.success(`成功入库！已录入 ${count} 条成绩记录。${extra}`);
       setPreviewOpen(false);
       setPasteText("");
       setPasteExpanded(false);
-      qc.invalidateQueries({ queryKey: ["academic"] });
-      qc.invalidateQueries({ queryKey: ["items"] });
+      qc.invalidateQueries({ queryKey: ["academic-all"] });
+      qc.invalidateQueries({ queryKey: ["items-all"] });
     },
     onError: (err: any) => {
       message.error("入库失败：" + (err?.message ?? "网络异常"));
@@ -209,21 +236,23 @@ export default function Scores() {
 
   // ---------- 历次成绩数据与矩阵计算 ----------
   const examColumns = useMemo(() => {
-    const list: { key: string; 项目: string; 日期: string; 满分: number }[] = [];
+    const list: { key: string; item_name: string; date: string; full_score: number; 项目: string; 日期: string; 满分: number }[] = [];
     const seen = new Set<string>();
 
     (allAcademics ?? []).forEach((r) => {
-      const it = scoreItems.find((x) => x.项目名 === r.项目);
-      if (!it || !r.日期) return;
-      const key = `${r.项目}@@${r.日期}`;
+      const itName = r.item_name || r.项目;
+      const rDate = r.date || r.日期;
+      const it = scoreItems.find((x) => (x.item_name || x.项目名) === itName);
+      if (!it || !rDate) return;
+      const key = `${itName}@@${rDate}`;
       if (!seen.has(key)) {
         seen.add(key);
-        const full = parseFloat(it.满分) || 100;
-        list.push({ key, 项目: r.项目, 日期: r.日期, 满分: full });
+        const full = parseFloat(it.full_score || it.满分) || 100;
+        list.push({ key, item_name: itName, date: rDate, full_score: full, 项目: itName, 日期: rDate, 满分: full });
       }
     });
 
-    return list.sort((a, b) => a.日期.localeCompare(b.日期));
+    return list.sort((a, b) => a.date.localeCompare(b.date));
   }, [allAcademics, scoreItems]);
 
   const examRanksMap = useMemo(() => {
@@ -231,25 +260,26 @@ export default function Scores() {
 
     examColumns.forEach((col) => {
       const recordsForExam = (allAcademics ?? []).filter(
-        (r) => r.项目 === col.项目 && r.日期 === col.日期
+        (r) => (r.item_name || r.项目) === col.item_name && (r.date || r.日期) === col.date
       );
-      const studentScores: { 学生: string; 分: number }[] = [];
+      const studentScores: { student_name: string; score: number }[] = [];
       recordsForExam.forEach((r) => {
-        const score = parseFloat(r.结果);
-        if (!isNaN(score)) {
-          studentScores.push({ 学生: r.学生, 分: score });
+        const sc = parseFloat(r.score || r.结果);
+        const sName = r.student_name || r.学生;
+        if (!isNaN(sc) && sName) {
+          studentScores.push({ student_name: sName, score: sc });
         }
       });
 
-      studentScores.sort((a, b) => b.分 - a.分);
+      studentScores.sort((a, b) => b.score - a.score);
 
       const ranks = new Map<string, number>();
       let lastScore: number | null = null;
       let lastRank = 0;
       studentScores.forEach((s, idx) => {
-        const rank = s.分 === lastScore ? lastRank : idx + 1;
-        ranks.set(s.学生, rank);
-        lastScore = s.分;
+        const rank = s.score === lastScore ? lastRank : idx + 1;
+        ranks.set(s.student_name, rank);
+        lastScore = s.score;
         lastRank = rank;
       });
 
@@ -262,8 +292,12 @@ export default function Scores() {
   const scoreLookup = useMemo(() => {
     const map = new Map<string, string>();
     (allAcademics ?? []).forEach((r) => {
-      const key = `${r.学生}##${r.项目}@@${r.日期}`;
-      map.set(key, r.结果);
+      const sName = r.student_name || r.学生;
+      const itName = r.item_name || r.项目;
+      const rDate = r.date || r.日期;
+      const sc = r.score || r.结果;
+      const key = `${sName}##${itName}@@${rDate}`;
+      map.set(key, sc);
     });
     return map;
   }, [allAcademics]);
@@ -272,17 +306,18 @@ export default function Scores() {
     const cols: any[] = [
       {
         title: "学号",
-        dataIndex: "学号",
+        dataIndex: "student_no",
         width: 70,
         fixed: "left" as const,
-        sorter: (a: Row, b: Row) => (parseInt(a.学号) || 0) - (parseInt(b.学号) || 0),
+        render: (_: any, r: Row) => r.student_no || r.学号 || "-",
+        sorter: (a: Row, b: Row) => (parseInt(a.student_no || a.学号) || 0) - (parseInt(b.student_no || b.学号) || 0),
       },
       {
         title: "姓名",
-        dataIndex: "姓名",
+        dataIndex: "name",
         width: 100,
         fixed: "left" as const,
-        render: (name: string) => <span style={{ fontWeight: 600 }}>{name}</span>,
+        render: (_: any, r: Row) => <span style={{ fontWeight: 600 }}>{r.name || r.姓名}</span>,
       },
     ];
 
@@ -290,22 +325,23 @@ export default function Scores() {
       cols.push({
         title: (
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontWeight: 600 }}>{col.项目}</div>
-            <div style={{ fontSize: 12, color: "#8c8c8c" }}>{col.日期}</div>
+            <div style={{ fontWeight: 600 }}>{col.item_name}</div>
+            <div style={{ fontSize: 12, color: "#8c8c8c" }}>{col.date}</div>
           </div>
         ),
         dataIndex: col.key,
         width: 120,
         align: "center" as const,
         render: (_: any, row: Row) => {
-          const rawScore = scoreLookup.get(`${row.姓名}##${col.key}`);
+          const sName = row.name || row.姓名;
+          const rawScore = scoreLookup.get(`${sName}##${col.key}`);
           if (rawScore === undefined || rawScore === "") {
             return <span style={{ color: "#bfbfbf" }}>-</span>;
           }
 
           if (showRank) {
             const rMap = examRanksMap.get(col.key);
-            const rank = rMap?.get(row.姓名);
+            const rank = rMap?.get(sName);
             if (!rank) return <span style={{ color: "#bfbfbf" }}>-</span>;
             return (
               <Tag
@@ -318,7 +354,7 @@ export default function Scores() {
           }
 
           const scoreNum = parseFloat(rawScore);
-          const pass = scoreNum >= col.满分 * 0.6;
+          const pass = scoreNum >= col.full_score * 0.6;
           return (
             <span style={{ color: pass ? "#389e0d" : "#cf1322", fontWeight: 600 }}>
               {rawScore}
@@ -510,41 +546,67 @@ export default function Scores() {
         )}
 
         <Table
-          rowKey="学生"
+          rowKey="student_name"
           size="small"
           pagination={{ pageSize: 10 }}
           dataSource={[
-            ...parsedResults.matched.map((m) => ({ ...m, 状态: "完成" })),
-            ...parsedResults.absent.map((a) => ({ ...a, 结果: "-", 状态: "缺考" })),
+            ...parsedResults.matched.map((m) => ({
+              ...m,
+              status: "完成",
+              状态: "完成",
+            })),
+            ...parsedResults.absent.map((a) => ({
+              ...a,
+              score: "-",
+              status: "缺考",
+              结果: "-",
+              状态: "缺考",
+            })),
           ]}
           columns={[
-            { title: "学号", dataIndex: "学号", width: 80 },
-            { title: "姓名", dataIndex: "学生", width: 120, render: (s) => <strong>{s}</strong> },
+            {
+              title: "学号",
+              dataIndex: "student_no",
+              width: 80,
+              render: (_: any, r: any) => r.student_no || r.学号 || "-",
+            },
+            {
+              title: "姓名",
+              dataIndex: "student_name",
+              width: 120,
+              render: (_: any, r: any) => <strong>{r.student_name || r.学生}</strong>,
+            },
             {
               title: "分数",
-              dataIndex: "结果",
+              dataIndex: "score",
               width: 100,
-              render: (v) => (
-                <span
-                  style={{
-                    color:
-                      v === "-"
-                        ? "#999"
-                        : parseFloat(v) < examFullScore * 0.6
+              render: (_: any, r: any) => {
+                const v = r.score ?? r.结果;
+                return (
+                  <span
+                    style={{
+                      color:
+                        v === "-"
+                          ? "#999"
+                          : parseFloat(v) < examFullScore * 0.6
                           ? "#cf1322"
                           : "#389e0d",
-                    fontWeight: 600,
-                  }}
-                >
-                  {v}
-                </span>
-              ),
+                      fontWeight: 600,
+                    }}
+                  >
+                    {v}
+                  </span>
+                );
+              },
             },
             {
               title: "状态",
-              dataIndex: "状态",
+              dataIndex: "status",
               width: 100,
-              render: (st) => <Tag color={st === "完成" ? "green" : "orange"}>{st}</Tag>,
+              render: (_: any, r: any) => {
+                const st = r.status || r.状态;
+                return <Tag color={st === "完成" ? "green" : "orange"}>{st}</Tag>;
+              },
             },
           ]}
         />

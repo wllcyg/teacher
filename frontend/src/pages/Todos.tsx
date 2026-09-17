@@ -15,8 +15,10 @@ import {
   Empty,
   Badge,
   Tooltip,
+  Pagination,
 } from "antd";
 import { AdaptiveModal } from "../components/AdaptiveModal";
+import { PullToRefresh, Toast } from "antd-mobile";
 import {
   PlusOutlined,
   CheckCircleFilled,
@@ -61,12 +63,62 @@ export default function Todos() {
   const [statusFilter, setStatusFilter] = useState<string>("待办");
   const [kindFilter, setKindFilter] = useState<string>("全部");
   const [viewMode, setViewMode] = useState<"card" | "table">("card");
+  const [page, setPage] = useState<number>(1);
+  const pageSize = 50;
 
-  // 数据查询
-  const { data = [], isLoading } = useQuery({
-    queryKey: ["todos"],
-    queryFn: () => listTable("todos"),
+  // 状态指标精确统计（每个轻量查询仅拉取 1 条元数据获取精准 total，彻底杜绝 1000 条大表载荷）
+  const todayStr = dayjs().format("YYYY-MM-DD");
+  const yesterdayStr = dayjs().subtract(1, "day").format("YYYY-MM-DD");
+
+  const pendingCountQuery = useQuery({
+    queryKey: ["todos", "count", "pending"],
+    queryFn: () => listTable("todos", { status_ne: "已办", page: 1, page_size: 1 }),
+    staleTime: 30 * 1000,
   });
+  const doneCountQuery = useQuery({
+    queryKey: ["todos", "count", "done"],
+    queryFn: () => listTable("todos", { status: "已办", page: 1, page_size: 1 }),
+    staleTime: 30 * 1000,
+  });
+  const overdueCountQuery = useQuery({
+    queryKey: ["todos", "count", "overdue", yesterdayStr],
+    queryFn: () =>
+      listTable("todos", {
+        status_ne: "已办",
+        date_lte: yesterdayStr,
+        page: 1,
+        page_size: 1,
+      }),
+    staleTime: 30 * 1000,
+  });
+
+  const pendingTotal = pendingCountQuery.data?.total ?? 0;
+  const doneTotal = doneCountQuery.data?.total ?? 0;
+  const overdueTotal = overdueCountQuery.data?.total ?? 0;
+  const allTotal = pendingTotal + doneTotal;
+
+  // 列表数据按需分状态、分分类、分页查询
+  const listQueryParams = useMemo(() => {
+    const p: Record<string, any> = { page, page_size: pageSize };
+    if (statusFilter === "待办") {
+      p.status_ne = "已办";
+    } else if (statusFilter === "已办") {
+      p.status = "已办";
+    }
+    if (kindFilter !== "全部") {
+      p.category = kindFilter;
+    }
+    return p;
+  }, [statusFilter, kindFilter, page, pageSize]);
+
+  const { data: pagedData, isLoading } = useQuery({
+    queryKey: ["todos", "list", listQueryParams],
+    queryFn: () => listTable("todos", listQueryParams),
+    staleTime: 30 * 1000,
+  });
+
+  const rawList = pagedData?.items ?? [];
+  const currentTotal = pagedData?.total ?? 0;
 
   // 保存（新增/编辑）
   const save = useMutation({
@@ -91,12 +143,32 @@ export default function Todos() {
     },
   });
 
+  // 📱 下拉刷新手势处理
+  const handleRefreshTodos = async () => {
+    triggerHaptic("light");
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["todos"] }),
+      pendingCountQuery.refetch(),
+      doneCountQuery.refetch(),
+      overdueCountQuery.refetch(),
+    ]);
+    Toast.show({
+      icon: "success",
+      content: "已刷新待办清单",
+      duration: 1200,
+    });
+  };
+
   // 快速切换「已办/未办」
   const toggle = useMutation({
-    mutationFn: (r: Row) =>
-      updateRow("todos", r.id, { 状态: r.状态 === "已办" ? "未办" : "已办" }),
+    mutationFn: (r: Row) => {
+      const cur = r.status || r.状态;
+      const next = cur === "已办" ? "未办" : "已办";
+      return updateRow("todos", r.id, { status: next, 状态: next });
+    },
     onSuccess: (_, r) => {
-      const nextDone = r.状态 !== "已办";
+      const cur = r.status || r.状态;
+      const nextDone = cur !== "已办";
       triggerHaptic(nextDone ? "success" : "light");
       qc.invalidateQueries({ queryKey: ["todos"] });
     },
@@ -111,6 +183,10 @@ export default function Todos() {
     }
     try {
       await save.mutateAsync({
+        title: text,
+        category: quickKind,
+        date: dayjs().format("YYYY-MM-DD"),
+        status: "未办",
         事项: text,
         类别: quickKind,
         日期: dayjs().format("YYYY-MM-DD"),
@@ -124,9 +200,16 @@ export default function Todos() {
 
   const openEditModal = (r: Row) => {
     setEditing(r);
+    const d = r.date || r.日期;
     form.setFieldsValue({
-      ...r,
-      日期: r.日期 ? dayjs(r.日期) : null,
+      title: r.title || r.事项,
+      category: r.category || r.类别 || "教学",
+      status: r.status || r.状态 || "未办",
+      date: d ? dayjs(d) : null,
+      事项: r.title || r.事项,
+      类别: r.category || r.类别 || "教学",
+      状态: r.status || r.状态 || "未办",
+      日期: d ? dayjs(d) : null,
     });
     setOpen(true);
   };
@@ -135,6 +218,9 @@ export default function Todos() {
     setEditing(null);
     form.resetFields();
     form.setFieldsValue({
+      category: "教学",
+      date: dayjs(),
+      status: "未办",
       类别: "教学",
       日期: dayjs(),
       状态: "未办",
@@ -142,76 +228,48 @@ export default function Todos() {
     setOpen(true);
   };
 
-  // 数据统计
+  // 数据统计汇总
   const counts = useMemo(() => {
-    const total = data.length;
-    let pending = 0;
-    let done = 0;
-    let overdue = 0;
-    const todayStr = dayjs().format("YYYY-MM-DD");
+    return {
+      total: allTotal,
+      pending: pendingTotal,
+      done: doneTotal,
+      overdue: overdueTotal,
+    };
+  }, [allTotal, pendingTotal, doneTotal, overdueTotal]);
 
-    for (const r of data) {
-      const isDone = r.状态 === "已办";
-      if (isDone) {
-        done++;
-      } else {
-        pending++;
-        if (r.日期 && r.日期 < todayStr) {
-          overdue++;
-        }
-      }
-    }
-    return { total, pending, done, overdue };
-  }, [data]);
-
-  // 类别数据统计（联动当前状态筛选）
-  const kindCounts = useMemo(() => {
-    const map: Record<string, number> = { 全部: 0 };
-    for (const k of KINDS) map[k] = 0;
-    for (const r of data) {
-      if (statusFilter === "待办" && r.状态 === "已办") continue;
-      if (statusFilter === "已办" && r.状态 !== "已办") continue;
-      map["全部"] = (map["全部"] || 0) + 1;
-      if (r.类别 && map[r.类别] !== undefined) {
-        map[r.类别]++;
-      }
-    }
-    return map;
-  }, [data, statusFilter]);
-
-  // 智能过滤与排序（紧要待办优先）
+  // 智能排序：本页未办在前（逾期的放最前，其次今天，然后未来）；已办项放后面（按日期倒序）
   const filteredData = useMemo(() => {
-    const todayStr = dayjs().format("YYYY-MM-DD");
-
-    let list = data.filter((r) => {
-      // 状态筛选
-      if (statusFilter === "待办" && r.状态 === "已办") return false;
-      if (statusFilter === "已办" && r.状态 !== "已办") return false;
-      // 类别筛选
-      if (kindFilter !== "全部" && r.类别 !== kindFilter) return false;
-      return true;
-    });
-
-    // 智能排序：
-    // 未办在前（逾期的放最前，其次今天，然后未来）；已办项放后面（按日期倒序）
-    return list.sort((a, b) => {
-      const aDone = a.状态 === "已办";
-      const bDone = b.状态 === "已办";
+    return [...rawList].sort((a, b) => {
+      const aDone = (a.status || a.状态) === "已办";
+      const bDone = (b.status || b.状态) === "已办";
       if (aDone !== bDone) return aDone ? 1 : -1;
 
       if (!aDone) {
         // 未办排序
-        const aDate = a.日期 || "9999-99-99";
-        const bDate = b.日期 || "9999-99-99";
+        const aDate = a.date || a.日期 || "9999-99-99";
+        const bDate = b.date || b.日期 || "9999-99-99";
         return aDate.localeCompare(bDate);
       } else {
-        // 已办排序：后完成的排前面
-        const aDate = a.日期 || "";
-        const bDate = b.日期 || "";
+        const aDate = a.date || a.日期 || "";
+        const bDate = b.date || b.日期 || "";
         return bDate.localeCompare(aDate);
       }
     });
-  }, [data, statusFilter, kindFilter]);
+  }, [rawList]);
+
+  // 类别数据统计（联动当前页及分类筛选）
+  const kindCounts = useMemo(() => {
+    const map: Record<string, number> = { 全部: currentTotal };
+    for (const k of KINDS) map[k] = 0;
+    for (const r of rawList) {
+      const rKind = r.category || r.类别;
+      if (rKind && map[rKind] !== undefined) {
+        map[rKind]++;
+      }
+    }
+    return map;
+  }, [rawList, currentTotal]);
 
   // 辅助解析日期徽标
   const renderDateBadge = (dateStr: string, isDone: boolean) => {
@@ -254,10 +312,10 @@ export default function Todos() {
   const tableColumns = [
     {
       title: "状态",
-      dataIndex: "状态",
+      dataIndex: "status",
       width: 70,
       render: (_: any, r: Row) => {
-        const isDone = r.状态 === "已办";
+        const isDone = (r.status || r.状态) === "已办";
         return (
           <div
             style={{ cursor: "pointer", display: "inline-flex", alignItems: "center" }}
@@ -281,9 +339,10 @@ export default function Todos() {
     },
     {
       title: "事项",
-      dataIndex: "事项",
-      render: (v: string, r: Row) => {
-        const isDone = r.状态 === "已办";
+      dataIndex: "title",
+      render: (_: any, r: Row) => {
+        const isDone = (r.status || r.状态) === "已办";
+        const val = r.title || r.事项;
         return (
           <span
             style={{
@@ -292,16 +351,17 @@ export default function Todos() {
               fontWeight: isDone ? "normal" : 500,
             }}
           >
-            {v}
+            {val}
           </span>
         );
       },
     },
     {
       title: "类别",
-      dataIndex: "类别",
+      dataIndex: "category",
       width: 90,
-      render: (v: string) => {
+      render: (_: any, r: Row) => {
+        const v = r.category || r.类别;
         const theme = KIND_THEMES[v];
         return theme ? (
           <Tag style={{ color: theme.color, background: theme.bg, borderColor: theme.border }}>
@@ -314,9 +374,9 @@ export default function Todos() {
     },
     {
       title: "日期 / 期限",
-      dataIndex: "日期",
+      dataIndex: "date",
       width: 130,
-      render: (v: string, r: Row) => renderDateBadge(v, r.状态 === "已办"),
+      render: (_: any, r: Row) => renderDateBadge(r.date || r.日期, (r.status || r.状态) === "已办"),
     },
     {
       title: "操作",
@@ -338,7 +398,8 @@ export default function Todos() {
   ];
 
   return (
-    <div className="page" style={{ maxWidth: 1000, margin: "0 auto" }}>
+    <PullToRefresh onRefresh={handleRefreshTodos}>
+      <div className="page" style={{ maxWidth: 1000, margin: "0 auto" }}>
       {/* 头部标题与新建入口 */}
       <div
         style={{
@@ -482,6 +543,7 @@ export default function Todos() {
           onChange={(v) => {
             triggerHaptic("light");
             setStatusFilter(v as string);
+            setPage(1);
           }}
           style={{
             borderRadius: 10,
@@ -540,6 +602,7 @@ export default function Todos() {
                 onClick={() => {
                   triggerHaptic("light");
                   setKindFilter(k);
+                  setPage(1);
                 }}
                 style={{
                   display: "inline-flex",
@@ -759,7 +822,7 @@ export default function Todos() {
                         marginBottom: 6,
                       }}
                     >
-                      {r.事项}
+                      {r.title || r.事项}
                     </div>
 
                     {/* 标签与日期栏 */}
@@ -771,7 +834,7 @@ export default function Todos() {
                         gap: 6,
                       }}
                     >
-                      {r.类别 && (
+                      {(r.category || r.类别) && (
                         <Tag
                           style={{
                             margin: 0,
@@ -783,10 +846,10 @@ export default function Todos() {
                             padding: "0 6px",
                           }}
                         >
-                          {r.类别}
+                          {r.category || r.类别}
                         </Tag>
                       )}
-                      {renderDateBadge(r.日期, isDone)}
+                      {renderDateBadge(r.date || r.日期, isDone)}
                     </div>
                   </div>
 
@@ -826,6 +889,29 @@ export default function Todos() {
                 </div>
               );
             })}
+            {currentTotal > pageSize && (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  marginTop: 16,
+                  marginBottom: 8,
+                }}
+              >
+                <Pagination
+                  current={page}
+                  pageSize={pageSize}
+                  total={currentTotal}
+                  onChange={(p) => {
+                    triggerHaptic("light");
+                    setPage(p);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
+                  showSizeChanger={false}
+                  size="small"
+                />
+              </div>
+            )}
           </div>
         )
       ) : (
@@ -842,7 +928,17 @@ export default function Todos() {
             loading={isLoading}
             dataSource={filteredData}
             columns={tableColumns}
-            pagination={{ pageSize: 15 }}
+            pagination={{
+              current: page,
+              pageSize: pageSize,
+              total: currentTotal,
+              onChange: (p) => {
+                triggerHaptic("light");
+                setPage(p);
+              },
+              size: "small",
+              showSizeChanger: false,
+            }}
             size="middle"
             scroll={{ x: "max-content" }}
           />
@@ -856,20 +952,25 @@ export default function Todos() {
         onCancel={() => setOpen(false)}
         onOk={() => form.submit()}
         destroyOnClose
+        maskClosable={false}
         confirmLoading={save.isPending}
       >
         <Form
           form={form}
           layout="vertical"
-          onFinish={(v) =>
+          onFinish={(v) => {
+            const d = v.date || v.日期;
+            const dateStr = d ? (dayjs.isDayjs(d) ? d.format("YYYY-MM-DD") : String(d)) : "";
             save.mutate({
-              ...v,
-              日期: v.日期 ? v.日期.format("YYYY-MM-DD") : "",
-            })
-          }
+              title: v.title || v.事项,
+              category: v.category || v.类别 || "教学",
+              status: v.status || v.状态 || "未办",
+              date: dateStr,
+            });
+          }}
         >
           <Form.Item
-            name="事项"
+            name="title"
             label="待办事项"
             rules={[{ required: true, message: "请输入待办事项内容" }]}
           >
@@ -887,14 +988,14 @@ export default function Todos() {
               gap: 12,
             }}
           >
-            <Form.Item name="类别" label="分类">
+            <Form.Item name="category" label="分类">
               <Select
                 options={KINDS.map((k) => ({ value: k, label: k }))}
                 style={{ width: "100%" }}
               />
             </Form.Item>
 
-            <Form.Item name="状态" label="状态">
+            <Form.Item name="status" label="状态">
               <Select
                 options={[
                   { value: "未办", label: "未办" },
@@ -905,11 +1006,12 @@ export default function Todos() {
             </Form.Item>
           </div>
 
-          <Form.Item name="日期" label="截止日期 / 关联日期">
+          <Form.Item name="date" label="截止日期 / 关联日期">
             <DatePicker style={{ width: "100%" }} />
           </Form.Item>
         </Form>
       </AdaptiveModal>
     </div>
+    </PullToRefresh>
   );
 }

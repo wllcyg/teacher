@@ -35,20 +35,25 @@ export const QuickNoteCard = memo(function QuickNoteCard({
   onToggleCheck,
   onEditNote,
 }: QuickNoteCardProps) {
-  const isPassed = academicStat?.结果 === "过关";
-  const isFailed = academicStat?.结果 === "未过";
-  const isChecked = academicStat?.结果 === "√";
+  const studentName = s.name || s.姓名;
+  const groupName = s.group_name || s.小组;
+  const academicScore = academicStat?.score || academicStat?.结果;
+  const academicNotes = academicStat?.notes || academicStat?.备注;
+
+  const isPassed = academicScore === "过关";
+  const isFailed = academicScore === "未过";
+  const isChecked = academicScore === "√";
 
   // 单独修改备注 Popover 状态
   const [popoverOpen, setPopoverOpen] = useState(false);
-  const [noteText, setNoteText] = useState(academicStat?.备注 || "");
+  const [noteText, setNoteText] = useState(academicNotes || "");
 
   useEffect(() => {
-    setNoteText(academicStat?.备注 || "");
-  }, [academicStat?.备注]);
+    setNoteText(academicNotes || "");
+  }, [academicNotes]);
 
   const handleSaveNote = () => {
-    onEditNote?.(s.姓名, noteText);
+    onEditNote?.(studentName, noteText);
     setPopoverOpen(false);
   };
 
@@ -91,7 +96,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
       <button
         type="button"
         className="fast-tap-card"
-        onClick={() => onTapBehavior(s.姓名)}
+        onClick={() => onTapBehavior(studentName)}
         style={{
           position: "relative",
           minHeight: 56,
@@ -123,7 +128,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
           }}
         >
           <span style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
-            {s.姓名}
+            {studentName}
           </span>
           {roleBadge}
         </div>
@@ -136,8 +141,8 @@ export const QuickNoteCard = memo(function QuickNoteCard({
             marginTop: 4,
           }}
         >
-          {showGroupName && s.小组 ? (
-            <span style={{ fontSize: 10, color: "#94a3b8" }}>{s.小组}</span>
+          {showGroupName && groupName ? (
+            <span style={{ fontSize: 10, color: "#94a3b8" }}>{groupName}</span>
           ) : (
             <span />
           )}
@@ -166,7 +171,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
     const editPopoverContent = (
       <div style={{ padding: 4, width: 190 }}>
         <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6, color: "#1e293b" }}>
-          修改 {s.姓名} 的过关内容
+          修改 {studentName} 的过关内容
         </div>
         <div
           style={{
@@ -235,20 +240,20 @@ export const QuickNoteCard = memo(function QuickNoteCard({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <span>{s.姓名}</span>
+            <span>{studentName}</span>
             {isPassed && <CheckCircleOutlined style={{ color: "#52c41a", fontSize: 13 }} />}
             {isFailed && <CloseCircleOutlined style={{ color: "#fa8c16", fontSize: 13 }} />}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            {showGroupName && s.小组 && (
-              <span style={{ fontSize: 10, color: "#94a3b8" }}>{s.小组}</span>
+            {showGroupName && groupName && (
+              <span style={{ fontSize: 10, color: "#94a3b8" }}>{groupName}</span>
             )}
             {roleBadge}
           </div>
         </div>
 
         {/* 过关内容微标 / 单人备注 */}
-        {academicStat?.备注 ? (
+        {academicNotes ? (
           <Popover
             open={popoverOpen}
             onOpenChange={setPopoverOpen}
@@ -272,7 +277,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
               title="点击修改此学生具体过关内容"
             >
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                📝 {academicStat.备注}
+                📝 {academicNotes}
               </span>
               <EditOutlined style={{ fontSize: 9, opacity: 0.7, marginLeft: 3 }} />
             </div>
@@ -304,7 +309,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
         <div style={{ display: "flex", gap: 5, width: "100%" }}>
           <button
             type="button"
-            onClick={() => onSetPass(s.姓名, "过关")}
+            onClick={() => onSetPass(studentName, "过关")}
             style={{
               flex: 1,
               padding: "3px 0",
@@ -322,7 +327,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
           </button>
           <button
             type="button"
-            onClick={() => onSetPass(s.姓名, "未过")}
+            onClick={() => onSetPass(studentName, "未过")}
             style={{
               flex: 1,
               padding: "3px 0",
@@ -348,7 +353,7 @@ export const QuickNoteCard = memo(function QuickNoteCard({
     <button
       type="button"
       className="fast-tap-card"
-      onClick={() => onToggleCheck(s.姓名)}
+      onClick={() => onToggleCheck(studentName)}
       style={{
         minHeight: 52,
         padding: "8px 8px",
@@ -374,15 +379,15 @@ export const QuickNoteCard = memo(function QuickNoteCard({
     >
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 14, fontWeight: 600, color: "#1e293b" }}>
-          {s.姓名}
+          {studentName}
         </span>
         {isChecked && (
           <CheckOutlined style={{ color: "#52c41a", fontSize: 13, fontWeight: 700 }} />
         )}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {showGroupName && s.小组 && (
-          <span style={{ fontSize: 10, color: "#94a3b8" }}>{s.小组}</span>
+        {showGroupName && groupName && (
+          <span style={{ fontSize: 10, color: "#94a3b8" }}>{groupName}</span>
         )}
         {roleBadge}
       </div>

@@ -1,31 +1,49 @@
-"""业务常量与枚举，1:1 对照原单文件应用的 TABLES / NATURAL_KEY / 枚举列表。
-
-列名直接用中文，与原数据格式完全一致，避免翻译层引入 bug。
+"""业务常量与枚举，全面采用标准英文列名与规范常量。
 """
 
-# 10 张表的列（顺序即原 TABLES 定义的顺序）
+# 核心表的标准英文列
 TABLE_COLUMNS: dict[str, list[str]] = {
-    "students":   ["班级", "姓名", "学号", "小组", "标签"],
-    "schedule":   ["星期", "节次", "班级", "科目"],
-    "items":      ["项目名", "类型", "计分制", "满分", "类别", "权重", "周期", "学科"],
-    "academic":   ["日期", "班级", "学生", "项目", "结果", "状态", "备注"],
-    "behavior":   ["日期", "班级", "学生", "项目", "分值", "备注"],
-    "todos":      ["日期", "事项", "类别", "状态"],
-    "attendance": ["日期", "学生", "状态", "备注"],
-    "parents":    ["学生", "称谓", "电话", "备注"],
-    "comms":      ["日期", "学生", "对象", "方式", "内容", "结果"],
-    "duties":     ["岗位", "学生", "类型", "时间", "备注"],
-    "lesson_log": ["日期", "班级", "节次", "内容"],
+    "classes":    ["class_id", "name", "grade", "seq"],
+    "students":   ["class_id", "class_name", "name", "student_no", "group_name", "tags"],
+    "schedule":   ["class_id", "weekday", "period", "class_name", "subject"],
+    "items":      ["item_name", "item_type", "scoring_type", "full_score", "category", "weight", "cycle", "subject"],
+    "academic":   ["class_id", "date", "class_name", "student_name", "item_name", "score", "status", "notes"],
+    "behavior":   ["class_id", "date", "class_name", "student_name", "item_name", "score", "notes"],
+    "todos":      ["date", "title", "category", "status"],
+    "attendance": ["class_id", "date", "class_name", "student_name", "status", "notes"],
+    "parents":    ["student_name", "relationship", "phone", "notes"],
+    "comms":      ["date", "student_name", "target", "method", "content", "result"],
+    "duties":     ["duty_name", "student_name", "duty_type", "schedule_time", "notes"],
+    "lesson_log": ["class_id", "date", "class_name", "period", "content"],
 }
 
-# 有自然唯一性的表：补交/新建时先按这几列查重，查到就不重复写
+# 有自然唯一性的表：查重键
 NATURAL_KEY: dict[str, list[str]] = {
-    "students":   ["班级", "姓名"],
-    "academic":   ["日期", "学生", "项目"],
-    "attendance": ["日期", "学生"],
-    "todos":      ["日期", "事项"],
-    "duties":     ["岗位", "学生", "时间"],
-    "lesson_log": ["日期", "班级", "节次"],
+    "classes":    ["name"],
+    "students":   ["class_name", "name"],
+    "academic":   ["date", "student_id", "item_name"],
+    "attendance": ["date", "student_id"],
+    "duties":     ["duty_name", "student_id", "schedule_time"],
+    "todos":      ["date", "title"],
+    "lesson_log": ["date", "class_name", "period"],
+    "items":      ["item_name", "subject"],
+    "schedule":   ["weekday", "period", "class_name"],
+}
+
+# 历史中文别名映射到标准英文列名（向后兼容与容错清洗）
+COLUMN_ALIASES: dict[str, dict[str, str]] = {
+    "classes":    {"班级": "name", "年级": "grade", "排序": "seq"},
+    "students":   {"班级": "class_name", "姓名": "name", "学号": "student_no", "小组": "group_name", "标签": "tags"},
+    "schedule":   {"星期": "weekday", "节次": "period", "班级": "class_name", "科目": "subject"},
+    "items":      {"项目名": "item_name", "项目类型": "item_type", "计分制": "scoring_type", "满分": "full_score", "分类": "category", "权重": "weight", "周期": "cycle", "科目": "subject"},
+    "academic":   {"日期": "date", "班级": "class_name", "学生": "student_name", "项目": "item_name", "结果": "score", "状态": "status", "备注": "notes"},
+    "behavior":   {"日期": "date", "班级": "class_name", "学生": "student_name", "项目": "item_name", "分值": "score", "备注": "notes"},
+    "todos":      {"日期": "date", "事项": "title", "类别": "category", "状态": "status"},
+    "attendance": {"日期": "date", "班级": "class_name", "学生": "student_name", "状态": "status", "备注": "notes"},
+    "parents":    {"学生": "student_name", "关系": "relationship", "电话": "phone", "备注": "notes"},
+    "comms":      {"日期": "date", "学生": "student_name", "对象": "target", "方式": "method", "内容": "content", "结果": "result"},
+    "duties":     {"岗位": "duty_name", "学生": "student_name", "类型": "duty_type", "时间": "schedule_time", "备注": "notes"},
+    "lesson_log": {"日期": "date", "班级": "class_name", "节次": "period", "内容": "content"},
 }
 
 WEEKDAYS = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]

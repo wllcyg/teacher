@@ -10,16 +10,22 @@ import {
 } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { listTable, createRow, updateRow, deleteRow } from "../api";
-import { useClasses, usePeriods, useIsMobileOrTablet } from "../hooks";
+import { listAllTable, createRow, updateRow, deleteRow } from "../api";
+import { useIsMobileOrTablet, useClasses, useClassItems, usePeriods } from "../hooks";
 import { triggerHaptic } from "../utils/haptics";
 
 const WEEKDAY_NAMES = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 export interface LessonContext {
-  日期: string;
-  班级: string;
-  节次: string | number;
+  date?: string;
+  class_id?: string;
+  class_name?: string;
+  period?: string | number;
+  subject?: string;
+  // 兼容老调用
+  日期?: string;
+  班级?: string;
+  节次?: string | number;
   科目?: string;
 }
 
@@ -51,6 +57,7 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
   const isMobile = useIsMobileOrTablet();
   const qc = useQueryClient();
   const classes = useClasses();
+  const classItems = useClassItems();
   const periods = usePeriods();
 
   const [content, setContent] = useState("");
@@ -67,29 +74,29 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
   // 避免输入内容或选择节次触发重新渲染时导致 customPeriod 被反复打回默认值
   useEffect(() => {
     if (open) {
-      setCustomDate(lessonContext?.日期 || dayjs().format("YYYY-MM-DD"));
-      setCustomClass(lessonContext?.班级 || (classes[0] || ""));
-      const pRaw = lessonContext?.节次;
+      setCustomDate(lessonContext?.date || lessonContext?.日期 || dayjs().format("YYYY-MM-DD"));
+      setCustomClass(lessonContext?.class_name || lessonContext?.班级 || (classes[0] || ""));
+      const pRaw = lessonContext?.period ?? lessonContext?.节次;
       const pStr = pRaw !== undefined && pRaw !== null ? String(pRaw) : "第1节";
       setCustomPeriod(pStr.startsWith("第") ? pStr : `第${pStr}节`);
     }
   }, [open]);
 
-  const activeDate = allowEditContext ? customDate : lessonContext?.日期 || "";
-  const activeClass = allowEditContext ? customClass : lessonContext?.班级 || "";
+  const activeDate = allowEditContext ? customDate : lessonContext?.date || lessonContext?.日期 || "";
+  const activeClass = allowEditContext ? customClass : lessonContext?.class_name || lessonContext?.班级 || "";
   const activePeriod = allowEditContext
     ? customPeriod
     : lessonContext
-    ? String(lessonContext.节次).startsWith("第")
-      ? String(lessonContext.节次)
-      : `第${lessonContext.节次}节`
+    ? String(lessonContext.period ?? lessonContext.节次).startsWith("第")
+      ? String(lessonContext.period ?? lessonContext.节次)
+      : `第${lessonContext.period ?? lessonContext.节次}节`
     : "";
 
   const queryFilters = activeDate && activeClass && activePeriod
     ? {
-        日期: activeDate,
-        班级: activeClass,
-        节次: activePeriod,
+        date: activeDate,
+        class_name: activeClass,
+        period: activePeriod,
       }
     : null;
 
@@ -102,9 +109,9 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
     return (
       allCachedLogs.find(
         (r) =>
-          r.日期 === activeDate &&
-          r.班级 === activeClass &&
-          (r.节次 === activePeriod || String(r.节次).replace(/第|节/g, "") === targetPeriodNum)
+          (r.date || r.日期) === activeDate &&
+          (r.class_name || r.班级) === activeClass &&
+          ((r.period || r.节次) === activePeriod || String(r.period || r.节次).replace(/第|节/g, "") === targetPeriodNum)
       ) || null
     );
   }, [allCachedLogs, activeDate, activeClass, activePeriod]);
@@ -112,7 +119,7 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
   // 2. 只有在本地没有全局缓存时（例如独立页面），才向服务端发起单条查询，并设置 60s 缓存
   const { data: remoteLogs, isLoading: loadingLog } = useQuery({
     queryKey: ["lesson_log", queryFilters],
-    queryFn: () => listTable("lesson_log", queryFilters as Record<string, string>),
+    queryFn: () => listAllTable("lesson_log", queryFilters as Record<string, string>),
     enabled: open && !allCachedLogs && !!queryFilters,
     staleTime: 60 * 1000,
   });
@@ -123,15 +130,44 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
     ? remoteLogs[0]
     : null;
 
+  // 📝 自动草稿机制：根据当前节次生成草稿键，防止误触或意外关闭导致大段板书反思丢失
+  const draftKey = useMemo(() => {
+    if (!activeDate || !activeClass || !activePeriod) return "";
+    return `draft_lesson_log_${activeDate}_${activeClass}_${activePeriod}`;
+  }, [activeDate, activeClass, activePeriod]);
+
   useEffect(() => {
     if (open) {
       if (existingRecord) {
-        setContent(existingRecord.内容 || "");
+        setContent(existingRecord.content || existingRecord.内容 || "");
+      } else if (draftKey) {
+        const localDraft = localStorage.getItem(draftKey);
+        if (localDraft && localDraft.trim()) {
+          setContent(localDraft);
+          if (isMobile) {
+            Toast.show({ content: "已恢复未保存草稿", duration: 1500 });
+          } else {
+            message.info("已为您恢复上次未保存的草稿");
+          }
+        } else {
+          setContent("");
+        }
       } else {
         setContent("");
       }
     }
-  }, [open, existingRecord]);
+  }, [open, existingRecord, draftKey, isMobile]);
+
+  // 当用户在输入内容时，自动轻量防抖暂存
+  useEffect(() => {
+    if (open && draftKey && !existingRecord) {
+      if (content && content.trim()) {
+        localStorage.setItem(draftKey, content);
+      } else {
+        localStorage.removeItem(draftKey);
+      }
+    }
+  }, [open, draftKey, content, existingRecord]);
 
   const handleInsertTag = (tag: string) => {
     triggerHaptic("light");
@@ -158,18 +194,26 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
 
     setSaving(true);
     try {
+      const foundClass = classItems.find((c) => c.name === activeClass || c.class_id === activeClass);
+      const effectiveClassId = lessonContext?.class_id || foundClass?.class_id || "";
+      const effectiveClassName = foundClass?.name || activeClass;
+
       if (existingRecord) {
         await updateRow("lesson_log", existingRecord.id, {
-          内容: content.trim(),
+          content: content.trim(),
+          ...(effectiveClassId ? { class_id: effectiveClassId } : {}),
+          class_name: effectiveClassName,
         });
       } else {
         await createRow("lesson_log", {
-          日期: activeDate,
-          班级: activeClass,
-          节次: activePeriod,
-          内容: content.trim(),
+          date: activeDate,
+          class_id: effectiveClassId || undefined,
+          class_name: effectiveClassName,
+          period: activePeriod,
+          content: content.trim(),
         });
       }
+      if (draftKey) localStorage.removeItem(draftKey);
       triggerHaptic("success");
       if (isMobile) {
         Toast.show({ icon: "success", content: "已保存课堂记录", duration: 1500 });
@@ -197,6 +241,7 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
     setDeleting(true);
     try {
       await deleteRow("lesson_log", existingRecord.id);
+      if (draftKey) localStorage.removeItem(draftKey);
       triggerHaptic("success");
       if (isMobile) {
         Toast.show({ icon: "success", content: "已删除课堂记录", duration: 1500 });
@@ -241,6 +286,7 @@ export const LessonLogDrawer: React.FC<LessonLogDrawerProps> = ({
       open={open}
       onClose={onClose}
       destroyOnClose
+      maskClosable={false}
       styles={{
         content: {
           maxWidth: 600,

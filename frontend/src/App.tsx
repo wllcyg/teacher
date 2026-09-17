@@ -4,6 +4,7 @@ import { Spin } from "antd";
 import AppLayout from "./layout/AppLayout";
 import { ReloadPrompt } from "./components/ReloadPrompt";
 import { NotificationScheduler } from "./components/NotificationScheduler";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { useAuthStore } from "./store/auth";
 
 const Login = lazy(() => import("./pages/Login"));
@@ -54,7 +55,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <ReloadPrompt />
       <NotificationScheduler />
       <Suspense fallback={<PageSkeleton />}>
@@ -81,6 +82,6 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
-    </>
+    </ErrorBoundary>
   );
 }

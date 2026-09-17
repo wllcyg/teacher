@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, Button, Space, Upload, message, Alert, Table } from "antd";
 import { DownloadOutlined, UploadOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { vaultExport, vaultImport, listTable } from "../api";
+import { vaultExport, vaultImport, listAllTable } from "../api";
 import { getTables } from "../api";
 import type { Row } from "../types";
 
@@ -44,7 +44,7 @@ export default function Vault() {
       const tables = Object.keys(meta ?? {});
       const res = await Promise.all(
         tables.map(async (t) => {
-          const rows = await listTable(t as any);
+          const rows = await listAllTable(t as any);
           return { table: t, count: rows.length };
         })
       );

@@ -9,6 +9,7 @@ import json
 import os
 import urllib.parse
 
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 from sqlalchemy import or_
@@ -35,6 +36,8 @@ def _to_dict(row, table: str) -> dict:
     d = {"id": row.id}
     if hasattr(row, "student_id"):
         d["student_id"] = getattr(row, "student_id", "") or ""
+    if hasattr(row, "client_id"):
+        d["client_id"] = getattr(row, "client_id", "") or ""
     for c in _cols(table):
         d[c] = getattr(row, c)
     return d
@@ -51,6 +54,8 @@ def _apply(row, payload: dict, table: str):
             setattr(row, c, "" if v is None else str(v))
     if hasattr(row, "student_id") and "student_id" in payload:
         setattr(row, "student_id", "" if payload["student_id"] is None else str(payload["student_id"]))
+    if hasattr(row, "client_id") and "client_id" in payload:
+        setattr(row, "client_id", "" if payload["client_id"] is None else str(payload["client_id"]))
 
 
 RELATED_STUDENT_TABLES = ["academic", "behavior", "attendance", "parents", "comms", "duties"]
@@ -78,13 +83,53 @@ def _lookup_student_id(db: Session, student_name: str, klass: str = None) -> str
     """根据姓名（及可选班级）查询学生的 student_id"""
     if not student_name:
         return ""
-    q = db.query(models.Student).filter(models.Student.姓名 == student_name)
+    q = db.query(models.Student).filter(models.Student.name == student_name)
     if klass:
-        stu_in_class = q.filter(models.Student.班级 == klass).first()
+        stu_in_class = q.filter(models.Student.class_name == klass).first()
         if stu_in_class and stu_in_class.student_id:
             return stu_in_class.student_id
     stu = q.first()
     return stu.student_id if (stu and stu.student_id) else ""
+
+
+def _clean_str(v: Any) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, str):
+        return v.strip()
+    if hasattr(v, "default"):
+        return str(v.default or "").strip()
+    return str(v).strip()
+
+
+def _resolve_class_info(db: Session, class_id: Any = None, class_name: Any = None) -> tuple[str, str]:
+    """根据 class_id 或 class_name 解析出 (class_id, class_name)。若均为空，默认返回首个班级。"""
+    c_id = _clean_str(class_id)
+    c_name = _clean_str(class_name)
+
+    # 1. 优先根据 class_id 查询
+    if c_id:
+        ce = db.query(models.ClassEntity).filter(models.ClassEntity.class_id == c_id).first()
+        if ce:
+            return ce.class_id, ce.name
+        ce_by_name = db.query(models.ClassEntity).filter(models.ClassEntity.name == c_id).first()
+        if ce_by_name:
+            return ce_by_name.class_id, ce_by_name.name
+
+    # 2. 其次根据 class_name 查询
+    if c_name:
+        ce = db.query(models.ClassEntity).filter(models.ClassEntity.name == c_name).first()
+        if ce:
+            return ce.class_id, ce.name
+        ce_by_id = db.query(models.ClassEntity).filter(models.ClassEntity.class_id == c_name).first()
+        if ce_by_id:
+            return ce_by_id.class_id, ce_by_id.name
+
+    # 3. 均未传入或查无结果时，兜底取第一班
+    first_cls = db.query(models.ClassEntity).order_by(models.ClassEntity.seq.asc(), models.ClassEntity.id.asc()).first()
+    if first_cls:
+        return first_cls.class_id, first_cls.name
+    return "", ""
 
 
 def _cascade_student_updates(
@@ -94,33 +139,40 @@ def _cascade_student_updates(
     new_name: str,
     old_class: str,
     new_class: str,
+    old_class_id: str = None,
+    new_class_id: str = None,
 ):
     """学生改名或转班时，级联同步 6 张关联子表（成绩、表现、考勤、家长、沟通、值日）"""
     sid = getattr(student_row, "student_id", "") or ""
+    resolved_cid, _ = _resolve_class_info(db, class_id=new_class_id, class_name=new_class)
     for t_name in RELATED_STUDENT_TABLES:
         M = models.MODELS[t_name]
         # 1. 改名级联
         if old_name and new_name and old_name != new_name:
             if sid:
-                cond = or_(M.student_id == sid, M.学生 == old_name)
+                cond = or_(M.student_id == sid, M.student_name == old_name)
             else:
-                cond = (M.学生 == old_name)
+                cond = (M.student_name == old_name)
             rows = db.query(M).filter(cond).all()
             for r in rows:
-                r.学生 = new_name
+                r.student_name = new_name
                 if sid and not getattr(r, "student_id", None):
                     r.student_id = sid
 
         # 2. 班级变更级联（针对含班级字段的表，如 academic, behavior）
-        if old_class and new_class and old_class != new_class and hasattr(M, "班级"):
+        class_changed = (old_class and new_class and old_class != new_class) or (old_class_id and new_class_id and old_class_id != new_class_id)
+        if class_changed:
             curr_name = new_name or old_name
             if sid:
-                cond = or_(M.student_id == sid, M.学生 == curr_name)
+                cond = or_(M.student_id == sid, M.student_name == curr_name)
             else:
-                cond = (M.学生 == curr_name)
+                cond = (M.student_name == curr_name)
             rows = db.query(M).filter(cond).all()
             for r in rows:
-                r.班级 = new_class
+                if hasattr(r, "class_name") and new_class:
+                    r.class_name = new_class
+                if hasattr(r, "class_id") and resolved_cid:
+                    r.class_id = resolved_cid
                 if sid and not getattr(r, "student_id", None):
                     r.student_id = sid
 
@@ -130,17 +182,30 @@ def _find_natural_dup(db: Session, table: str, payload: dict):
     keys = enums.NATURAL_KEY.get(table)
     if not keys:
         return None
+    temp_payload = dict(payload)
+    # 如果自然键包含 student_id 但传入未带，且带有 student_name/学生 姓名，则自动补齐 student_id 后查重
+    stu_name = temp_payload.get("student_name") or temp_payload.get("学生")
+    cls_name = temp_payload.get("class_name") or temp_payload.get("班级")
+    if "student_id" in keys and not temp_payload.get("student_id") and stu_name:
+        temp_payload["student_id"] = _lookup_student_id(db, stu_name, cls_name)
+
     q = db.query(_model(table))
     for k in keys:
-        q = q.filter(getattr(_model(table), k) == payload.get(k, ""))
+        q = q.filter(getattr(_model(table), k) == temp_payload.get(k, ""))
     return q.first()
 
 
 def active_roster(db: Session, klass: str) -> list[dict]:
-    """当前班在册学生（不含已离班），按学号数值序。"""
-    rows = db.query(models.Student).filter(models.Student.班级 == klass).all()
-    out = [r for r in rows if not text_startswith(r.标签, scoring.LEFT_MARK)]
-    out.sort(key=lambda s: _num(s.学号))
+    """当前班在册学生（不含已离班），按学号数值序。
+    klass 支持 class_id（如 CLS0001）或 class_name（如 八3班）
+    """
+    if not klass:
+        return []
+    rows = db.query(models.Student).filter(
+        or_(models.Student.class_id == klass, models.Student.class_name == klass)
+    ).all()
+    out = [r for r in rows if not text_startswith(r.tags, scoring.LEFT_MARK)]
+    out.sort(key=lambda s: _num(s.student_no))
     return [_to_dict(s, "students") for s in out]
 
 
@@ -153,6 +218,33 @@ def text_startswith(v, prefix: str) -> bool:
     return scoring.text_of(v).startswith(prefix)
 
 
+# ---------- 班级列表 ----------
+@router.get("/classes")
+def get_classes(db: Session = Depends(get_db)):
+    """获取所有在册班级列表（包含 class_id, name, grade, seq, sort_order，极速轻量）。"""
+    rows = db.query(models.ClassEntity).order_by(models.ClassEntity.seq.asc(), models.ClassEntity.id.asc()).all()
+    if not rows:
+        sch_classes = [
+            r[0] for r in db.query(models.Schedule.class_name).filter(models.Schedule.class_name != "").distinct().all()
+        ]
+        stu_classes = [
+            r[0] for r in db.query(models.Student.class_name).filter(models.Student.class_name != "").distinct().all()
+        ]
+        classes = sorted(list(set(sch_classes) | set(stu_classes)))
+        return [{"id": i + 1, "class_id": f"CLS{i+1:04d}", "name": c, "grade": "", "seq": i + 1, "sort_order": i + 1} for i, c in enumerate(classes)]
+    return [
+        {
+            "id": r.id,
+            "class_id": r.class_id,
+            "name": r.name,
+            "grade": r.grade or "",
+            "seq": r.seq or 0,
+            "sort_order": r.seq or 0,
+        }
+        for r in rows
+    ]
+
+
 # ---------- 表结构说明 ----------
 @router.get("/tables")
 def list_tables():
@@ -162,34 +254,105 @@ def list_tables():
     }
 
 
+def _sync_class_fields(db: Session, row: Any):
+    """自动双向补齐模型的 class_id 与 class_name"""
+    has_cid = hasattr(row, "class_id")
+    has_cname = hasattr(row, "class_name")
+    if not (has_cid and has_cname):
+        return
+    curr_cid = getattr(row, "class_id", None) or ""
+    curr_cname = getattr(row, "class_name", None) or ""
+    if curr_cid and not curr_cname:
+        _, resolved_name = _resolve_class_info(db, class_id=curr_cid)
+        if resolved_name:
+            setattr(row, "class_name", resolved_name)
+    elif curr_cname and not curr_cid:
+        resolved_id, _ = _resolve_class_info(db, class_name=curr_cname)
+        if resolved_id:
+            setattr(row, "class_id", resolved_id)
+
+
+def _clean_payload(table: str, payload: dict) -> dict:
+    """自动将历史中文键名转为规范英文键名，并丢弃转换前的冗余中文键，提供极强容错与向后兼容性"""
+    if not isinstance(payload, dict):
+        return payload
+    alias_map = enums.COLUMN_ALIASES.get(table, {})
+    cleaned = {}
+    for k, v in payload.items():
+        if k in alias_map:
+            norm_k = alias_map[k]
+            # 如果英文键尚未传入或为空，使用中文键的值回填
+            if norm_k not in cleaned or not cleaned[norm_k]:
+                cleaned[norm_k] = v
+        else:
+            cleaned[k] = v
+    return cleaned
+
+
 # ---------- 通用 CRUD（程序化注册） ----------
 def _register_crud(table: str):
     Model = _model(table)
     cols = _cols(table)
-    valid_keys = set(cols) | {"id", "student_id"}
+    valid_keys = set(cols) | {"id", "student_id", "client_id", "class_id"}
 
-    def list_rows(request: Request, db: Session = Depends(get_db)):
+    def list_rows(
+        request: Request,
+        page: int = Query(default=1, ge=1, description="页码"),
+        page_size: int = Query(default=20, ge=1, le=1000, description="每页条数"),
+        db: Session = Depends(get_db),
+    ):
         q = db.query(Model)
         for c in cols:
             val = request.query_params.get(c)
-            if val is not None:
+            if val is not None and val != "":
                 q = q.filter(getattr(Model, c) == val)
-            # 模糊查询：{列名}_like 参数，例如 ?姓名_like=张 → 姓名包含「张」
+            gte_val = request.query_params.get(f"{c}_gte")
+            if gte_val is not None and gte_val != "":
+                q = q.filter(getattr(Model, c) >= gte_val)
+            lte_val = request.query_params.get(f"{c}_lte")
+            if lte_val is not None and lte_val != "":
+                q = q.filter(getattr(Model, c) <= lte_val)
             like_val = request.query_params.get(f"{c}_like")
             if like_val is not None and like_val != "":
                 q = q.filter(getattr(Model, c).contains(like_val))
+            ne_val = request.query_params.get(f"{c}_ne")
+            if ne_val is not None and ne_val != "":
+                q = q.filter(getattr(Model, c) != ne_val)
+        if hasattr(Model, "class_id"):
+            cls_id_val = request.query_params.get("class_id")
+            if cls_id_val is not None and cls_id_val != "":
+                q = q.filter(Model.class_id == cls_id_val)
         if hasattr(Model, "student_id"):
             sid_val = request.query_params.get("student_id")
             if sid_val is not None:
                 q = q.filter(Model.student_id == sid_val)
-        # 通用模糊搜索：?q=关键字 在所有列上做 OR 匹配（如学生表可同时搜姓名/学号/业务ID）
+        if hasattr(Model, "client_id"):
+            cid_val = request.query_params.get("client_id")
+            if cid_val is not None:
+                q = q.filter(Model.client_id == cid_val)
         kw = request.query_params.get("q")
         if kw:
             search_cols = list(cols)
             if hasattr(Model, "student_id"):
                 search_cols.append("student_id")
+            if hasattr(Model, "class_id"):
+                search_cols.append("class_id")
             q = q.filter(or_(*[getattr(Model, c).contains(kw) for c in search_cols]))
-        return [_to_dict(r, table) for r in q.order_by(Model.id).all()]
+
+        total = q.count()
+        # 学生表按学号/id正序，其余流水表按id倒序排列最新记录
+        if table in ["students", "schedule", "items", "classes"]:
+            q = q.order_by(Model.id.asc())
+        else:
+            q = q.order_by(Model.id.desc())
+
+        rows = q.offset((page - 1) * page_size).limit(page_size).all()
+        return {
+            "items": [_to_dict(r, table) for r in rows],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
 
     def get_row(row_id: int, db: Session = Depends(get_db)):
         row = db.get(Model, row_id)
@@ -198,55 +361,99 @@ def _register_crud(table: str):
         return _to_dict(row, table)
 
     def create_row(payload: dict, db: Session = Depends(get_db)):
+        payload = _clean_payload(table, payload)
         unknown = [k for k in payload if k not in valid_keys]
         if unknown:
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
+
+        # 1. client_id 幂等拦截（防止前端弱网连击重复录入）
+        cid = payload.get("client_id")
+        if cid and hasattr(Model, "client_id"):
+            existing_cid = db.query(Model).filter(Model.client_id == cid).first()
+            if existing_cid:
+                return _to_dict(existing_cid, table)
+
+        # 2. 自然键查重
         existing = _find_natural_dup(db, table, payload)
         if existing:
             if table == "lesson_log":
-                _apply(existing, payload, table)
-                db.commit()
-                db.refresh(existing)
+                try:
+                    _apply(existing, payload, table)
+                    _sync_class_fields(db, existing)
+                    db.commit()
+                    db.refresh(existing)
+                except Exception:
+                    db.rollback()
+                    raise
             return _to_dict(existing, table)
+
         row = Model()
         _apply(row, payload, table)
+        _sync_class_fields(db, row)
         if table == "students":
             if not getattr(row, "student_id", None):
                 row.student_id = _next_student_ids(db, 1)[0]
         elif table in RELATED_STUDENT_TABLES:
-            if not getattr(row, "student_id", None) and getattr(row, "学生", None):
-                row.student_id = _lookup_student_id(db, row.学生, getattr(row, "班级", None))
-        db.add(row)
-        db.commit()
-        db.refresh(row)
-        return _to_dict(row, table)
+            # 双向补齐 student_id 与姓名
+            s_name = getattr(row, "student_name", None) or getattr(row, "学生", None)
+            c_name = getattr(row, "class_name", None) or getattr(row, "班级", None)
+            if not getattr(row, "student_id", None) and s_name:
+                row.student_id = _lookup_student_id(db, s_name, c_name)
+            elif getattr(row, "student_id", None) and not s_name:
+                stu = db.query(models.Student).filter(models.Student.student_id == row.student_id).first()
+                if stu:
+                    row.student_name = stu.name
+                    if not c_name and hasattr(row, "class_name"):
+                        row.class_name = stu.class_name
+                        row.class_id = stu.class_id
+
+        try:
+            db.add(row)
+            db.commit()
+            db.refresh(row)
+            return _to_dict(row, table)
+        except Exception:
+            db.rollback()
+            raise
 
     def update_row(row_id: int, payload: dict, db: Session = Depends(get_db)):
         row = db.get(Model, row_id)
         if not row:
             raise HTTPException(status_code=404, detail="记录不存在")
+        payload = _clean_payload(table, payload)
         unknown = [k for k in payload if k not in valid_keys]
         if unknown:
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
-        old_name = getattr(row, "姓名", None)
-        old_class = getattr(row, "班级", None)
+        old_name = getattr(row, "name", None)
+        old_class = getattr(row, "class_name", None)
+        old_class_id = getattr(row, "class_id", None)
         _apply(row, payload, table)
+        _sync_class_fields(db, row)
         if table == "students":
-            new_name = getattr(row, "姓名", None)
-            new_class = getattr(row, "班级", None)
-            if (old_name and new_name and old_name != new_name) or (old_class and new_class and old_class != new_class):
-                _cascade_student_updates(db, row, old_name, new_name, old_class, new_class)
-        db.commit()
-        db.refresh(row)
-        return _to_dict(row, table)
+            new_name = getattr(row, "name", None)
+            new_class = getattr(row, "class_name", None)
+            new_class_id = getattr(row, "class_id", None)
+            if (old_name and new_name and old_name != new_name) or (old_class and new_class and old_class != new_class) or (old_class_id and new_class_id and old_class_id != new_class_id):
+                _cascade_student_updates(db, row, old_name, new_name, old_class, new_class, old_class_id, new_class_id)
+        try:
+            db.commit()
+            db.refresh(row)
+            return _to_dict(row, table)
+        except Exception:
+            db.rollback()
+            raise
 
     def delete_row(row_id: int, db: Session = Depends(get_db)):
         row = db.get(Model, row_id)
         if not row:
             raise HTTPException(status_code=404, detail="记录不存在")
-        db.delete(row)
-        db.commit()
-        return {"ok": True}
+        try:
+            db.delete(row)
+            db.commit()
+            return {"ok": True}
+        except Exception:
+            db.rollback()
+            raise
 
     def batch_delete(payload: dict, db: Session = Depends(get_db)):
         """批量删除：payload = {"ids": [1,2,3]}"""
@@ -254,58 +461,83 @@ def _register_crud(table: str):
         if not ids:
             raise HTTPException(status_code=422, detail="ids 不能为空")
         rows = db.query(Model).filter(Model.id.in_(ids)).all()
-        for r in rows:
-            db.delete(r)
-        db.commit()
-        return {"ok": True, "deleted": len(rows)}
+        try:
+            for r in rows:
+                db.delete(r)
+            db.commit()
+            return {"ok": True, "deleted": len(rows)}
+        except Exception:
+            db.rollback()
+            raise
 
     def batch_update(payload: dict, db: Session = Depends(get_db)):
-        """批量修改：payload = {"ids": [1,2,3], "updates": {"班级": "八10班"}}"""
+        """批量修改：payload = {"ids": [1,2,3], "updates": {"class_name": "八10班"}}"""
         ids = payload.get("ids") or []
-        updates = payload.get("updates") or {}
+        updates = _clean_payload(table, payload.get("updates") or {})
         if not ids or not updates:
             raise HTTPException(status_code=422, detail="ids 和 updates 不能为空")
         unknown = [k for k in updates if k not in valid_keys]
         if unknown:
             raise HTTPException(status_code=422, detail=f"非法字段: {unknown}")
         rows = db.query(Model).filter(Model.id.in_(ids)).all()
-        for r in rows:
-            old_name = getattr(r, "姓名", None)
-            old_class = getattr(r, "班级", None)
-            _apply(r, updates, table)
-            if table == "students":
-                new_name = getattr(r, "姓名", None)
-                new_class = getattr(r, "班级", None)
-                if (old_name and new_name and old_name != new_name) or (old_class and new_class and old_class != new_class):
-                    _cascade_student_updates(db, r, old_name, new_name, old_class, new_class)
-        db.commit()
-        return {"ok": True, "updated": len(rows)}
+        try:
+            for r in rows:
+                old_name = getattr(r, "name", None)
+                old_class = getattr(r, "class_name", None)
+                old_class_id = getattr(r, "class_id", None)
+                _apply(r, updates, table)
+                _sync_class_fields(db, r)
+                if table == "students":
+                    new_name = getattr(r, "name", None)
+                    new_class = getattr(r, "class_name", None)
+                    new_class_id = getattr(r, "class_id", None)
+                    if (old_name and new_name and old_name != new_name) or (old_class and new_class and old_class != new_class) or (old_class_id and new_class_id and old_class_id != new_class_id):
+                        _cascade_student_updates(db, r, old_name, new_name, old_class, new_class, old_class_id, new_class_id)
+            db.commit()
+            return {"ok": True, "updated": len(rows)}
+        except Exception:
+            db.rollback()
+            raise
 
     def batch_create(payload: dict, db: Session = Depends(get_db)):
         """批量新增：payload = {"rows": [{...}, {...}]}"""
         records = payload.get("rows") or []
         if not records:
             raise HTTPException(status_code=422, detail="rows 不能为空")
+        records = [_clean_payload(table, r) for r in records]
         added = []
-        if table == "students":
-            next_ids = _next_student_ids(db, len(records))
-            for i, rec in enumerate(records):
-                row = Model()
-                _apply(row, rec, table)
-                if not getattr(row, "student_id", None):
-                    row.student_id = next_ids[i]
-                db.add(row)
-                added.append(row)
-        else:
-            for rec in records:
-                row = Model()
-                _apply(row, rec, table)
-                if table in RELATED_STUDENT_TABLES and not getattr(row, "student_id", None) and getattr(row, "学生", None):
-                    row.student_id = _lookup_student_id(db, row.学生, getattr(row, "班级", None))
-                db.add(row)
-                added.append(row)
-        db.commit()
-        return {"ok": True, "created": len(added)}
+        try:
+            if table == "students":
+                next_ids = _next_student_ids(db, len(records))
+                for i, rec in enumerate(records):
+                    row = Model()
+                    _apply(row, rec, table)
+                    _sync_class_fields(db, row)
+                    if not getattr(row, "student_id", None):
+                        row.student_id = next_ids[i]
+                    db.add(row)
+                    added.append(row)
+            else:
+                for rec in records:
+                    # 检查单个 client_id 幂等防重
+                    cid = rec.get("client_id")
+                    if cid and hasattr(Model, "client_id"):
+                        if db.query(Model).filter(Model.client_id == cid).first():
+                            continue
+                    row = Model()
+                    _apply(row, rec, table)
+                    _sync_class_fields(db, row)
+                    s_name = getattr(row, "student_name", None) or getattr(row, "学生", None)
+                    c_name = getattr(row, "class_name", None) or getattr(row, "班级", None)
+                    if table in RELATED_STUDENT_TABLES and not getattr(row, "student_id", None) and s_name:
+                        row.student_id = _lookup_student_id(db, s_name, c_name)
+                    db.add(row)
+                    added.append(row)
+            db.commit()
+            return {"ok": True, "created": len(added)}
+        except Exception:
+            db.rollback()
+            raise
 
     router.add_api_route(f"/tables/{table}", list_rows, methods=["GET"], name=f"list_{table}")
     router.add_api_route(f"/tables/{table}/{{row_id}}", get_row, methods=["GET"], name=f"get_{table}")
@@ -329,74 +561,98 @@ def _rows(db: Session, table: str) -> list[dict]:
 @router.get("/report/summary")
 def report_summary(
     db: Session = Depends(get_db),
-    今天: str = Query(default="", description="今天日期 YYYY-MM-DD，用于本周表现统计"),
-    班级: str = Query(default="", description="要统计的班级，空则取第一个有学生的班"),
+    today: str = Query(default="", description="今天日期 YYYY-MM-DD，用于本周表现统计"),
+    class_id: str = Query(default="", description="班级 ID，如 CLS0001"),
+    class_name: str = Query(default="", description="要统计的班级名称，空则取第一个班"),
 ):
-    students = _rows(db, "students")
-    klass = 班级 or (students[0]["班级"] if students else "")
-    roster = active_roster(db, klass)
+    cid, klass = _resolve_class_info(db, class_id=class_id, class_name=class_name)
+    roster = active_roster(db, cid or klass)
+
+    # SQL 下沉：仅查询对应班级的成绩与表现，大幅降低内存与数据库开销
+    acad_q = db.query(models.Academic)
+    behav_q = db.query(models.Behavior)
+    if cid or klass:
+        acad_q = acad_q.filter(or_(models.Academic.class_id == cid, models.Academic.class_name == klass))
+        behav_q = behav_q.filter(or_(models.Behavior.class_id == cid, models.Behavior.class_name == klass))
+
     o = {
         "items": _rows(db, "items"),
-        "academic": _rows(db, "academic"),
-        "behavior": _rows(db, "behavior"),
+        "academic": [_to_dict(r, "academic") for r in acad_q.all()],
+        "behavior": [_to_dict(r, "behavior") for r in behav_q.all()],
         "attendance": _rows(db, "attendance"),
         "roster": roster,
-        "今天": 今天,
+        "today": today,
+        "今天": today,
     }
-    return {"班级": klass, **scoring.summary_overview(o)}
+    return {"class_id": cid, "class_name": klass, "班级": klass, **scoring.summary_overview(o)}
 
 
 @router.get("/report/exam/{item_name}")
 def report_exam(
     item_name: str,
     db: Session = Depends(get_db),
-    班级: str = Query(default=""),
-    优: float = Query(default=85),
-    及: float = Query(default=60),
-    低: float = Query(default=40),
+    class_id: str = Query(default=""),
+    class_name: str = Query(default=""),
+    you: float = Query(default=85, alias="优"),
+    ji: float = Query(default=60, alias="及"),
+    di: float = Query(default=40, alias="低"),
 ):
     items = _rows(db, "items")
-    item = next((it for it in items if scoring.text_of(it.get("项目名")) == item_name), None)
+    item = next((it for it in items if scoring.text_of(it.get("item_name") or it.get("项目名")) == item_name), None)
     if not item:
         raise HTTPException(status_code=404, detail=f"项目不存在: {item_name}")
-    students = _rows(db, "students")
-    klass = 班级 or (students[0]["班级"] if students else "")
-    roster = active_roster(db, klass)
-    records = _rows(db, "academic")
-    stats = scoring.report_stats(item, records, roster, {"优": 优, "及": 及, "低": 低})
+    cid, klass = _resolve_class_info(db, class_id=class_id, class_name=class_name)
+    roster = active_roster(db, cid or klass)
+
+    acad_q = db.query(models.Academic)
+    if cid or klass:
+        acad_q = acad_q.filter(or_(models.Academic.class_id == cid, models.Academic.class_name == klass))
+    records = [_to_dict(r, "academic") for r in acad_q.all()]
+
+    stats = scoring.report_stats(item, records, roster, {"优": you, "及": ji, "低": di})
     prev = scoring.prev_exam(items, records, roster, item_name)
     prev_stats = None
     if prev:
-        prev_item = next((it for it in items if scoring.text_of(it.get("项目名")) == prev), None)
+        prev_item = next((it for it in items if scoring.text_of(it.get("item_name") or it.get("项目名")) == prev), None)
         if prev_item:
             prev_snap = scoring.latest_valid_scores(prev_item, records, roster)
-            cur_snap = stats["快照"]
+            cur_snap = stats["snapshot"]
             deltas = scoring.delta_scores(cur_snap, prev_snap)
             prev_stats = {
-                "项目": prev,
-                "统计": scoring.report_stats(prev_item, records, roster),
-                "进退步": scoring.delta_overview(deltas),
-                "名次": scoring.rank_scores([{"姓名": w, "分数": stats["快照"]["按学生"][w]["分"]} for w in stats["快照"]["按学生"]]),
+                "item_name": prev,
+                "stats": scoring.report_stats(prev_item, records, roster),
+                "deltas": scoring.delta_overview(deltas),
+                "ranks": scoring.rank_scores([{"name": w, "score": stats["snapshot"]["by_student"][w]["score"]} for w in stats["snapshot"]["by_student"]]),
             }
-    return {"项目": item_name, "统计": stats, "上次考试": prev_stats}
+    return {"class_id": cid, "class_name": klass, "item_name": item_name, "stats": stats, "previous_exam": prev_stats}
 
 
 @router.get("/report/matrix")
 def report_matrix(
     db: Session = Depends(get_db),
-    班级: str = Query(default=""),
-    项目: str = Query(default=""),
-    起: str = Query(default=""),
+    class_id: str = Query(default=""),
+    class_name: str = Query(default=""),
+    item_name: str = Query(default=""),
+    date_from: str = Query(default=""),
 ):
-    students = _rows(db, "students")
-    klass = 班级 or (students[0]["班级"] if students else "")
-    roster = active_roster(db, klass)
+    cid, klass = _resolve_class_info(db, class_id=class_id, class_name=class_name)
+    roster = active_roster(db, cid or klass)
     opts = {}
-    if 项目:
-        opts["项目"] = 项目
-    if 起:
-        opts["起"] = 起
-    return scoring.build_matrix(roster, _rows(db, "academic"), _rows(db, "items"), opts)
+    if item_name:
+        opts["item_name"] = item_name
+    if date_from:
+        opts["date_from"] = date_from
+
+    acad_q = db.query(models.Academic)
+    if cid or klass:
+        acad_q = acad_q.filter(or_(models.Academic.class_id == cid, models.Academic.class_name == klass))
+    if item_name:
+        acad_q = acad_q.filter(models.Academic.item_name == item_name)
+    if date_from:
+        acad_q = acad_q.filter(models.Academic.date >= date_from)
+    matrix_records = [_to_dict(r, "academic") for r in acad_q.all()]
+
+    return scoring.build_matrix(roster, matrix_records, _rows(db, "items"), opts)
 
 
 @router.post("/academic/batch-upsert")
@@ -404,102 +660,117 @@ def batch_upsert_academic(
     payload: dict,
     db: Session = Depends(get_db),
 ):
-    """批量录入/更新考试成绩（以 (班级, 项目, 日期, 学生) 幂等查重入库）。
-    如果项目名在 items 表中不存在，自动创建（满分/学科等取 payload 中的值或默认值）。
+    """批量录入/更新考试成绩（以 (class_name, item_name, date, student_id/student_name) 幂等查重入库）。
+    如果项目名在 items 表中不存在，自动创建（full_score/subject 等取 payload 中的值或默认值）。
     """
-    klass = payload.get("班级", "").strip()
-    item_name = payload.get("项目", "").strip()
-    exam_date = payload.get("日期", "").strip()
+    cid_input = (payload.get("class_id") or "").strip()
+    cname_input = (payload.get("class_name") or payload.get("班级") or "").strip()
+    cid, klass = _resolve_class_info(db, class_id=cid_input, class_name=cname_input)
+    item_name = (payload.get("item_name") or payload.get("项目") or "").strip()
+    exam_date = (payload.get("date") or payload.get("日期") or "").strip()
     records = payload.get("records") or []
 
     if not klass or not item_name or not exam_date:
-        raise HTTPException(status_code=422, detail="班级、项目和日期不能为空")
+        raise HTTPException(status_code=422, detail="class_id/class_name、item_name 和 date 不能为空")
 
-    # 自动创建项目（如果不存在）
-    ItemModel = _model("items")
-    existing_item = db.query(ItemModel).filter(ItemModel.项目名 == item_name).first()
-    item_created = False
-    if not existing_item:
-        new_item = ItemModel(
-            项目名=item_name,
-            类型="学业",
-            计分制="分数",
-            满分=str(payload.get("满分", 100)),
-            类别=payload.get("类别", "单元"),
-            学科=payload.get("学科", "地理"),
-            周期="学期",
-            权重="1",
-        )
-        db.add(new_item)
-        db.flush()
-        item_created = True
-
-    AcademicModel = _model("academic")
-    updated_count = 0
-    created_count = 0
-
-    for r in records:
-        stu = str(r.get("学生", "")).strip()
-        val = str(r.get("结果", "")).strip()
-        status = str(r.get("状态", "完成")).strip()
-        note = str(r.get("备注", "")).strip()
-        if not stu:
-            continue
-
-        sid = _lookup_student_id(db, stu, klass)
-        existing = (
-            db.query(AcademicModel)
-            .filter(
-                AcademicModel.班级 == klass,
-                AcademicModel.项目 == item_name,
-                AcademicModel.日期 == exam_date,
-                AcademicModel.学生 == stu,
+    try:
+        # 自动创建项目（如果不存在）
+        ItemModel = _model("items")
+        existing_item = db.query(ItemModel).filter(ItemModel.item_name == item_name).first()
+        item_created = False
+        if not existing_item:
+            new_item = ItemModel(
+                item_name=item_name,
+                item_type="学业",
+                scoring_type="分数",
+                full_score=str(payload.get("full_score") or payload.get("满分") or 100),
+                category=str(payload.get("category") or payload.get("类别") or "单元"),
+                subject=str(payload.get("subject") or payload.get("学科") or "地理"),
+                cycle="学期",
+                weight="1",
             )
-            .first()
-        )
-        if existing:
-            existing.结果 = val
-            existing.状态 = status
-            existing.备注 = note
-            if sid and not getattr(existing, "student_id", None):
-                existing.student_id = sid
-            updated_count += 1
-        else:
-            row = AcademicModel(
-                student_id=sid,
-                班级=klass,
-                项目=item_name,
-                日期=exam_date,
-                学生=stu,
-                结果=val,
-                状态=status,
-                备注=note,
-            )
-            db.add(row)
-            created_count += 1
+            db.add(new_item)
+            db.flush()
+            item_created = True
 
-    db.commit()
-    return {
-        "ok": True,
-        "班级": klass,
-        "项目": item_name,
-        "日期": exam_date,
-        "新增": created_count,
-        "更新": updated_count,
-        "总录入": created_count + updated_count,
-        "项目自动创建": item_created,
-    }
+        AcademicModel = _model("academic")
+        updated_count = 0
+        created_count = 0
+
+        for r in records:
+            stu = str(r.get("student_name") or r.get("学生") or "").strip()
+            val = str(r.get("score") or r.get("结果") or "").strip()
+            status = str(r.get("status") or r.get("状态") or "完成").strip()
+            note = str(r.get("notes") or r.get("备注") or "").strip()
+            client_id = str(r.get("client_id") or "").strip()
+            if not stu:
+                continue
+
+            sid = _lookup_student_id(db, stu, klass)
+            # 优先根据 (class_name, item_name, date, student_id) 查重，无 student_id 时按姓名
+            q_exist = db.query(AcademicModel).filter(
+                or_(AcademicModel.class_id == cid, AcademicModel.class_name == klass),
+                AcademicModel.item_name == item_name,
+                AcademicModel.date == exam_date,
+            )
+            if sid:
+                existing = q_exist.filter(or_(AcademicModel.student_id == sid, AcademicModel.student_name == stu)).first()
+            else:
+                existing = q_exist.filter(AcademicModel.student_name == stu).first()
+
+            if existing:
+                existing.score = val
+                existing.status = status
+                existing.notes = note
+                if cid and not getattr(existing, "class_id", None):
+                    existing.class_id = cid
+                if sid and not getattr(existing, "student_id", None):
+                    existing.student_id = sid
+                if client_id:
+                    existing.client_id = client_id
+                updated_count += 1
+            else:
+                row = AcademicModel(
+                    student_id=sid,
+                    client_id=client_id,
+                    class_id=cid,
+                    class_name=klass,
+                    item_name=item_name,
+                    date=exam_date,
+                    student_name=stu,
+                    score=val,
+                    status=status,
+                    notes=note,
+                )
+                db.add(row)
+                created_count += 1
+
+        db.commit()
+        return {
+            "ok": True,
+            "class_id": cid,
+            "class_name": klass,
+            "item_name": item_name,
+            "date": exam_date,
+            "created": created_count,
+            "updated": updated_count,
+            "total_saved": created_count + updated_count,
+            "item_created": item_created,
+        }
+    except Exception:
+        db.rollback()
+        raise
 
 
 @router.get("/report/items-summary")
 def report_items_summary(
     db: Session = Depends(get_db),
-    班级: str = Query(default=""),
+    class_id: str = Query(default=""),
+    class_name: str = Query(default=""),
 ):
     """每个项目的汇总（按计分制分叉），供「汇总」页直接消费。"""
-    students = _rows(db, "students")
-    klass = 班级 or (students[0]["班级"] if students else "")
-    roster = active_roster(db, klass)
+    cid, klass = _resolve_class_info(db, class_id=class_id, class_name=class_name)
+    roster = active_roster(db, cid or klass)
     items = _rows(db, "items")
     academic = _rows(db, "academic")
     out = []
@@ -507,38 +778,38 @@ def report_items_summary(
         if scoring.item_disabled(it):
             continue
         agg = scoring.aggregate_item(it, academic, roster)
+        agg["scoring_type"] = scoring.score_kind(it)
         agg["计分制"] = scoring.score_kind(it)
-        agg["类型"] = scoring.text_of(it.get("类型"))
-        agg["学科"] = scoring.text_of(it.get("学科"))
+        agg["item_type"] = scoring.text_of(it.get("item_type") or it.get("类型"))
+        agg["subject"] = scoring.text_of(it.get("subject") or it.get("学科"))
         out.append(agg)
-    return {"班级": klass, "项目汇总": out}
+    return {"class_id": cid, "class_name": klass, "班级": klass, "items_summary": out, "项目汇总": out}
 
 
 @router.get("/report/behavior-week")
 def report_behavior_week(
     db: Session = Depends(get_db),
-    班级: str = Query(default=""),
+    class_id: str = Query(default=""),
+    class_name: str = Query(default=""),
     weekStart: str = Query(default=""),
-    按小计: bool = Query(default=False),
+    subtotal: bool = Query(default=False, alias="按小计"),
 ):
-    students = _rows(db, "students")
-    klass = 班级 or (students[0]["班级"] if students else "")
-    roster = active_roster(db, klass)
+    cid, klass = _resolve_class_info(db, class_id=class_id, class_name=class_name)
+    roster = active_roster(db, cid or klass)
     records = _rows(db, "behavior")
-    table = scoring.week_table(records, roster, weekStart, 按小计)
-    agg = scoring.aggregate_behavior(records, roster)
-    return {"周表": table, "周聚合": agg}
+    table = scoring.weekly_behavior_overview(records, roster, weekStart)
+    return {"class_id": cid, "class_name": klass, "week_table": table, "周表": table}
 
 
 @router.get("/report/contact-book")
 def report_contact_book(
     db: Session = Depends(get_db),
-    班级: str = Query(default=""),
+    class_id: str = Query(default=""),
+    class_name: str = Query(default=""),
     keyword: str = Query(default=""),
 ):
-    students = _rows(db, "students")
-    klass = 班级 or (students[0]["班级"] if students else "")
-    roster = active_roster(db, klass)
+    cid, klass = _resolve_class_info(db, class_id=class_id, class_name=class_name)
+    roster = active_roster(db, cid or klass)
     return scoring.contact_book(roster, _rows(db, "parents"), keyword)
 
 
@@ -572,20 +843,17 @@ def import_parents(
 ):
     """家长通讯录批量导入，返回对上/名册外/坏行/已有/没登记，不落库。"""
     students = _rows(db, "students")
-    klass = payload.get("班级") or (students[0]["班级"] if students else "")
+    klass = (payload.get("class_name") or payload.get("班级") or (students[0]["class_name"] if students and "class_name" in students[0] else ""))
     roster = active_roster(db, klass)
-    return scoring.parent_import_plan(payload.get("文本", ""), roster, _rows(db, "parents"))
+    text_content = payload.get("text") or payload.get("文本") or ""
+    return scoring.parent_import_plan(text_content, roster, _rows(db, "parents"))
 
 
 @router.post("/import/students")
 def import_students(payload: dict, db: Session = Depends(get_db)):
     """学生 CSV 批量导入。
-
-    - CSV 首行为表头，支持列：班级、姓名、学号、小组、标签（缺省列为空）。
-    - 兼容英文表头：class/name/number(学号)/group/tag。
-    - 也可只有一列姓名（无表头时按每行一个姓名处理）。
-    - 自然键 (班级, 姓名) 去重：已存在的跳过。
-    - payload: {"csv": "...", "班级": "八4班"}（班级可缺省，取当前班）。
+    - CSV 首行为表头，兼容英文与中文表头：class_name/name/student_no/group_name/tags 或 班级/姓名/学号/小组/标签。
+    - 自然键 (class_name, name) 去重。
     """
     import csv
     import io
@@ -595,12 +863,12 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail="CSV 内容为空")
 
     students = _rows(db, "students")
-    default_klass = payload.get("班级") or (students[0]["班级"] if students else "")
+    default_klass = payload.get("class_name") or payload.get("班级") or (students[0]["class_name"] if students and "class_name" in students[0] else "")
     if not default_klass:
         raise HTTPException(status_code=422, detail="请指定班级")
 
     # 去 BOM；全角逗号转半角
-    if csv_text.startswith("﻿"):
+    if csv_text.startswith("\ufeff"):
         csv_text = csv_text[1:]
     csv_text = csv_text.replace("，", ",")
 
@@ -609,13 +877,12 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
     if not rows:
         raise HTTPException(status_code=422, detail="CSV 无有效数据行")
 
-    # 列名映射（中文优先，兼容英文）
     alias = {
-        "班级": "班级", "class": "班级",
-        "姓名": "姓名", "name": "姓名",
-        "学号": "学号", "number": "学号", "no": "学号", "id": "学号",
-        "小组": "小组", "group": "小组",
-        "标签": "标签", "tag": "标签",
+        "班级": "class_name", "class": "class_name", "class_name": "class_name",
+        "姓名": "name", "name": "name",
+        "学号": "student_no", "number": "student_no", "no": "student_no", "student_no": "student_no",
+        "小组": "group_name", "group": "group_name", "group_name": "group_name",
+        "标签": "tags", "tag": "tags", "tags": "tags",
     }
     header = [(c or "").strip() for c in rows[0]]
     mapped = [alias.get(h.lower()) for h in header]
@@ -624,22 +891,21 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
     if has_header:
         data_rows = rows[1:]
     else:
-        # 无表头：单列姓名 或 姓名,学号
-        mapped = ["姓名"] + ["学号"] * (len(header) - 1)
+        mapped = ["name"] + ["student_no"] * (len(header) - 1)
         data_rows = rows
 
     added, skipped_dup, skipped_bad = [], [], []
     for i, r in enumerate(data_rows, start=2):
-        rec = {"班级": default_klass, "姓名": "", "学号": "", "小组": "", "标签": ""}
+        rec = {"class_name": default_klass, "name": "", "student_no": "", "group_name": "", "tags": ""}
         for j, col in enumerate(mapped):
             if col and j < len(r):
                 rec[col] = (r[j] or "").strip()
-        name = rec["姓名"]
+        name = rec["name"]
         if not name:
-            skipped_bad.append({"行": i, "原因": "姓名为空"})
+            skipped_bad.append({"row": i, "reason": "姓名为空"})
             continue
         if _find_natural_dup(db, "students", rec):
-            skipped_dup.append({"姓名": name, "班级": rec["班级"]})
+            skipped_dup.append({"name": name, "class_name": rec["class_name"]})
             continue
         row = models.Student()
         _apply(row, rec, "students")
@@ -651,10 +917,20 @@ def import_students(payload: dict, db: Session = Depends(get_db)):
         added.append(_to_dict(row, "students"))
 
     return {
+        "class_name": default_klass,
         "班级": default_klass,
+        "added": added,
         "新增": added,
+        "skipped_dup": skipped_dup,
         "已存在跳过": skipped_dup,
+        "skipped_bad": skipped_bad,
         "无效行": skipped_bad,
+        "stats": {
+            "total_rows": len(data_rows),
+            "added_count": len(added),
+            "dup_count": len(skipped_dup),
+            "bad_count": len(skipped_bad),
+        },
         "统计": {
             "总行数": len(data_rows),
             "新增": len(added),

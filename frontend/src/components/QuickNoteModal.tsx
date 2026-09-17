@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Modal, Tabs, Form, Input, Select, DatePicker, Button, InputNumber, message } from "antd";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { createRow, listTable } from "../api";
+import { createRow, listAllTable } from "../api";
 import { useCurrentClass, useStudents, activeRoster } from "../hooks";
 
 const KINDS = ["教学", "行政", "家校", "班务"];
@@ -17,18 +17,30 @@ export default function QuickNoteModal({
   onClose: () => void;
   defaultTab?: "todo" | "behavior";
 }) {
-  const { 班级 } = useCurrentClass();
+  const { 班级, class_id } = useCurrentClass();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"todo" | "behavior">(defaultTab);
   const [todoForm] = Form.useForm();
   const [behaviorForm] = Form.useForm();
 
   const { data: students } = useStudents();
-  const { data: items } = useQuery({ queryKey: ["items"], queryFn: () => listTable("items") });
+  const { data: items } = useQuery({
+    queryKey: ["items-all"],
+    queryFn: () => listAllTable("items"),
+    staleTime: 10 * 60 * 1000,
+  });
   const behaviorItems = (items ?? []).filter((it: any) => it.计分制?.includes("加减"));
 
+  const roster = activeRoster(students, 班级);
+
   const addTodo = useMutation({
-    mutationFn: (v: any) => createRow("todos", { ...v, 日期: v.日期.format("YYYY-MM-DD") }),
+    mutationFn: (v: any) =>
+      createRow("todos", {
+        title: v.事项,
+        category: v.类别,
+        status: "未办",
+        date: v.日期 ? v.日期.format("YYYY-MM-DD") : "",
+      }),
     onSuccess: () => {
       message.success("已记下待办");
       todoForm.resetFields();
@@ -38,15 +50,19 @@ export default function QuickNoteModal({
   });
 
   const addBehavior = useMutation({
-    mutationFn: (v: any) =>
-      createRow("behavior", {
-        日期: v.日期.format("YYYY-MM-DD"),
-        班级,
-        学生: v.学生,
-        项目: v.项目,
-        分值: String(v.分值),
-        备注: v.备注 ?? "",
-      }),
+    mutationFn: (v: any) => {
+      const targetStudent = roster.find((s) => (s.name || s.姓名) === v.学生);
+      return createRow("behavior", {
+        date: v.日期 ? v.日期.format("YYYY-MM-DD") : "",
+        class_id: class_id || undefined,
+        class_name: 班级,
+        student_id: targetStudent?.student_id || undefined,
+        student_name: v.学生,
+        item_name: v.项目,
+        score: String(v.分值),
+        notes: v.备注 ?? "",
+      });
+    },
     onSuccess: () => {
       message.success("已记录表现");
       behaviorForm.resetFields();
@@ -55,8 +71,6 @@ export default function QuickNoteModal({
     },
   });
 
-  const roster = activeRoster(students, 班级);
-
   return (
     <Modal
       title="记一笔"
@@ -64,6 +78,7 @@ export default function QuickNoteModal({
       onCancel={onClose}
       footer={null}
       destroyOnClose
+      maskClosable={false}
       width={420}
     >
       <Tabs

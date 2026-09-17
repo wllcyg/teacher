@@ -9,6 +9,8 @@ import { getSettings } from "../api";
 import { useAppStore } from "../store/app";
 import { useIsMobileOrTablet } from "../hooks";
 import { triggerHaptic } from "../utils/haptics";
+import { OfflineBanner } from "../components/OfflineBanner";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 
 const { Sider, Content, Header } = Layout;
 
@@ -109,6 +111,7 @@ export default function AppLayout() {
 
     return (
       <Layout style={{ minHeight: "100vh" }}>
+        <OfflineBanner />
         <Header
           className="app-header"
           style={{
@@ -136,26 +139,30 @@ export default function AppLayout() {
             background: "transparent",
             overflowX: "hidden",
             minHeight: "calc(100vh - 48px - 60px)",
+            paddingBottom: "calc(76px + env(safe-area-inset-bottom, 16px))",
+            boxSizing: "border-box",
           }}
         >
-          <AnimatePresence mode="wait" custom={direction} initial={false}>
-            {outlet && (
-              <motion.div
-                key={location.pathname}
-                custom={direction}
-                variants={pageVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                style={{
-                  width: "100%",
-                  minHeight: "calc(100vh - 48px - 60px)",
-                }}
-              >
-                {outlet}
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <ErrorBoundary>
+            <AnimatePresence mode="wait" custom={direction} initial={false}>
+              {outlet && (
+                <motion.div
+                  key={location.pathname}
+                  custom={direction}
+                  variants={pageVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  style={{
+                    width: "100%",
+                    minHeight: "100%",
+                  }}
+                >
+                  {outlet}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </ErrorBoundary>
         </Content>
 
         {/* 底部 Tab 栏（5个等分一级入口） */}
@@ -211,8 +218,11 @@ export default function AppLayout() {
         />
       </Sider>
       <Layout>
+        <OfflineBanner />
         <Content style={{ padding: 20, background: "transparent", overflow: "auto", minHeight: "100vh" }}>
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </Content>
       </Layout>
     </Layout>

@@ -16,7 +16,7 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
-import { getSummary, getExamReport, listTable, updateRow, getDailyGreeting, getGreetingCardUrl } from "../api";
+import { getSummary, getExamReport, listAllTable, listTable, updateRow, getDailyGreeting, getGreetingCardUrl } from "../api";
 import { useAppStore } from "../store/app";
 import { useCurrentClass, usePeriods } from "../hooks";
 import { hhmmToMinutes } from "../periods";
@@ -48,8 +48,9 @@ export default function Today() {
   const qc = useQueryClient();
   const 称呼 = useAppStore((s) => s.称呼);
   const 今天 = useAppStore((s) => s.今天);
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes } = useCurrentClass();
   const periods = usePeriods();
+  const targetClass = class_id || 班级;
 
   const handleGoQuickNote = (targetKlass?: string) => {
     const k = targetKlass || currentLesson?.班级 || nextLesson?.班级 || 班级;
@@ -61,11 +62,12 @@ export default function Today() {
 
   const handleCompleteTodo = async (t: any) => {
     try {
-      await updateRow("todos", t.id, { 状态: "已办" });
+      await updateRow("todos", t.id, { status: "已办", 状态: "已办" });
       triggerHaptic("success");
+      const title = t.title || t.事项 || "待办事项";
       Toast.show({
         icon: "success",
-        content: `已办结：「${t.事项}」`,
+        content: `已办结：「${title}」`,
         duration: 1500,
       });
       qc.invalidateQueries({ queryKey: ["todos"] });
@@ -186,19 +188,35 @@ export default function Today() {
 
   // ---- 数据 ----
   const summary = useQuery({
-    queryKey: ["summary", 班级, 今天],
-    queryFn: () => getSummary(班级, 今天),
-    enabled: !!班级,
+    queryKey: ["summary", targetClass, 今天],
+    queryFn: () => getSummary(targetClass, 今天),
+    enabled: !!targetClass,
   });
 
-  const todos = useQuery({ queryKey: ["todos"], queryFn: () => listTable("todos") });
+  const todos = useQuery({
+    queryKey: ["todos", "pending"],
+    queryFn: async () => {
+      const res = await listTable("todos", { status_ne: "已办", page: 1, page_size: 50 });
+      return res.items ?? [];
+    },
+  });
 
   // 课表：全班级（教师视角），按今天星期几过滤
-  const schedule = useQuery({ queryKey: ["schedule"], queryFn: () => listTable("schedule") });
+  const schedule = useQuery({ queryKey: ["schedule"], queryFn: () => listAllTable("schedule") });
   const todayLessons = useMemo(() => {
     return (schedule.data ?? [])
-      .filter((r: any) => r.星期 === weekLabel)
-      .map((r: any) => ({ ...r, 节次号: parseInt(String(r.节次).replace(/第|节/g, ""), 10) || 0 }))
+      .filter((r: any) => (r.weekday || r.星期) === weekLabel)
+      .map((r: any) => {
+        const pStr = r.period || r.节次;
+        return {
+          ...r,
+          weekday: r.weekday || r.星期,
+          period: pStr,
+          class_name: r.class_name || r.班级,
+          subject: r.subject || r.科目,
+          节次号: parseInt(String(pStr).replace(/第|节/g, ""), 10) || 0,
+        };
+      })
       .sort((a: any, b: any) => a.节次号 - b.节次号);
   }, [schedule.data, weekLabel]);
 
@@ -274,22 +292,24 @@ export default function Today() {
 
   // 今日课堂记录列表（用于标识哪些课程已记）
   const lessonLogs = useQuery({
-    queryKey: ["lesson_log", { 日期: 今天 }],
-    queryFn: () => listTable("lesson_log", { 日期: 今天 }),
+    queryKey: ["lesson_log", { date: 今天 }],
+    queryFn: () => listAllTable("lesson_log", { date: 今天 }),
   });
 
   const isLessonRecorded = (periodNum: number, klass: string) => {
     const pStr = `第${periodNum}节`;
     return (lessonLogs.data ?? []).some(
-      (r: any) => (r.节次 === pStr || r.节次 === String(periodNum)) && r.班级 === klass
+      (r: any) =>
+        ((r.period || r.节次) === pStr || (r.period || r.节次) === String(periodNum)) &&
+        (r.class_name || r.班级) === klass
     );
   };
 
   // 今日已记录的课堂笔记（按节次从小到大排序）
   const todayLogs = useMemo(() => {
     return (lessonLogs.data ?? []).slice().sort((a: any, b: any) => {
-      const pA = parseInt(String(a.节次).replace(/第|节/g, ""), 10) || 0;
-      const pB = parseInt(String(b.节次).replace(/第|节/g, ""), 10) || 0;
+      const pA = parseInt(String(a.period || a.节次).replace(/第|节/g, ""), 10) || 0;
+      const pB = parseInt(String(b.period || b.节次).replace(/第|节/g, ""), 10) || 0;
       return pA - pB;
     });
   }, [lessonLogs.data]);
@@ -301,10 +321,15 @@ export default function Today() {
   const handleOpenLessonLog = (lesson: any) => {
     triggerHaptic("light");
     setLogContext({
+      date: 今天,
+      class_name: lesson.class_name || lesson.班级,
+      period: lesson.periodNum || lesson.节次号,
+      subject: lesson.subject || lesson.科目,
+      // 兼容字段
       日期: 今天,
-      班级: lesson.班级,
-      节次: lesson.节次号,
-      科目: lesson.科目,
+      班级: lesson.class_name || lesson.班级,
+      节次: lesson.periodNum || lesson.节次号,
+      科目: lesson.subject || lesson.科目,
     });
     setLogDrawerOpen(true);
   };
@@ -341,9 +366,9 @@ export default function Today() {
   // 等着补测：最近一场考试的缺考名单
   const examName = summary.data?.考试?.名;
   const examReport = useQuery({
-    queryKey: ["exam-report", examName, 班级],
-    queryFn: () => getExamReport(examName!, 班级),
-    enabled: !!examName && !!班级,
+    queryKey: ["exam-report", examName, targetClass],
+    queryFn: () => getExamReport(examName!, targetClass),
+    enabled: !!examName && !!targetClass,
   });
   const absentees: string[] = useMemo(() => {
     const list = examReport.data?.统计?.缺考 ?? [];
@@ -352,11 +377,17 @@ export default function Today() {
 
   // 待办：今天的未办 + 逾期的未办
   const todayTodos = useMemo(
-    () => (todos.data ?? []).filter((t: any) => t.日期 === 今天 && t.状态 !== "已办"),
+    () =>
+      (todos.data ?? []).filter(
+        (t: any) => (t.date || t.日期) === 今天 && (t.status || t.状态) !== "已办"
+      ),
     [todos.data, 今天]
   );
   const overdueTodos = useMemo(
-    () => (todos.data ?? []).filter((t: any) => t.日期 < 今天 && t.状态 !== "已办"),
+    () =>
+      (todos.data ?? []).filter(
+        (t: any) => (t.date || t.日期) && (t.date || t.日期) < 今天 && (t.status || t.状态) !== "已办"
+      ),
     [todos.data, 今天]
   );
 
@@ -870,19 +901,21 @@ export default function Today() {
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {todayLogs.map((log: any) => {
-                const periodNum = parseInt(String(log.节次).replace(/第|节/g, ""), 10) || log.节次;
+              {todayLogs.map((log: any, idx: number) => {
+                const rawPeriod = log.period || log.节次;
+                const periodNum = parseInt(String(rawPeriod).replace(/第|节/g, ""), 10) || rawPeriod;
+                const logClass = log.class_name || log.班级;
                 const matchingLesson = todayLessons.find(
-                  (l: any) => String(l.节次号) === String(periodNum) && l.班级 === log.班级
+                  (l: any) => String(l.节次号) === String(periodNum) && (l.class_name || l.班级) === logClass
                 );
                 return (
                   <div
-                    key={log.id}
+                    key={log.id ?? `log-${periodNum}-${logClass}-${idx}`}
                     onClick={() =>
                       handleOpenLessonLog({
                         节次号: periodNum,
-                        班级: log.班级,
-                        科目: matchingLesson?.科目 || "",
+                        班级: logClass,
+                        科目: matchingLesson?.科目 || matchingLesson?.subject || "",
                       })
                     }
                     style={{
@@ -908,8 +941,8 @@ export default function Today() {
                           color: "#4F46E5",
                         }}
                       >
-                        第{periodNum}节 · {log.班级}
-                        {matchingLesson?.科目 ? ` · ${matchingLesson.科目}` : ""}
+                        第{periodNum}节 · {logClass}
+                        {matchingLesson?.科目 || matchingLesson?.subject ? ` · ${matchingLesson?.科目 || matchingLesson?.subject}` : ""}
                       </Tag>
                       <Button
                         type="text"
@@ -920,8 +953,8 @@ export default function Today() {
                           e.stopPropagation();
                           handleOpenLessonLog({
                             节次号: periodNum,
-                            班级: log.班级,
-                            科目: matchingLesson?.科目 || "",
+                            班级: logClass,
+                            科目: matchingLesson?.科目 || matchingLesson?.subject || "",
                           });
                         }}
                       >
@@ -938,7 +971,7 @@ export default function Today() {
                         wordBreak: "break-word",
                       }}
                     >
-                      {log.内容}
+                      {log.content || log.内容}
                     </div>
                   </div>
                 );
@@ -1002,9 +1035,9 @@ export default function Today() {
                 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="没有紧要的事，太棒了！" />
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {overdueTodos.slice(0, 4).map((t: any) => (
+                  {overdueTodos.slice(0, 4).map((t: any, idx: number) => (
                     <div
-                      key={t.id}
+                      key={t.id ?? `overdue-${idx}`}
                       onClick={() => handleCompleteTodo(t)}
                       title="点击直接标记为已完成"
                       style={{
@@ -1022,13 +1055,13 @@ export default function Today() {
                       <CheckCircleOutlined style={{ color: "#f56565", fontSize: 15 }} />
                       <Tag color="red" style={{ margin: 0 }}>逾期</Tag>
                       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-                        {t.事项}
+                        {t.title || t.事项}
                       </span>
                     </div>
                   ))}
-                  {todayTodos.slice(0, 4).map((t: any) => (
+                  {todayTodos.slice(0, 4).map((t: any, idx: number) => (
                     <div
-                      key={t.id}
+                      key={t.id ?? `today-${idx}`}
                       onClick={() => handleCompleteTodo(t)}
                       title="点击直接标记为已完成"
                       style={{
@@ -1046,7 +1079,7 @@ export default function Today() {
                       <CheckCircleOutlined style={{ color: "#ed8936", fontSize: 15 }} />
                       <Tag color="orange" style={{ margin: 0 }}>今天</Tag>
                       <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13 }}>
-                        {t.事项}
+                        {t.title || t.事项}
                       </span>
                     </div>
                   ))}
@@ -1128,16 +1161,18 @@ export default function Today() {
           </Col>
           <Col xs={24} md={12}>
             <Card size="small" title="项目完成率">
-              {(s?.完成率 ?? []).length === 0 ? (
+              {((s?.completion ?? s?.完成率) ?? []).length === 0 ? (
                 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无打钩/过关类项目" />
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {(s?.完成率 ?? []).map((c: any) => {
-                    const rate = Math.round(c.完成率 ?? 0);
+                  {((s?.completion ?? s?.完成率) ?? []).map((c: any, idx: number) => {
+                    const itemName = c.item_name || c.item || c.项目 || `项目-${idx + 1}`;
+                    const rate = Math.round(c.done_rate ?? c.rate ?? c.完成率 ?? 0);
+                    const itemKey = c.item_name || c.item || c.项目 || `completion-item-${idx}`;
                     return (
-                      <div key={c.项目}>
+                      <div key={itemKey}>
                         <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 4 }}>
-                          <span>{c.项目}</span>
+                          <span>{itemName}</span>
                           <span style={{ color: rate >= 100 ? "#52c41a" : "#1677ff", fontWeight: 600 }}>{rate}%</span>
                         </div>
                         <div style={{ height: 6, borderRadius: 3, background: "#f0f0f0", overflow: "hidden" }}>

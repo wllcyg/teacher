@@ -38,6 +38,7 @@ import {
   deleteRow,
   importStudents,
   listTable,
+  listAllTable,
   updateRow,
 } from "../api";
 import { useClasses, useCurrentClass, LEFT_MARK, useIsMobileOrTablet } from "../hooks";
@@ -64,7 +65,7 @@ function downloadTemplate() {
 }
 
 export default function Roster() {
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes } = useCurrentClass();
   const qc = useQueryClient();
   // 统一判定：iPad 与 手机均采用触控移动端模式，PC 桌面端保持原版表格方案
   const isMobile = useIsMobileOrTablet();
@@ -72,6 +73,10 @@ export default function Roster() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form] = Form.useForm();
+
+  // PC 端分页状态
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   // 学生详情档案弹窗
   const [detailStudent, setDetailStudent] = useState<Row | null>(null);
@@ -93,21 +98,51 @@ export default function Roster() {
   const [keyword, setKeyword] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<number[]>([]);
 
-  // 查询学生列表
-  const { data: students = [], isLoading } = useQuery({
-    queryKey: ["students", 班级, keyword],
-    queryFn: () =>
-      listTable("students", {
-        班级,
-        ...(keyword.trim() ? { q: keyword.trim() } : {}),
-      }),
-    enabled: !!班级,
+  // 统一班级学生查询：以 class_id 优先拉取当前班级学生，彻底消除 URL 中文编码与重复调用
+  const queryClass = class_id || 班级;
+  const { data: allStudentsData, isLoading, refetch: refetchAllStudents } = useQuery({
+    queryKey: ["students-all", queryClass],
+    queryFn: () => listAllTable("students", class_id ? { class_id } : { class_name: 班级 }),
+    enabled: !!queryClass,
   });
+
+  const allStudents = allStudentsData ?? [];
+
+  // 前端内存即时检索过滤（姓名、学号、标签、小组）：0网络延迟
+  const filteredStudents = useMemo(() => {
+    if (!keyword.trim()) return allStudents;
+    const kw = keyword.trim().toLowerCase();
+    return allStudents.filter((s) => {
+      const name = (s.name || s.姓名 || "").toLowerCase();
+      const sno = (s.student_no || s.学号 || "").toLowerCase();
+      const tags = (s.tags || s.标签 || "").toLowerCase();
+      const group = (s.group_name || s.小组 || "").toLowerCase();
+      return name.includes(kw) || sno.includes(kw) || tags.includes(kw) || group.includes(kw);
+    });
+  }, [allStudents, keyword]);
+
+  const students: Row[] = filteredStudents;
+  const totalCount = filteredStudents.length;
+
+  const refreshAllStudents = () => {
+    qc.invalidateQueries({ queryKey: ["students-all", queryClass] });
+    qc.invalidateQueries({ queryKey: ["students"] });
+  };
 
   // 📱 antd-mobile 下拉手势刷新
   const handleRefreshRoster = async () => {
     triggerHaptic("light");
-    await qc.invalidateQueries({ queryKey: ["students"] });
+    refreshAllStudents();
+    Toast.show({
+      icon: "success",
+      content: "已刷新学生名册",
+      duration: 1200,
+    });
+  };
+
+  const handleMobileRefresh = async () => {
+    triggerHaptic("light");
+    refreshAllStudents();
     Toast.show({
       icon: "success",
       content: "已刷新学生名册",
@@ -118,15 +153,23 @@ export default function Roster() {
   // 新增/修改学生
   const saveMutation = useMutation({
     mutationFn: async (v: Record<string, string>) => {
-      if (editing) return updateRow("students", editing.id, v);
-      return createRow("students", { ...v, 班级 });
+      const payload: Record<string, any> = {
+        name: v.name || v.姓名,
+        student_no: v.student_no || v.学号 || "",
+        group_name: v.group_name || v.小组 || "",
+        tags: v.tags || v.标签 || "",
+        class_name: 班级,
+      };
+      if (class_id) payload.class_id = class_id;
+      if (editing) return updateRow("students", editing.id, payload);
+      return createRow("students", payload);
     },
     onSuccess: () => {
       triggerHaptic("success");
       message.success(editing ? "学生信息已更新" : "已添加学生");
       setOpen(false);
       setEditing(null);
-      qc.invalidateQueries({ queryKey: ["students"] });
+      refreshAllStudents();
     },
   });
 
@@ -137,7 +180,7 @@ export default function Roster() {
       triggerHaptic("light");
       message.success("已删除");
       setActionSheetOpen(false);
-      qc.invalidateQueries({ queryKey: ["students"] });
+      refreshAllStudents();
     },
   });
 
@@ -149,50 +192,49 @@ export default function Roster() {
       message.success(`已删除 ${res.deleted} 名学生`);
       setSelectedKeys([]);
       setIsBatchMode(false);
-      qc.invalidateQueries({ queryKey: ["students"] });
+      refreshAllStudents();
     },
   });
 
   // 标记离班
   const leaveMutation = useMutation({
     mutationFn: async (s: Row) => {
-      const today = new Date().toISOString().slice(0, 10);
-      const tag = s.标签
-        ? `${LEFT_MARK}|${today}|${s.标签}`
-        : `${LEFT_MARK}|${today}`;
-      return updateRow("students", s.id, { 标签: tag });
+      const cur = s.tags || s.标签 || "";
+      const next = cur ? `${LEFT_MARK}, ${cur}` : LEFT_MARK;
+      return updateRow("students", s.id, { tags: next });
     },
     onSuccess: () => {
       triggerHaptic("light");
       message.success("已标记离班");
       setActionSheetOpen(false);
-      qc.invalidateQueries({ queryKey: ["students"] });
+      refreshAllStudents();
     },
   });
 
   // 恢复在册
   const restoreMutation = useMutation({
     mutationFn: async (s: Row) => {
-      const newTag = (s.标签 || "")
+      const cur = s.tags || s.标签 || "";
+      const newTag = cur
         .split("|")
         .filter(
           (part: string) =>
             !part.includes(LEFT_MARK) && !/^\d{4}-\d{2}-\d{2}$/.test(part)
         )
         .join("|");
-      return updateRow("students", s.id, { 标签: newTag });
+      return updateRow("students", s.id, { tags: newTag });
     },
     onSuccess: () => {
       triggerHaptic("success");
       message.success("已恢复在册");
       setActionSheetOpen(false);
-      qc.invalidateQueries({ queryKey: ["students"] });
+      refreshAllStudents();
     },
   });
 
   // CSV 导入
   const importMutation = useMutation({
-    mutationFn: () => importStudents(csvText, 班级),
+    mutationFn: () => importStudents(csvText, class_id || 班级),
     onSuccess: (res: any) => {
       triggerHaptic("success");
       setImportResult(res);
@@ -213,9 +255,18 @@ export default function Roster() {
     setOpen(true);
   };
 
-  const openEdit = (s: Row) => {
-    setEditing(s);
-    form.setFieldsValue(s);
+  const openEdit = (r: Row) => {
+    setEditing(r);
+    form.setFieldsValue({
+      name: r.name || r.姓名,
+      student_no: r.student_no || r.学号,
+      group_name: r.group_name || r.小组,
+      tags: r.tags || r.标签,
+      姓名: r.name || r.姓名,
+      学号: r.student_no || r.学号,
+      小组: r.group_name || r.小组,
+      标签: r.tags || r.标签,
+    });
     setOpen(true);
     setActionSheetOpen(false);
   };
@@ -238,39 +289,49 @@ export default function Roster() {
     return false;
   };
 
-  // ==================== PC 端原方案表格列配置（保持原方案与原交互完全不改） ====================
+  // ==================== PC 端表格列配置 ====================
   const pcColumns = [
     {
       title: "学号",
-      dataIndex: "学号",
+      dataIndex: "student_no",
       width: 80,
+      render: (_: any, r: Row) => r.student_no || r.学号 || "-",
       sorter: (a: Row, b: Row) =>
-        (parseInt(a.学号) || 0) - (parseInt(b.学号) || 0),
+        (parseInt(a.student_no || a.学号) || 0) - (parseInt(b.student_no || b.学号) || 0),
     },
     {
       title: "姓名",
-      dataIndex: "姓名",
-      render: (t: string, r: Row) => (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <StudentAvatar student={r} size={28} />
-          <a
-            style={{ fontWeight: 600 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setDetailStudent(r);
-              setDetailOpen(true);
-            }}
-          >
-            {t}
-          </a>
-        </div>
-      ),
+      dataIndex: "name",
+      render: (_: any, r: Row) => {
+        const studentName = r.name || r.姓名;
+        return (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <StudentAvatar student={r} size={28} />
+            <a
+              style={{ fontWeight: 600 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setDetailStudent(r);
+                setDetailOpen(true);
+              }}
+            >
+              {studentName}
+            </a>
+          </div>
+        );
+      },
     },
-    { title: "小组", dataIndex: "小组", width: 100 },
+    {
+      title: "小组",
+      dataIndex: "group_name",
+      width: 100,
+      render: (_: any, r: Row) => r.group_name || r.小组 || "-",
+    },
     {
       title: "标签",
-      dataIndex: "标签",
-      render: (t: string) => {
+      dataIndex: "tags",
+      render: (_: any, r: Row) => {
+        const t = r.tags || r.标签 || "";
         if (!t) return "-";
         const isLeft = t.includes(LEFT_MARK);
         return (
@@ -285,7 +346,7 @@ export default function Roster() {
       key: "op",
       width: 200,
       render: (_: any, r: Row) => {
-        const isLeft = r.标签 && r.标签.includes(LEFT_MARK);
+        const isLeft = (r.tags || r.标签 || "").includes(LEFT_MARK);
         return (
           <Space>
             <Button size="small" type="link" onClick={() => openEdit(r)}>
@@ -329,12 +390,14 @@ export default function Roster() {
     let activeTotal = 0;
 
     for (const s of students) {
-      if (s.标签 && s.标签.includes(LEFT_MARK)) {
+      const tags = s.tags || s.标签 || "";
+      if (tags && tags.includes(LEFT_MARK)) {
         leftCount++;
       } else {
         activeTotal++;
-        if (s.小组 && s.小组.trim()) {
-          groupSet.add(s.小组.trim());
+        const grp = (s.group_name || s.小组 || "").trim();
+        if (grp) {
+          groupSet.add(grp);
         }
       }
     }
@@ -348,7 +411,7 @@ export default function Roster() {
     const tabs = [{ label: "全部", key: "全部", count: activeTotal }];
     for (const g of sortedGroups) {
       const c = students.filter(
-        (s) => s.小组 === g && !(s.标签 && s.标签.includes(LEFT_MARK))
+        (s) => (s.group_name || s.小组) === g && !((s.tags || s.标签 || "").includes(LEFT_MARK))
       ).length;
       tabs.push({ label: g, key: g, count: c });
     }
@@ -360,11 +423,11 @@ export default function Roster() {
 
   const mobileDisplayStudents = useMemo(() => {
     return students.filter((s) => {
-      const isLeft = s.标签 && s.标签.includes(LEFT_MARK);
+      const isLeft = (s.tags || s.标签 || "").includes(LEFT_MARK);
       if (activeGroup === "已离班") return isLeft;
       if (isLeft) return false;
       if (activeGroup === "全部") return true;
-      return s.小组 === activeGroup;
+      return (s.group_name || s.小组) === activeGroup;
     });
   }, [students, activeGroup]);
 
@@ -461,7 +524,18 @@ export default function Roster() {
               selectedRowKeys: selectedKeys,
               onChange: (keys) => setSelectedKeys(keys as number[]),
             }}
-            pagination={{ pageSize: 20 }}
+            pagination={{
+              current: page,
+              pageSize: pageSize,
+              total: totalCount,
+              showSizeChanger: true,
+              pageSizeOptions: [10, 20, 50, 100],
+              showTotal: (t) => `共 ${t} 名学生`,
+              onChange: (p, ps) => {
+                setPage(p);
+                setPageSize(ps);
+              },
+            }}
             size="middle"
             scroll={{ x: "max-content" }}
           />
@@ -648,9 +722,9 @@ export default function Roster() {
             >
               {mobileDisplayStudents.map((s) => {
                 const isSelected = selectedKeys.includes(s.id);
-                const isLeft = s.标签 && s.标签.includes(LEFT_MARK);
+                const isLeft = (s.tags || s.标签 || "").includes(LEFT_MARK);
 
-                const cleanTags = (s.标签 || "")
+                const cleanTags = (s.tags || s.标签 || "")
                   .split("|")
                   .map((t: string) => t.trim())
                   .filter(
@@ -713,7 +787,7 @@ export default function Roster() {
                             textDecoration: isLeft ? "line-through" : "none",
                           }}
                         >
-                          {s.姓名}
+                          {s.name || s.姓名}
                         </span>
 
                         {isLeft && (
@@ -746,8 +820,8 @@ export default function Roster() {
                           gap: 8,
                         }}
                       >
-                        <span>{s.小组 || "未分配小组"}</span>
-                        {s.学号 && <span>学号: {s.学号}</span>}
+                        <span>{s.group_name || s.小组 || "未分配小组"}</span>
+                        {(s.student_no || s.学号) && <span>学号: {s.student_no || s.学号}</span>}
                       </div>
                     </div>
 
@@ -889,7 +963,7 @@ export default function Roster() {
       >
         <Form form={form} layout="vertical" onFinish={(v) => saveMutation.mutate(v)}>
           <Form.Item
-            name="姓名"
+            name="name"
             label="姓名"
             rules={[{ required: true, message: "请输入姓名" }]}
           >
@@ -902,14 +976,14 @@ export default function Roster() {
               gap: 12,
             }}
           >
-            <Form.Item name="学号" label="学号">
+            <Form.Item name="student_no" label="学号">
               <Input placeholder="例如：1" style={{ borderRadius: 8 }} />
             </Form.Item>
-            <Form.Item name="小组" label="小组">
+            <Form.Item name="group_name" label="小组">
               <Input placeholder="例如：第1组" style={{ borderRadius: 8 }} />
             </Form.Item>
           </div>
-          <Form.Item name="标签" label="标签 / 职务">
+          <Form.Item name="tags" label="标签 / 职务">
             <Input
               placeholder="例如：课代表 / 需关注（多个用逗号隔开）"
               style={{ borderRadius: 8 }}

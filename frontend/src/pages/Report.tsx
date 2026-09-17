@@ -14,11 +14,11 @@ import {
 } from "antd";
 import { CopyOutlined, PrinterOutlined } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { getExamReport, listTable } from "../api";
+import { getExamReport, listAllTable } from "../api";
 import { useCurrentClass } from "../hooks";
 
 export default function Report() {
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes } = useCurrentClass();
 
   // 考试选择
   const [项目, set项目] = useState("");
@@ -35,8 +35,9 @@ export default function Report() {
 
   // 数据
   const { data: items } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => listTable("items"),
+    queryKey: ["items-all"],
+    queryFn: () => listAllTable("items"),
+    staleTime: 10 * 60 * 1000,
   });
 
   const scoreItems = useMemo(
@@ -44,10 +45,11 @@ export default function Report() {
     [items]
   );
 
+  const queryClass = class_id || 班级;
   const { data, isLoading } = useQuery({
-    queryKey: ["exam-report", 班级, 项目, 优, 及, 低],
-    queryFn: () => getExamReport(项目, 班级, { 优, 及, 低 }),
-    enabled: !!班级 && !!项目,
+    queryKey: ["exam-report", queryClass, 项目, 优, 及, 低],
+    queryFn: () => getExamReport(项目, queryClass, { 优, 及, 低 }),
+    enabled: !!queryClass && !!项目,
   });
 
   const stats = data?.统计;

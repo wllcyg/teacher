@@ -7,7 +7,7 @@ import {
   createRow,
   deleteRow,
   updateRow,
-  listTable,
+  listAllTable,
   batchDeleteRows,
   batchUpdateRows,
   batchUpsertAcademic,
@@ -24,7 +24,7 @@ import { NewItemModal, RenameItemModal } from "./quicknote/QuickNoteItemModals";
 const { useBreakpoint } = Grid;
 
 export default function QuickNote() {
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes, classItems } = useCurrentClass();
   const qc = useQueryClient();
   const screens = useBreakpoint();
 
@@ -52,26 +52,32 @@ export default function QuickNote() {
   const [renameOpen, setRenameOpen] = useState(false);
   const [recordsModalOpen, setRecordsModalOpen] = useState(false);
 
-  // 数据查询
+  // 数据查询（优先按 class_id 查询，避免 URL 中文编码）
+  const queryClass = class_id || 班级;
+  const dateStr = recordDate.format("YYYY-MM-DD");
+  const classFilter = class_id ? { class_id } : { class_name: 班级 };
+
   const { data: students, isLoading: loadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: () => listTable("students"),
+    queryKey: ["students-all", queryClass],
+    queryFn: () => listAllTable("students", classFilter),
+    enabled: !!queryClass,
   });
   const { data: items, isLoading: loadingItems } = useQuery({
-    queryKey: ["items"],
-    queryFn: () => listTable("items"),
+    queryKey: ["items-all"],
+    queryFn: () => listAllTable("items"),
+    staleTime: 10 * 60 * 1000,
   });
   const { data: allBehavior, isLoading: loadingBehavior } = useQuery({
-    queryKey: ["behavior", 班级, recordDate.format("YYYY-MM-DD")],
+    queryKey: ["behavior-all", queryClass, dateStr],
     queryFn: () =>
-      listTable("behavior", { 班级, 日期: recordDate.format("YYYY-MM-DD") }),
-    enabled: !!班级,
+      listAllTable("behavior", { ...classFilter, date: dateStr }),
+    enabled: !!queryClass,
   });
   const { data: allAcademic, isLoading: loadingAcademic } = useQuery({
-    queryKey: ["academic", 班级, recordDate.format("YYYY-MM-DD")],
+    queryKey: ["academic-all", queryClass, dateStr],
     queryFn: () =>
-      listTable("academic", { 班级, 日期: recordDate.format("YYYY-MM-DD") }),
-    enabled: !!班级,
+      listAllTable("academic", { ...classFilter, date: dateStr }),
+    enabled: !!queryClass,
   });
 
   // 📱 antd-mobile 下拉手势刷新
@@ -97,7 +103,7 @@ export default function QuickNote() {
   const studentGroups = useMemo<StudentGroup[]>(() => {
     const map = new Map<string, Row[]>();
     for (const s of roster) {
-      const g = (s.小组 || "").trim() || "未分组";
+      const g = ((s.group_name || s.小组) || "").trim() || "未分组";
       if (!map.has(g)) map.set(g, []);
       map.get(g)!.push(s);
     }
@@ -111,11 +117,11 @@ export default function QuickNote() {
       .map(([groupName, groupStudents]) => ({
         groupName,
         students: groupStudents.sort((a, b) => {
-          const aLeader = (a.标签 || "").includes("组长");
-          const bLeader = (b.标签 || "").includes("组长");
+          const aLeader = ((a.tags || a.标签) || "").includes("组长");
+          const bLeader = ((b.tags || b.标签) || "").includes("组长");
           if (aLeader && !bLeader) return -1;
           if (!aLeader && bLeader) return 1;
-          return (parseInt(a.学号, 10) || 0) - (parseInt(b.学号, 10) || 0);
+          return (parseInt(a.student_no || a.学号, 10) || 0) - (parseInt(b.student_no || b.学号, 10) || 0);
         }),
       }))
       .sort((a, b) => {
@@ -127,11 +133,11 @@ export default function QuickNote() {
 
   // 项目双轨分类
   const academicItems = useMemo(
-    () => (items ?? []).filter((it) => it.类型 === "学业"),
+    () => (items ?? []).filter((it) => (it.item_type || it.类型) === "学业"),
     [items]
   );
   const behaviorItems = useMemo(
-    () => (items ?? []).filter((it) => it.类型 === "表现"),
+    () => (items ?? []).filter((it) => (it.item_type || it.类型) === "表现"),
     [items]
   );
 
@@ -140,20 +146,20 @@ export default function QuickNote() {
     if (!selectedItemName && (items ?? []).length > 0) {
       return items![0];
     }
-    return (items ?? []).find((it) => it.项目名 === selectedItemName) ?? items?.[0];
+    return (items ?? []).find((it) => (it.item_name || it.项目名) === selectedItemName) ?? items?.[0];
   }, [items, selectedItemName]);
 
   // 确保 selectedItemName 与当前项目同步（使用 useEffect 规避副作用）
   useEffect(() => {
     if (!selectedItemName && currentItem) {
-      setSelectedItemName(currentItem.项目名);
+      setSelectedItemName(currentItem.item_name || currentItem.项目名);
     }
   }, [currentItem, selectedItemName]);
 
   // 判断当前项目的记录类型
-  const isBehavior = currentItem?.类型 === "表现";
+  const isBehavior = (currentItem?.item_type || currentItem?.类型) === "表现";
   const scoreKind: ScoreKind = useMemo(() => {
-    const s = currentItem?.计分制 ?? "";
+    const s = (currentItem?.scoring_type || currentItem?.计分制) ?? "";
     if (s.includes("加减")) return "加减分";
     if (s.includes("过关")) return "过关";
     if (s.includes("打钩")) return "打钩";
@@ -165,10 +171,11 @@ export default function QuickNote() {
   // 当前项目、当前班级、当前日期的已记录集合
   const currentRecords = useMemo(() => {
     if (!currentItem) return [];
+    const itName = currentItem.item_name || currentItem.项目名;
     if (isBehavior) {
-      return (allBehavior ?? []).filter((r) => r.项目 === currentItem.项目名);
+      return (allBehavior ?? []).filter((r) => (r.item_name || r.项目) === itName);
     } else {
-      return (allAcademic ?? []).filter((r) => r.项目 === currentItem.项目名);
+      return (allAcademic ?? []).filter((r) => (r.item_name || r.项目) === itName);
     }
   }, [currentItem, isBehavior, allBehavior, allAcademic]);
 
@@ -177,9 +184,10 @@ export default function QuickNote() {
     const map = new Map<string, { total: number; count: number }>();
     if (isBehavior) {
       currentRecords.forEach((r) => {
-        const val = parseFloat(r.分值) || 0;
-        const prev = map.get(r.学生) ?? { total: 0, count: 0 };
-        map.set(r.学生, { total: prev.total + val, count: prev.count + 1 });
+        const val = parseFloat(r.score || r.分值) || 0;
+        const sName = r.student_name || r.学生;
+        const prev = map.get(sName) ?? { total: 0, count: 0 };
+        map.set(sName, { total: prev.total + val, count: prev.count + 1 });
       });
     }
     return map;
@@ -190,7 +198,8 @@ export default function QuickNote() {
     const map = new Map<string, Row>();
     if (!isBehavior) {
       currentRecords.forEach((r) => {
-        map.set(r.学生, r);
+        const sName = r.student_name || r.学生;
+        map.set(sName, r);
       });
     }
     return map;
@@ -209,13 +218,17 @@ export default function QuickNote() {
     triggerHaptic("light");
     try {
       const deltaStr = activeDelta > 0 ? `+${activeDelta}` : `${activeDelta}`;
+      const itName = currentItem.item_name || currentItem.项目名;
+      const targetStudent = roster.find((s) => (s.name || s.姓名) === studentName);
       const res = await createRow("behavior", {
-        班级,
-        学生: studentName,
-        项目: currentItem.项目名,
-        日期: recordDate.format("YYYY-MM-DD"),
-        分值: deltaStr,
-        备注: "",
+        class_id: class_id || undefined,
+        class_name: 班级,
+        student_id: targetStudent?.student_id || undefined,
+        student_name: studentName,
+        item_name: itName,
+        date: recordDate.format("YYYY-MM-DD"),
+        score: deltaStr,
+        notes: "",
       });
       setUndoStack((prev) => [
         ...prev,
@@ -230,7 +243,7 @@ export default function QuickNote() {
     } catch (e: any) {
       message.error("记录失败：" + (e?.message ?? ""));
     }
-  }, [currentItem, activeDelta, 班级, recordDate, qc]);
+  }, [currentItem, activeDelta, 班级, class_id, recordDate, roster, qc]);
 
   // 2. 点按过关 / 未过
   const handleSetPass = useCallback(
@@ -241,23 +254,28 @@ export default function QuickNote() {
         const existing = studentAcademicMap.get(studentName);
         const note =
           status === "过关"
-            ? passContent.trim() || existing?.备注 || ""
-            : existing?.备注 || "";
+            ? passContent.trim() || (existing?.notes || existing?.备注) || ""
+            : (existing?.notes || existing?.备注) || "";
+        const itName = currentItem.item_name || currentItem.项目名;
+        const targetStudent = roster.find((s) => (s.name || s.姓名) === studentName);
         if (existing) {
           await updateRow("academic", existing.id, {
-            结果: status,
-            状态: status === "过关" ? "完成" : "未过",
-            备注: note,
+            score: status,
+            status: status === "过关" ? "完成" : "未过",
+            notes: note,
+            ...(targetStudent?.student_id ? { student_id: targetStudent.student_id } : {}),
           });
         } else {
           const res = await createRow("academic", {
-            班级,
-            学生: studentName,
-            项目: currentItem.项目名,
-            日期: recordDate.format("YYYY-MM-DD"),
-            结果: status,
-            状态: status === "过关" ? "完成" : "未过",
-            备注: note,
+            class_id: class_id || undefined,
+            class_name: 班级,
+            student_id: targetStudent?.student_id || undefined,
+            student_name: studentName,
+            item_name: itName,
+            date: recordDate.format("YYYY-MM-DD"),
+            score: status,
+            status: status === "过关" ? "完成" : "未过",
+            notes: note,
           });
           setUndoStack((prev) => [
             ...prev,
@@ -283,17 +301,30 @@ export default function QuickNote() {
     triggerHaptic("success");
     try {
       const note = passContent.trim();
-      const records = roster.map((s) => ({
-        学生: s.姓名,
-        结果: "过关",
-        状态: "完成",
-        备注: note,
-      }));
+      const records = roster.map((s) => {
+        const sName = s.name || s.姓名;
+        return {
+          student_id: s.student_id || undefined,
+          student_name: sName,
+          score: "过关",
+          status: "完成",
+          notes: note,
+          学生: sName,
+          结果: "过关",
+          状态: "完成",
+          备注: note,
+        };
+      });
+      const itName = currentItem.item_name || currentItem.项目名;
       await batchUpsertAcademic({
-        班级,
-        项目: currentItem.项目名,
-        日期: recordDate.format("YYYY-MM-DD"),
+        class_id: class_id || undefined,
+        class_name: 班级,
+        item_name: itName,
+        date: recordDate.format("YYYY-MM-DD"),
         records,
+        班级,
+        项目: itName,
+        日期: recordDate.format("YYYY-MM-DD"),
       });
       message.success(
         note
@@ -304,7 +335,7 @@ export default function QuickNote() {
     } catch (e: any) {
       message.error("批量操作失败：" + (e?.message ?? ""));
     }
-  }, [currentItem, roster, 班级, recordDate, passContent, qc]);
+  }, [currentItem, roster, 班级, class_id, recordDate, passContent, qc]);
 
   // 3.1 小组批量过关
   const handlePassGroup = useCallback(
@@ -313,17 +344,30 @@ export default function QuickNote() {
       triggerHaptic("success");
       try {
         const note = passContent.trim();
-        const records = groupStudents.map((s) => ({
-          学生: s.姓名,
-          结果: "过关",
-          状态: "完成",
-          备注: note,
-        }));
+        const records = groupStudents.map((s) => {
+          const sName = s.name || s.姓名;
+          return {
+            student_id: s.student_id || undefined,
+            student_name: sName,
+            score: "过关",
+            status: "完成",
+            notes: note,
+            学生: sName,
+            结果: "过关",
+            状态: "完成",
+            备注: note,
+          };
+        });
+        const itName = currentItem.item_name || currentItem.项目名;
         await batchUpsertAcademic({
-          班级,
-          项目: currentItem.项目名,
-          日期: recordDate.format("YYYY-MM-DD"),
+          class_id: class_id || undefined,
+          class_name: 班级,
+          item_name: itName,
+          date: recordDate.format("YYYY-MM-DD"),
           records,
+          班级,
+          项目: itName,
+          日期: recordDate.format("YYYY-MM-DD"),
         });
         message.success(
           note
@@ -335,7 +379,7 @@ export default function QuickNote() {
         message.error("小组操作失败：" + (e?.message ?? ""));
       }
     },
-    [currentItem, 班级, recordDate, passContent, qc]
+    [currentItem, 班级, class_id, recordDate, passContent, qc]
   );
 
   // 3.2 单独修改学生过关内容备注
@@ -344,18 +388,20 @@ export default function QuickNote() {
       if (!currentItem) return;
       const existing = studentAcademicMap.get(studentName);
       const trimmed = newNote.trim();
+      const itName = currentItem.item_name || currentItem.项目名;
       try {
         if (existing) {
-          await updateRow("academic", existing.id, { 备注: trimmed });
+          await updateRow("academic", existing.id, { notes: trimmed, 备注: trimmed });
         } else {
           await createRow("academic", {
-            班级,
-            学生: studentName,
-            项目: currentItem.项目名,
-            日期: recordDate.format("YYYY-MM-DD"),
-            结果: "过关",
-            状态: "完成",
-            备注: trimmed,
+            class_id: class_id || undefined,
+            class_name: 班级,
+            student_name: studentName,
+            item_name: itName,
+            date: recordDate.format("YYYY-MM-DD"),
+            score: "过关",
+            status: "完成",
+            notes: trimmed,
           });
         }
         message.success(`已更新 ${studentName} 的过关内容`);
@@ -373,7 +419,10 @@ export default function QuickNote() {
     triggerHaptic("medium");
     try {
       const ids = groupStudents
-        .map((s) => studentAcademicMap.get(s.姓名)?.id)
+        .map((s) => {
+          const sName = s.name || s.姓名;
+          return studentAcademicMap.get(sName)?.id;
+        })
         .filter((id): id is number => typeof id === "number");
 
       if (ids.length > 0) {
@@ -392,17 +441,19 @@ export default function QuickNote() {
     triggerHaptic("light");
     try {
       const existing = studentAcademicMap.get(studentName);
+      const itName = currentItem.item_name || currentItem.项目名;
       if (existing) {
         await deleteRow("academic", existing.id);
       } else {
         const res = await createRow("academic", {
-          班级,
-          学生: studentName,
-          项目: currentItem.项目名,
-          日期: recordDate.format("YYYY-MM-DD"),
-          结果: "√",
-          状态: "完成",
-          备注: "",
+          class_id: class_id || undefined,
+          class_name: 班级,
+          student_name: studentName,
+          item_name: itName,
+          date: recordDate.format("YYYY-MM-DD"),
+          score: "√",
+          status: "完成",
+          notes: "",
         });
         setUndoStack((prev) => [
           ...prev,
@@ -425,24 +476,37 @@ export default function QuickNote() {
     if (!currentItem) return;
     triggerHaptic("success");
     try {
-      const records = roster.map((s) => ({
-        学生: s.姓名,
-        结果: "√",
-        状态: "完成",
-        备注: "",
-      }));
+      const records = roster.map((s) => {
+        const sName = s.name || s.姓名;
+        return {
+          student_id: s.student_id || undefined,
+          student_name: sName,
+          score: "√",
+          status: "完成",
+          notes: "",
+          学生: sName,
+          结果: "√",
+          状态: "完成",
+          备注: "",
+        };
+      });
+      const itName = currentItem.item_name || currentItem.项目名;
       await batchUpsertAcademic({
-        班级,
-        项目: currentItem.项目名,
-        日期: recordDate.format("YYYY-MM-DD"),
+        class_id: class_id || undefined,
+        class_name: 班级,
+        item_name: itName,
+        date: recordDate.format("YYYY-MM-DD"),
         records,
+        班级,
+        项目: itName,
+        日期: recordDate.format("YYYY-MM-DD"),
       });
       message.success("全班已全部打钩完成！");
       qc.invalidateQueries({ queryKey: ["academic"] });
     } catch (e: any) {
       message.error("批量打钩失败：" + (e?.message ?? ""));
     }
-  }, [currentItem, roster, 班级, recordDate, qc]);
+  }, [currentItem, roster, 班级, class_id, recordDate, qc]);
 
   // ---------- 撤销上一笔 ----------
   const handleUndo = async () => {
@@ -476,7 +540,7 @@ export default function QuickNote() {
     const trimmed = newName.trim();
     if (!trimmed) return;
     try {
-      await updateRow("items", currentItem.id, { 项目名: trimmed });
+      await updateRow("items", currentItem.id, { item_name: trimmed, 项目名: trimmed });
       message.success(`已改名为「${trimmed}」`);
       setRenameOpen(false);
       setSelectedItemName(trimmed);
@@ -488,9 +552,10 @@ export default function QuickNote() {
 
   const handleDeleteItem = async () => {
     if (!currentItem) return;
+    const curName = currentItem.item_name || currentItem.项目名;
     try {
       await deleteRow("items", currentItem.id);
-      message.success(`已删除项目「${currentItem.项目名}」`);
+      message.success(`已删除项目「${curName}」`);
       setSelectedItemName("");
       qc.invalidateQueries({ queryKey: ["items"] });
     } catch (e: any) {
@@ -506,6 +571,14 @@ export default function QuickNote() {
   }) => {
     try {
       await createRow("items", {
+        item_name: vals.项目名.trim(),
+        item_type: vals.类型,
+        scoring_type: vals.计分制,
+        full_score: "100",
+        category: "日常",
+        subject: "地理",
+        cycle: "学期",
+        weight: "1",
         项目名: vals.项目名.trim(),
         类型: vals.类型,
         计分制: vals.计分制,
@@ -529,7 +602,12 @@ export default function QuickNote() {
 
   const handleBatchUpdateClass = async (ids: number[], newClass: string) => {
     try {
-      await batchUpdateRows(activeTable, ids, { 班级: newClass });
+      const foundTarget = classItems?.find((c) => c.name === newClass || c.class_id === newClass);
+      await batchUpdateRows(activeTable, ids, {
+        class_id: foundTarget?.class_id || undefined,
+        class_name: foundTarget?.name || newClass,
+        班级: foundTarget?.name || newClass,
+      });
       message.success(`已成功将 ${ids.length} 条记录转移到「${newClass}」！`);
       qc.invalidateQueries({ queryKey: [activeTable] });
     } catch (e: any) {
@@ -540,7 +618,7 @@ export default function QuickNote() {
   const handleBatchUpdateDate = async (ids: number[], newDate: Dayjs) => {
     const newDateStr = newDate.format("YYYY-MM-DD");
     try {
-      await batchUpdateRows(activeTable, ids, { 日期: newDateStr });
+      await batchUpdateRows(activeTable, ids, { date: newDateStr, 日期: newDateStr });
       message.success(`已成功将 ${ids.length} 条记录变更为「${newDateStr}」！`);
       qc.invalidateQueries({ queryKey: [activeTable] });
     } catch (e: any) {
@@ -550,7 +628,7 @@ export default function QuickNote() {
 
   const handleBatchUpdateItem = async (ids: number[], newItem: string) => {
     try {
-      await batchUpdateRows(activeTable, ids, { 项目: newItem });
+      await batchUpdateRows(activeTable, ids, { item_name: newItem, 项目: newItem });
       message.success(`已成功将 ${ids.length} 条记录平移到「${newItem}」！`);
       qc.invalidateQueries({ queryKey: [activeTable] });
     } catch (e: any) {

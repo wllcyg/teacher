@@ -8,7 +8,12 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.environ.get("DATA_DIR", os.path.join(BASE_DIR, "data"))
+# 项目根目录（本地开发时数据落盘到根目录下的 backend_data，与 Docker 挂载目录统一）
+PROJECT_ROOT = os.path.dirname(os.path.dirname(BASE_DIR))
+DEFAULT_DATA_DIR = os.path.join(PROJECT_ROOT, "backend_data")
+
+# 优先读取环境变量 DATA_DIR（如容器内 /app/data），未指定时默认使用本地 backend_data
+DATA_DIR = os.environ.get("DATA_DIR", DEFAULT_DATA_DIR)
 os.makedirs(DATA_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, "teacher_workbench.db")
 

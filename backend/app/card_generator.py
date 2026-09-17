@@ -342,8 +342,8 @@ def get_or_generate_card_path(
         resolved_theme = "warm"
 
     if not cache_dir:
-        base_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "data"))
-        cache_dir = os.path.join(base_dir, "cards")
+        from .database import DATA_DIR
+        cache_dir = os.path.join(DATA_DIR, "cards")
 
     os.makedirs(cache_dir, exist_ok=True)
     # 文件名对 date_str+theme 做哈希，不直接拼用户输入：

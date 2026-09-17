@@ -81,5 +81,6 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="127.0.0.1", port=9001, reload=True)
+    port = int(os.environ.get("PORT", 8001))
+    uvicorn.run("app.main:app", host="127.0.0.1", port=port, reload=True)
 

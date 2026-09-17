@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
-import { listTable, getDailyGreeting } from "../api";
+import { listAllTable, listTable, getDailyGreeting } from "../api";
 import { useAppStore } from "../store/app";
 import { usePeriods } from "../hooks";
 import { hhmmToMinutes } from "../periods";
@@ -22,15 +22,18 @@ export const NotificationScheduler: React.FC = () => {
   // 课表数据
   const scheduleQuery = useQuery({
     queryKey: ["schedule"],
-    queryFn: () => listTable("schedule"),
+    queryFn: () => listAllTable("schedule"),
     staleTime: 5 * 60 * 1000,
   });
 
-  // 待办数据
+  // 待办数据（与首页看板复用完全相同的 ["todos", "pending"] 缓存，彻底杜绝全局 1000 条全表请求）
   const todosQuery = useQuery({
-    queryKey: ["todos"],
-    queryFn: () => listTable("todos"),
-    staleTime: 5 * 60 * 1000,
+    queryKey: ["todos", "pending"],
+    queryFn: async () => {
+      const res = await listTable("todos", { status_ne: "已办", page: 1, page_size: 50 });
+      return res.items ?? [];
+    },
+    staleTime: 60 * 1000,
   });
 
   // 每日寄语
@@ -124,13 +127,16 @@ export const NotificationScheduler: React.FC = () => {
         if (settings.todoRemindEnabled && now.hour() >= 16 && now.hour() < 18 && todosQuery.data) {
           const todoKey = `notified_todo_${todayStr}`;
           if (!localStorage.getItem(todoKey)) {
-            const pendingTodos = (todosQuery.data ?? []).filter(
-              (t: any) => t.状态 !== "已办" && t.日期 <= todayStr
-            );
+            const pendingTodos = (todosQuery.data ?? []).filter((t: any) => {
+              const isDone = (t.status || t.状态) === "已办";
+              const rDate = t.date || t.日期;
+              return !isDone && (!rDate || rDate <= todayStr);
+            });
             if (pendingTodos.length > 0) {
+              const firstTitle = pendingTodos[0].title || pendingTodos[0].事项 || "教学待办";
               localStorage.setItem(todoKey, String(Date.now()));
               await sendNotification(`【教学待办提醒】今日尚有 ${pendingTodos.length} 项事务待办结`, {
-                body: `最重要待办：「${pendingTodos[0].事项}」，点击前往待办清单查看。`,
+                body: `最重要待办：「${firstTitle}」，点击前往待办清单查看。`,
                 tag: todoKey,
                 data: { url: "/todos" },
               });

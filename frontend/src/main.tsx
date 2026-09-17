@@ -13,7 +13,11 @@ dayjs.locale("zh-cn");
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { refetchOnWindowFocus: true, staleTime: 5000, retry: 1 },
+    queries: {
+      refetchOnWindowFocus: false,
+      staleTime: 30 * 1000,
+      retry: 1,
+    },
   },
 });
 

@@ -1,7 +1,4 @@
-"""计分 / 汇总 / 报表纯函数。
-
-1:1 翻译自原单文件应用 <==PURE-LOGIC-END== 之前的纯逻辑段，
-业务语义与数值结果完全一致，只把 JS 语法换成 Python。
+"""计分 / 汇总 / 报表纯函数（全链路支持英文属性与中文向前兼容）。
 """
 
 import re
@@ -21,6 +18,16 @@ def text_of(v) -> str:
     if v is None:
         return ""
     return str(v).strip()
+
+
+def fld(d, *keys):
+    """安全从字典中提取多个候选 key 中的首个有效值（支持英文优先与中文兜底）。"""
+    if not isinstance(d, dict):
+        return ""
+    for k in keys:
+        if k in d and d[k] is not None and d[k] != "":
+            return d[k]
+    return ""
 
 
 def round1(n) -> float:
@@ -46,7 +53,8 @@ def _to_num(v):
 # ---------- 计分制判定 ----------
 def score_kind(item) -> str:
     """项目按计分制归类：分数 / 等第 / 过关 / 打钩 / 加减分（认不出的一律当打钩）。"""
-    s = text_of(item.get("计分制") if isinstance(item, dict) else item)
+    raw = fld(item, "scoring_type", "计分制") if isinstance(item, dict) else item
+    s = text_of(raw)
     if "分数" in s:
         return "分数"
     if "等第" in s:
@@ -72,7 +80,7 @@ def validate_item_combination(type_, kind):
 # ---------- 满分 / 成绩解析 ----------
 def exam_full_score(item_or_full) -> float:
     """考试满分：满分缺失/非法回落 100。"""
-    raw = item_or_full.get("满分") if isinstance(item_or_full, dict) else item_or_full
+    raw = fld(item_or_full, "full_score", "满分") if isinstance(item_or_full, dict) else item_or_full
     full = _to_num(raw)
     return full if (full is not None and full > 0) else 100.0
 
@@ -103,22 +111,31 @@ def result_to_status(item, result) -> str:
 # ---------- 学业记录 ----------
 def build_academic_record(o):
     item = o.get("item") or {}
+    item_n = fld(item, "item_name", "项目名") or fld(o, "item_name", "项目")
+    res = fld(o, "score", "结果")
+    st = fld(o, "status", "状态")
     return {
-        "日期": text_of(o.get("日期")),
-        "班级": text_of(o.get("班级")),
-        "学生": text_of(o.get("学生")),
-        "项目": text_of(item.get("项目名") or o.get("项目")),
-        "结果": o.get("结果"),
-        "状态": text_of(o.get("状态")) or result_to_status(item, o.get("结果")),
-        "备注": text_of(o.get("备注")),
+        "date": text_of(fld(o, "date", "日期")),
+        "class_name": text_of(fld(o, "class_name", "班级")),
+        "student_name": text_of(fld(o, "student_name", "学生")),
+        "item_name": text_of(item_n),
+        "score": res,
+        "status": text_of(st) or result_to_status(item, res),
+        "notes": text_of(fld(o, "notes", "备注")),
     }
 
 
 def retest_pass(rec):
     """补测通过销项：结果转过关、状态转完成，备注保留。"""
     out = dict(rec)
-    out["结果"] = "过关"
-    out["状态"] = "完成"
+    if "score" in out:
+        out["score"] = "过关"
+    if "结果" in out:
+        out["结果"] = "过关"
+    if "status" in out:
+        out["status"] = "完成"
+    if "状态" in out:
+        out["状态"] = "完成"
     return out
 
 
@@ -127,101 +144,105 @@ def pending_retests(rows, klass=None, active_student_names=None):
     has_roster = active_student_names is not None
     out = [
         r for r in (rows or [])
-        if text_of(r.get("状态")) == "待补测"
-        and (not klass or text_of(r.get("班级")) == klass)
-        and (not has_roster or text_of(r.get("学生")) in active_student_names)
+        if text_of(fld(r, "status", "状态")) == "待补测"
+        and (not klass or text_of(fld(r, "class_name", "班级")) == klass)
+        and (not has_roster or text_of(fld(r, "student_name", "学生")) in active_student_names)
     ]
-    out.sort(key=lambda r: text_of(r.get("日期")))
+    out.sort(key=lambda r: text_of(fld(r, "date", "日期")))
     return out
 
 
 # ---------- 最新有效分（一次考试每个学生取最晚那条有效记录） ----------
 def latest_valid_scores(item, records, roster):
-    name = text_of(item.get("项目名") if isinstance(item, dict) else item)
-    names = [text_of(s.get("姓名")) for s in (roster or []) if text_of(s.get("姓名"))]
+    name = text_of(fld(item, "item_name", "项目名") if isinstance(item, dict) else item)
+    names = [text_of(fld(s, "name", "姓名")) for s in (roster or []) if text_of(fld(s, "name", "姓名"))]
     full = exam_full_score(item)
 
     latest_rows = {}
     for r in (records or []):
-        who, d = text_of(r.get("学生")), text_of(r.get("日期"))
-        if text_of(r.get("项目")) != name or who not in names:
+        who = text_of(fld(r, "student_name", "学生"))
+        d = text_of(fld(r, "date", "日期"))
+        item_n = text_of(fld(r, "item_name", "项目"))
+        if item_n != name or who not in names:
             continue
-        if who not in latest_rows or d >= latest_rows[who]["日期"]:
-            latest_rows[who] = {"行": r, "日期": d}
+        if who not in latest_rows or d >= latest_rows[who]["date"]:
+            latest_rows[who] = {"row": r, "date": d}
 
     by_student = {}
     for who in names:
         picked = latest_rows.get(who)
         if not picked:
             continue
-        score = parse_exam_score(picked["行"].get("结果"), full)
+        score = parse_exam_score(fld(picked["row"], "score", "结果"), full)
         if score is None:
             continue
-        by_student[who] = {"学生": who, "分": score, "日期": picked["日期"]}
+        by_student[who] = {"student_name": who, "学生": who, "score": score, "分": score, "date": picked["date"], "日期": picked["date"]}
 
     scores = [by_student[w] for w in names if w in by_student]
     latest = ""
     for row in scores:
-        if row["日期"] > latest:
-            latest = row["日期"]
-    return {"名册": names, "成绩": scores, "按学生": by_student, "最新日期": latest, "满分": full}
+        if row["date"] > latest:
+            latest = row["date"]
+    return {"名册": names, "roster": names, "成绩": scores, "scores": scores, "按学生": by_student, "by_student": by_student, "最新日期": latest, "latest_date": latest, "满分": full, "full_score": full}
 
 
 # ---------- 单项目汇总（按计分制分叉） ----------
 def aggregate_item(item, records, roster):
-    name = text_of(item.get("项目名") if isinstance(item, dict) else item)
+    name = text_of(fld(item, "item_name", "项目名") if isinstance(item, dict) else item)
     kind = score_kind(item)
-    names = [text_of(s.get("姓名")) for s in (roster or [])]
+    names = [text_of(fld(s, "name", "姓名")) for s in (roster or []) if text_of(fld(s, "name", "姓名"))]
     rows = [
         r for r in (records or [])
-        if text_of(r.get("项目")) == name
-        and (not names or text_of(r.get("学生")) in names)
+        if text_of(fld(r, "item_name", "项目")) == name
+        and (not names or text_of(fld(r, "student_name", "学生")) in names)
     ]
 
     if kind == "分数":
         line = pass_line(item)
         snapshot = latest_valid_scores(item, records, roster)
-        nums = [row["分"] for row in snapshot["成绩"]]
-        low = [row["学生"] for row in snapshot["成绩"] if row["分"] < line]
+        nums = [row["score"] for row in snapshot["scores"]]
+        low = [row["student_name"] for row in snapshot["scores"] if row["score"] < line]
         s = sum(nums)
         return {
-            "kind": "分数", "项目": name, "人数": len(nums),
-            "平均": round1(s / len(nums)) if nums else 0,
-            "最高": max(nums) if nums else 0,
-            "最低": min(nums) if nums else 0,
-            "及格线": line,
-            "及格率": round1((len(nums) - len(low)) / len(nums) * 100) if nums else 0,
-            "未及格": low,
+            "kind": "分数", "item_name": name, "项目": name, "total_count": len(nums), "人数": len(nums),
+            "average": round1(s / len(nums)) if nums else 0, "平均": round1(s / len(nums)) if nums else 0,
+            "max": max(nums) if nums else 0, "最高": max(nums) if nums else 0,
+            "min": min(nums) if nums else 0, "最低": min(nums) if nums else 0,
+            "pass_line": line, "及格线": line,
+            "pass_rate": round1((len(nums) - len(low)) / len(nums) * 100) if nums else 0, "及格率": round1((len(nums) - len(low)) / len(nums) * 100) if nums else 0,
+            "not_passed": low, "未及格": low,
         }
 
     if kind == "等第":
         dist = {}
         for r in rows:
-            g = text_of(r.get("结果")) or "未评"
+            g = text_of(fld(r, "score", "结果")) or "未评"
             dist[g] = dist.get(g, 0) + 1
-        return {"kind": "等第", "项目": name, "人数": len(rows), "分布": dist}
+        return {"kind": "等第", "item_name": name, "项目": name, "total_count": len(rows), "人数": len(rows), "distribution": dist, "分布": dist}
 
     # 打钩 / 过关：完成率 + 未完成名单
     done = {}
     retest = 0
     for r in rows:
-        who = text_of(r.get("学生"))
+        who = text_of(fld(r, "student_name", "学生"))
+        res = text_of(fld(r, "score", "结果"))
+        st = text_of(fld(r, "status", "状态"))
         if kind == "过关":
-            if text_of(r.get("结果")) == "过关":
+            if res == "过关":
                 done[who] = True
         else:
             done[who] = True
-        if text_of(r.get("状态")) == "待补测":
+        if st == "待补测":
             retest += 1
     base = names if names else list(done.keys())
     missing = [n for n in base if n not in done]
     return {
-        "kind": "完成", "项目": name,
-        "应到人数": len(base),
-        "完成人数": len(base) - len(missing),
-        "完成率": round1((len(base) - len(missing)) / len(base) * 100) if base else 0,
-        "未完成": missing,
-        "待补测": retest,
+        "kind": "完成", "item_name": name, "项目": name,
+        "should_count": len(base), "应到人数": len(base),
+        "done_count": len(base) - len(missing), "完成人数": len(base) - len(missing),
+        "done_rate": round1((len(base) - len(missing)) / len(base) * 100) if base else 0, "完成率": round1((len(base) - len(missing)) / len(base) * 100) if base else 0,
+        "missing": missing, "未完成": missing,
+        "pending_retest": retest, "待补测": retest,
     }
 
 
@@ -250,155 +271,82 @@ def week_label(week_start) -> str:
         a = datetime.strptime(text_of(week_start)[:10], "%Y-%m-%d").date()
     except (ValueError, IndexError):
         return ""
-    b = a + timedelta(days=6)
-    return f"{a.month}/{a.day}-{b.month}/{b.day}"
+    b = a + timedelta(days=4)
+    return f"{a.month}.{a.day}–{b.month}.{b.day}"
 
 
-# ---------- 表现周统计 ----------
-def aggregate_behavior(records, roster):
-    """表现记录按周加减总分：一行一个学生，一列一周。"""
-    names = [text_of(s.get("姓名")) for s in (roster or [])]
-    weeks = {}
-    by_stu = {}
-    for r in (records or []):
-        who = text_of(r.get("学生"))
-        if names and who not in names:
+def format_iso_date(d: date) -> str:
+    return f"{d.year}-{pad2(d.month)}-{pad2(d.day)}"
+
+
+# ---------- 表现加减分 ----------
+def behavior_total(rows, student_name=None):
+    """表现总分求和（可指定单个学生）。"""
+    t = 0
+    for r in (rows or []):
+        who = text_of(fld(r, "student_name", "学生"))
+        if student_name and who != student_name:
             continue
-        wk = week_key(r.get("日期"))
-        if not wk:
-            continue
-        weeks[wk] = True
-        by_stu.setdefault(who, {})
-        by_stu[who][wk] = by_stu[who].get(wk, 0) + (_to_num(r.get("分值")) or 0)
-
-    week_list = sorted(weeks.keys())
-    base = names if names else list(by_stu.keys())
-    rows = []
-    for who in base:
-        per = {}
-        s = 0
-        for w in week_list:
-            v = by_stu.get(who, {}).get(w, 0)
-            per[w] = v
-            s += v
-        rows.append({"学生": who, "周分": per, "合计": s})
-    return {"周列表": week_list, "行": rows}
+        v = _to_num(fld(r, "score", "分值"))
+        if v is not None:
+            t += int(v)
+    return t
 
 
-def week_table(records, roster, week_start, sort_by_subtotal=False):
-    """表现周表：一行一学生，加分次数/减分次数/本周小计。"""
-    names = [text_of(s.get("姓名")) for s in (roster or [])]
-    by = {}
-    count = 0
-    for r in (records or []):
-        if week_key(r.get("日期")) != text_of(week_start):
+def weekly_behavior_overview(rows, roster, target_week=None):
+    """单周表现大盘：每个孩子净分、加分、减分、按周汇总。"""
+    target = target_week or week_key(date.today().isoformat())
+    names = [text_of(fld(s, "name", "姓名")) for s in (roster or []) if text_of(fld(s, "name", "姓名"))]
+
+    by_student = {who: {"net": 0, "add": 0, "sub": 0, "净分": 0, "加分": 0, "扣分": 0} for who in names}
+    for r in (rows or []):
+        who = text_of(fld(r, "student_name", "学生"))
+        if who not in by_student:
             continue
-        who = text_of(r.get("学生"))
-        if names and who not in names:
+        wk = week_key(fld(r, "date", "日期"))
+        if wk != target:
             continue
-        v = _to_num(r.get("分值")) or 0
-        o = by.setdefault(who, {"加次": 0, "减次": 0, "小计": 0})
+        v = _to_num(fld(r, "score", "分值")) or 0
+        v = int(v)
         if v > 0:
-            o["加次"] += 1
+            by_student[who]["add"] += v
+            by_student[who]["加分"] += v
         elif v < 0:
-            o["减次"] += 1
-        o["小计"] += v
-        count += 1
+            by_student[who]["sub"] += -v
+            by_student[who]["扣分"] += -v
+        by_student[who]["net"] += v
+        by_student[who]["净分"] += v
 
-    rows = []
-    for n in names:
-        o = by.get(n, {"加次": 0, "减次": 0, "小计": 0})
-        rows.append({"学生": n, "加次": o["加次"], "减次": o["减次"], "小计": o["小计"]})
-    if sort_by_subtotal:
-        rows.sort(key=lambda r: r["小计"], reverse=True)
-
-    max_p = max_m = 0
-    add_most = minus_most = ""
-    for r in rows:
-        if r["加次"] > max_p:
-            max_p, add_most = r["加次"], r["学生"]
-        if r["减次"] > max_m:
-            max_m, minus_most = r["减次"], r["学生"]
-    return {"行": rows, "加最多": add_most, "减最多": minus_most, "笔数": count}
+    arr = [{"name": w, "姓名": w, **by_student[w]} for w in names]
+    arr.sort(key=lambda a: (-a["net"], -a["add"]))
+    return {"week": target, "周": target, "by_student": arr, "按学生": arr}
 
 
-# ---------- 花名册矩阵 ----------
-def matrix_cell(item, rec):
-    """一个格子怎么显示。"""
-    if not rec:
-        return {"文字": "", "色调": "none", "待补测": False}
-    kind = score_kind(item)
-    v = text_of(rec.get("结果"))
-    retest = text_of(rec.get("状态")) == "待补测"
-    if kind == "分数":
-        n = parse_exam_score(rec.get("结果"), item)
-        if n is None:
-            return {"文字": "", "色调": "none", "待补测": retest}
-        return {"文字": str(n), "色调": "bad" if n < pass_line(item) else "ok", "待补测": retest}
-    if kind == "过关":
-        return {"文字": v, "色调": "ok" if v == "过关" else "warn", "待补测": retest}
-    if kind == "等第":
-        return {"文字": v, "色调": "ok", "待补测": retest}
-    return {"文字": "✓", "色调": "ok", "待补测": retest}
-
-
-def build_matrix(students, records, items, opts=None):
-    """花名册矩阵：一行一个学生，一列一个检查点（项目＋日期）。"""
-    opts = opts or {}
-    by_name = {text_of(it.get("项目名")): it for it in (items or [])}
-    names = [text_of(s.get("姓名")) for s in (students or [])]
-    rows = [
-        r for r in (records or [])
-        if (not names or text_of(r.get("学生")) in names)
-        and (not opts.get("项目") or text_of(r.get("项目")) == opts["项目"])
-        and (not opts.get("起") or text_of(r.get("日期")) >= opts["起"])
-    ]
-
-    col_map = {}
-    cols = []
-    cell_index = {}
-    for r in rows:
-        key = f"{text_of(r.get('项目'))}@{text_of(r.get('日期'))}"
-        if key not in col_map:
-            col_map[key] = {
-                "key": key, "项目": text_of(r.get("项目")), "日期": text_of(r.get("日期")),
-                "kind": score_kind(by_name.get(text_of(r.get("项目")), {})),
-            }
-            cols.append(col_map[key])
-        cell_index[f"{text_of(r.get('学生'))}|{key}"] = r
-
-    cols.sort(key=lambda c: (c["日期"], c["项目"]))
-
+# ---------- 考试分段 / 名次 / 报表 ----------
+def score_bands(scores, full=100.0):
+    full = full or 100.0
     out = []
-    for who in names:
-        cells = {}
-        for c in cols:
-            cells[c["key"]] = matrix_cell(by_name.get(c["项目"], {}), cell_index.get(f"{who}|{c['key']}"))
-        out.append({"学生": who, "格子": cells})
-    return {"列": cols, "行": out}
-
-
-# ---------- 报表：分数段 / 名次 / 统计 ----------
-def score_bands(nums, full_score):
-    """按满分占比分五段统计人数。"""
-    full = exam_full_score(full_score)
-    valid = [n for n in (parse_exam_score(x, full) for x in (nums or [])) if n is not None]
-    return [
-        {"段": label, "人数": sum(1 for n in valid if lo <= n / full < hi)}
-        for label, lo, hi in SCORE_BANDS
-    ]
+    for label, lo, hi in SCORE_BANDS:
+        lo_score = round1(full * lo)
+        hi_score = round1(full * hi)
+        c = sum(1 for s in scores if lo_score <= s < hi_score or (hi > 1.0 and s == full))
+        out.append({"label": label, "count": c, "人数": c, "rate": round1(c / len(scores) * 100) if scores else 0})
+    return out
 
 
 def rank_scores(pairs):
-    """一次考试的名次：同分并列、下一名跳过（95,95,87 → 1,1,3）。"""
-    sorted_pairs = sorted((pairs or []), key=lambda p: p.get("分数", 0), reverse=True)
+    pairs_sorted = sorted(
+        pairs,
+        key=lambda p: (-(p.get("score") if "score" in p else (p.get("分数") if "分数" in p else 0))),
+    )
     out = {}
-    last_score = None
-    last_rank = 0
-    for i, p in enumerate(sorted_pairs):
-        rank = last_rank if p.get("分数") == last_score else (i + 1)
-        out[text_of(p.get("姓名"))] = rank
-        last_score = p.get("分数")
+    last_score, last_rank = None, 0
+    for idx, p in enumerate(pairs_sorted):
+        sc = p.get("score") if "score" in p else p.get("分数")
+        rank = (idx + 1) if (sc != last_score) else last_rank
+        n = text_of(fld(p, "name", "姓名"))
+        out[n] = rank
+        last_score = sc
         last_rank = rank
     return out
 
@@ -420,9 +368,9 @@ def report_stats(item, records, roster, thresholds=None, shared_snapshot=None):
     di_line = line(pct("低"))
 
     snapshot = shared_snapshot or latest_valid_scores(item, records, roster)
-    nums = [row["分"] for row in snapshot["成绩"]]
-    recorded = {row["学生"]: True for row in snapshot["成绩"]}
-    miss = [w for w in snapshot["名册"] if w not in recorded]
+    nums = [row["score"] for row in snapshot["scores"]]
+    recorded = {row["student_name"]: True for row in snapshot["scores"]}
+    miss = [w for w in snapshot["roster"] if w not in recorded]
 
     s = sum(nums)
     you_n = sum(1 for n in nums if n >= you_line)
@@ -433,15 +381,19 @@ def report_stats(item, records, roster, thresholds=None, shared_snapshot=None):
         return round1(n / len(nums) * 100) if nums else 0
 
     return {
-        "应录": len(snapshot["名册"]), "实录": len(nums), "缺考": miss,
-        "平均": round1(s / len(nums)) if nums else 0,
-        "最高": max(nums) if nums else 0,
-        "最低": min(nums) if nums else 0,
-        "满分": full,
-        "优秀线分": you_line, "及格线分": ji_line, "低分线分": di_line,
-        "优秀数": you_n, "及格数": ji_n, "低分数": di_n,
-        "优秀率": rate(you_n), "及格率": rate(ji_n), "低分率": rate(di_n),
-        "分段": score_bands(nums, full), "最新日期": snapshot["最新日期"], "快照": snapshot,
+        "should_count": len(snapshot["roster"]), "应录": len(snapshot["roster"]),
+        "actual_count": len(nums), "实录": len(nums),
+        "absent": miss, "缺考": miss,
+        "average": round1(s / len(nums)) if nums else 0, "平均": round1(s / len(nums)) if nums else 0,
+        "max": max(nums) if nums else 0, "最高": max(nums) if nums else 0,
+        "min": min(nums) if nums else 0, "最低": min(nums) if nums else 0,
+        "full_score": full, "满分": full,
+        "you_line": you_line, "优秀线分": you_line, "ji_line": ji_line, "及格线分": ji_line, "di_line": di_line, "低分线分": di_line,
+        "you_count": you_n, "优秀数": you_n, "ji_count": ji_n, "及格数": ji_n, "di_count": di_n, "低分数": di_n,
+        "you_rate": rate(you_n), "优秀率": rate(you_n), "ji_rate": rate(ji_n), "及格率": rate(ji_n), "di_rate": rate(di_n), "低分率": rate(di_n),
+        "bands": score_bands(nums, full), "分段": score_bands(nums, full),
+        "latest_date": snapshot["latest_date"], "最新日期": snapshot["latest_date"],
+        "snapshot": snapshot, "快照": snapshot,
     }
 
 
@@ -449,15 +401,16 @@ def prev_exam(items, records, roster, cur_name):
     """上一次分数类考试是哪场：当前考试没入分就当它最新。"""
     latest = {}
     for item in (items or []):
-        if score_kind(item) != "分数" or text_of(item.get("类型")) == "表现":
+        if score_kind(item) != "分数" or text_of(fld(item, "item_type", "类型")) == "表现":
             continue
         snap = latest_valid_scores(item, records, roster)
-        if snap["最新日期"]:
-            latest[text_of(item.get("项目名"))] = snap["最新日期"]
+        item_n = text_of(fld(item, "item_name", "项目名"))
+        if snap["latest_date"]:
+            latest[item_n] = snap["latest_date"]
     cur_date = latest.get(text_of(cur_name), "9999-99-99")
     best, best_date = "", ""
     for item in (items or []):
-        n = text_of(item.get("项目名"))
+        n = text_of(fld(item, "item_name", "项目名"))
         if n == text_of(cur_name) or n not in latest:
             continue
         if latest[n] < cur_date and latest[n] > best_date:
@@ -467,9 +420,9 @@ def prev_exam(items, records, roster, cur_name):
 
 def delta_scores(current_snapshot, previous_snapshot):
     """进退步：这次和上次都有分的孩子，Δ=这次-上次。"""
-    cur = (current_snapshot or {}).get("按学生", {})
-    prev = (previous_snapshot or {}).get("按学生", {})
-    return {who: cur[who]["分"] - prev[who]["分"] for who in cur if who in prev}
+    cur = (current_snapshot or {}).get("by_student", {})
+    prev = (previous_snapshot or {}).get("by_student", {})
+    return {who: cur[who]["score"] - prev[who]["score"] for who in cur if who in prev}
 
 
 def delta_overview(deltas):
@@ -479,66 +432,76 @@ def delta_overview(deltas):
     for who, v in (deltas or {}).items():
         if v > 0:
             up += 1
-            if not max_up or v > max_up["Δ"]:
-                max_up = {"学生": who, "Δ": v}
+            if not max_up or v > max_up["delta"]:
+                max_up = {"student_name": who, "学生": who, "delta": v, "Δ": v}
         elif v < 0:
             down += 1
-            if not max_down or v < max_down["Δ"]:
-                max_down = {"学生": who, "Δ": v}
+            if not max_down or v < max_down["delta"]:
+                max_down = {"student_name": who, "学生": who, "delta": v, "Δ": v}
         else:
             flat += 1
-    return {"进步": up, "退步": down, "持平": flat, "最大进步": max_up, "最大退步": max_down}
+    return {
+        "up": up, "进步": up, "down": down, "退步": down, "flat": flat, "持平": flat,
+        "max_up": max_up, "最大进步": max_up, "max_down": max_down, "最大退步": max_down,
+    }
 
 
-# ---------- 考勤 ----------
 def attendance_row(o):
-    """考勤只记异常：没选人、没选状态、或选了全勤/正常，都不落行。"""
-    who = text_of(o.get("学生") if isinstance(o, dict) else o)
-    st = text_of(o.get("状态") if isinstance(o, dict) else "")
+    who = text_of(fld(o, "student_name", "学生"))
+    st = text_of(fld(o, "status", "状态"))
     if not who or not st:
         return None
     if st in ("全勤", "正常"):
         return None
-    return {"日期": text_of(o.get("日期")), "学生": who, "状态": st, "备注": text_of(o.get("备注"))}
+    return {
+        "date": text_of(fld(o, "date", "日期")),
+        "class_name": text_of(fld(o, "class_name", "班级")),
+        "student_name": who,
+        "status": st,
+        "notes": text_of(fld(o, "notes", "备注")),
+    }
 
 
-# ---------- 项目停用 / 影响 ----------
 def item_disabled(item):
-    return text_of(item.get("类别") if isinstance(item, dict) else item).startswith(DISABLED_MARK)
+    return text_of(fld(item, "category", "类别")).startswith(DISABLED_MARK)
 
 
 def disable_item_row(item):
     out = dict(item)
-    orig = text_of(out.get("类别"))
-    out["类别"] = (DISABLED_MARK + "|" + orig) if orig else DISABLED_MARK
+    orig = text_of(fld(out, "category", "类别"))
+    val = (DISABLED_MARK + "|" + orig) if orig else DISABLED_MARK
+    if "category" in out:
+        out["category"] = val
+    if "类别" in out:
+        out["类别"] = val
     return out
 
 
 def enable_item_row(item):
     out = dict(item)
-    c = text_of(out.get("类别"))
+    c = text_of(fld(out, "category", "类别"))
     if c.startswith(DISABLED_MARK):
         c = c[len(DISABLED_MARK):]
         if c.startswith("|"):
             c = c[1:]
-        out["类别"] = c
+        if "category" in out:
+            out["category"] = c
+        if "类别" in out:
+            out["类别"] = c
     return out
 
 
 def item_impact(name, academic, behavior):
-    """删除项目前先数清楚要连带删掉多少条历史。"""
     n = text_of(name)
-    a = sum(1 for r in (academic or []) if text_of(r.get("项目")) == n)
-    b = sum(1 for r in (behavior or []) if text_of(r.get("项目")) == n)
-    return {"学业": a, "表现": b, "总": a + b}
+    a = sum(1 for r in (academic or []) if text_of(fld(r, "item_name", "项目")) == n)
+    b = sum(1 for r in (behavior or []) if text_of(fld(r, "item_name", "项目")) == n)
+    return {"academic": a, "学业": a, "behavior": b, "表现": b, "total": a + b, "总": a + b}
 
 
-# ---------- 家长通讯录 ----------
 def parent_import_plan(text, roster, existing):
-    """家长通讯录批量导入：「学生名 称谓 电话」或「学生名 电话」。"""
-    names = [text_of(s.get("姓名")) for s in (roster or [])]
-    has_phone = {f"{text_of(r.get('学生'))}|{text_of(r.get('电话'))}": 1 for r in (existing or [])}
-    exist_stu = {text_of(r.get("学生")): 1 for r in (existing or [])}
+    names = [text_of(fld(s, "name", "姓名")) for s in (roster or [])]
+    has_phone = {f"{text_of(fld(r, 'student_name', '学生'))}|{text_of(fld(r, 'phone', '电话'))}": 1 for r in (existing or [])}
+    exist_stu = {text_of(fld(r, 'student_name', '学生')): 1 for r in (existing or [])}
     matched, outside, bad, dup, got, seen = [], [], [], [], {}, {}
 
     for line in (text or "").splitlines():
@@ -554,7 +517,7 @@ def parent_import_plan(text, roster, existing):
             bad.append(l)
             continue
         relation = "".join(ts[1:-1])
-        row = {"学生": name, "称谓": relation, "电话": phone}
+        row = {"student_name": name, "学生": name, "relationship": relation, "称谓": relation, "phone": phone, "电话": phone}
         if name not in names:
             outside.append(row)
             continue
@@ -572,47 +535,60 @@ def parent_import_plan(text, roster, existing):
 
 
 def contact_book(roster, parents, keyword=""):
-    """家校通讯录：一个孩子的家长合并到他名下，没登记的也占一行。"""
     kw = text_of(keyword)
     by = {}
     for r in (parents or []):
-        by.setdefault(text_of(r.get("学生")), []).append(r)
-    out = [{"姓名": text_of(s.get("姓名")), "家长": by.get(text_of(s.get("姓名")), [])} for s in (roster or [])]
+        sname = text_of(fld(r, "student_name", "学生"))
+        by.setdefault(sname, []).append(r)
+    out = []
+    for s in (roster or []):
+        sname = text_of(fld(s, "name", "姓名"))
+        out.append({
+            "name": sname,
+            "姓名": sname,
+            "student_id": fld(s, "student_id"),
+            "parents": by.get(sname, []),
+            "家长": by.get(sname, []),
+        })
     if not kw:
         return out
     return [
         row for row in out
-        if kw in row["姓名"]
-        or any(kw in text_of(p.get("称谓")) or kw in text_of(p.get("电话")) for p in row["家长"])
+        if kw in row["name"]
+        or any(kw in text_of(fld(p, "relationship", "称谓")) or kw in text_of(fld(p, "phone", "电话")) for p in row["parents"])
     ]
 
 
-# ---------- 汇总概览 ----------
 def latest_roster_exam(items, records, roster, thresholds=None):
-    """当前班最新考试：从当前名册的有效最新分中选，避免全局残留记录改写去向。"""
     latest, latest_date = None, ""
     for item in (items or []):
-        if score_kind(item) != "分数" or text_of(item.get("类型")) == "表现":
+        if score_kind(item) != "分数" or text_of(fld(item, "item_type", "类型")) == "表现":
             continue
         stats = report_stats(item, records, roster, thresholds)
-        if not stats["实录"] or not stats["最新日期"] or stats["最新日期"] <= latest_date:
+        if not stats["actual_count"] or not stats["latest_date"] or stats["latest_date"] <= latest_date:
             continue
-        latest_date = stats["最新日期"]
-        latest = {"项目": item, "名": text_of(item.get("项目名")), "统计": stats}
+        latest_date = stats["latest_date"]
+        latest = {"item": item, "name": text_of(fld(item, "item_name", "项目名")), "stats": stats}
     return latest
 
 
 def summary_overview(o):
-    """汇总概览行：考试均分及格率、各打钩/过关项目完成率、本周表现加减、考勤异常。"""
     items = o.get("items") or []
     academic = o.get("academic") or []
     roster = o.get("roster") or []
     behavior = o.get("behavior") or []
-    thresholds = o.get("阈值") or DEFAULT_REPORT_THRESHOLDS
+    thresholds = o.get("thresholds") or o.get("阈值") or DEFAULT_REPORT_THRESHOLDS
 
     latest_exam = latest_roster_exam(items, academic, roster, thresholds)
     exam = (
-        {"名": latest_exam["名"], "均分": latest_exam["统计"]["平均"], "及格率": latest_exam["统计"]["及格率"]}
+        {
+            "name": latest_exam["name"],
+            "average": latest_exam["stats"]["average"],
+            "pass_rate": latest_exam["stats"]["pass_rate"],
+            "均分": latest_exam["stats"]["average"],
+            "及格率": latest_exam["stats"]["pass_rate"],
+            "名": latest_exam["name"],
+        }
         if latest_exam else None
     )
 
@@ -621,36 +597,45 @@ def summary_overview(o):
         if item_disabled(it):
             continue
         k = score_kind(it)
-        if (k not in ("打钩", "过关")) or text_of(it.get("类型")) == "表现":
+        if (k not in ("打钩", "过关")) or text_of(fld(it, "item_type", "类型")) == "表现":
             continue
         a = aggregate_item(it, academic, roster)
-        if not a["应到人数"]:
+        if not a["should_count"]:
             continue
-        complete.append({"项目": text_of(it.get("项目名")), "完成率": a["完成率"]})
+        iname = text_of(fld(it, "item_name", "项目名"))
+        complete.append({
+            "item_name": iname,
+            "done_rate": a["done_rate"],
+            "item": iname,
+            "rate": a["done_rate"],
+            "项目": iname,
+            "完成率": a["done_rate"],
+        })
 
-    wk = week_key(o.get("今天"))
+    today_str = fld(o, "today", "今天")
+    wk = week_key(today_str)
     add = sub = 0
-    roster_names = [text_of(s.get("姓名")) for s in roster if text_of(s.get("姓名"))]
+    roster_names = [text_of(fld(s, "name", "姓名")) for s in roster if text_of(fld(s, "name", "姓名"))]
     for r in behavior:
-        if week_key(r.get("日期")) != wk or text_of(r.get("学生")) not in roster_names:
+        if week_key(fld(r, "date", "日期")) != wk or text_of(fld(r, "student_name", "学生")) not in roster_names:
             continue
-        v = _to_num(r.get("分值")) or 0
+        v = _to_num(fld(r, "score", "分值")) or 0
         if v > 0:
             add += v
         elif v < 0:
             sub += -v
 
-    # 考勤异常（系统核对行不算异常）
     attendance = o.get("attendance")
     attendance_abnormal = 0
     if attendance is not None:
         for r in attendance:
-            if text_of(r.get("状态")) not in ("", "正常", "全勤", "系统核对"):
+            st = text_of(fld(r, "status", "状态"))
+            if st not in ("", "正常", "全勤", "系统核对"):
                 attendance_abnormal += 1
 
     return {
-        "考试": exam,
-        "完成率": complete,
-        "表现": {"本周加分": add, "本周减分": sub},
-        "考勤": {"异常": attendance_abnormal} if attendance is not None else None,
+        "exam": exam, "考试": exam,
+        "completion": complete, "完成率": complete,
+        "behavior": {"add": add, "sub": sub, "本周加分": add, "本周减分": sub},
+        "attendance": {"abnormal": attendance_abnormal, "异常": attendance_abnormal} if attendance is not None else None,
     }

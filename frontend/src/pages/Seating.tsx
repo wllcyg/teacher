@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import {
   Card,
   Button,
-  Space,
   message,
   Tag,
   InputNumber,
@@ -16,14 +15,14 @@ import {
   ThunderboltOutlined,
   CloseOutlined,
 } from "@ant-design/icons";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createRow, deleteRow, listTable, updateRow, batchCreateRows, batchDeleteRows } from "../api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { createRow, deleteRow, listAllTable, updateRow, batchCreateRows, batchDeleteRows } from "../api";
 import { useCurrentClass, activeRoster } from "../hooks";
 import type { Row } from "../types";
 import { triggerHaptic } from "../utils/haptics";
 
 export default function Seating() {
-  const { 班级, set班级, classes } = useCurrentClass();
+  const { 班级, class_id, set班级, classes } = useCurrentClass();
   const qc = useQueryClient();
 
   // 当前点选选中的学生（触屏模式/鼠标点击模式）
@@ -33,26 +32,38 @@ export default function Seating() {
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
 
   // 数据查询
+  const queryClass = class_id || 班级;
   const { data: students, isLoading: loadingStudents } = useQuery({
-    queryKey: ["students"],
-    queryFn: () => listTable("students"),
+    queryKey: ["students-all", queryClass],
+    queryFn: () => listAllTable("students", class_id ? { class_id } : { class_name: 班级 }),
+    enabled: !!queryClass,
   });
   const { data: duties, isLoading: loadingDuties } = useQuery({
-    queryKey: ["duties"],
-    queryFn: () => listTable("duties"),
+    queryKey: ["duties-all"],
+    queryFn: () => listAllTable("duties"),
   });
 
   const roster = useMemo(() => activeRoster(students, 班级), [students, 班级]);
 
   // 本班所有座位相关记录
   const classDuties = useMemo(
-    () => (duties ?? []).filter((d) => d.类型 === "座位" && (d.时间 === 班级 || !d.时间)),
+    () =>
+      (duties ?? []).filter((d) => {
+        const type = d.duty_type || d.类型;
+        const time = d.schedule_time || d.时间;
+        return type === "座位" && (time === 班级 || !time);
+      }),
     [duties, 班级]
   );
 
   // 座位配置行（岗位="6x8"，时间=班级）
   const configRow = useMemo(
-    () => classDuties.find((d) => d.学生 === "（系统）座位配置" && d.时间 === 班级),
+    () =>
+      classDuties.find((d) => {
+        const name = d.student_name || d.学生;
+        const time = d.schedule_time || d.时间;
+        return name === "（系统）座位配置" && time === 班级;
+      }),
     [classDuties, 班级]
   );
 
@@ -63,7 +74,8 @@ export default function Seating() {
   // 同步 configRow 中的行列数
   useMemo(() => {
     if (configRow) {
-      const m = configRow.岗位.match(/^(\d+)x(\d+)$/);
+      const pos = configRow.duty_name || configRow.岗位 || "";
+      const m = pos.match(/^(\d+)x(\d+)$/);
       if (m) {
         setCustomRows(parseInt(m[1], 10));
         setCustomCols(parseInt(m[2], 10));
@@ -78,8 +90,10 @@ export default function Seating() {
   const seatMap = useMemo(() => {
     const map = new Map<string, Row>();
     for (const d of classDuties) {
-      if (d.学生 === "（系统）座位配置") continue;
-      const m = d.岗位.match(/^(\d+)排(\d+)列$/);
+      const name = d.student_name || d.学生;
+      if (name === "（系统）座位配置") continue;
+      const pos = d.duty_name || d.岗位 || "";
+      const m = pos.match(/^(\d+)排(\d+)列$/);
       if (m) {
         map.set(`${m[1]}-${m[2]}`, d);
       }
@@ -91,7 +105,8 @@ export default function Seating() {
   const seatedNames = useMemo(() => {
     const set = new Set<string>();
     for (const d of seatMap.values()) {
-      if (d.学生) set.add(d.学生);
+      const name = d.student_name || d.学生;
+      if (name) set.add(name);
     }
     return set;
   }, [seatMap]);
@@ -99,8 +114,8 @@ export default function Seating() {
   // 未安排座位的学生列表（按学号排序）
   const unseatedStudents = useMemo(() => {
     return roster
-      .filter((s) => !seatedNames.has(s.姓名))
-      .sort((a, b) => (a.学号 || "").localeCompare(b.学号 || "", undefined, { numeric: true }));
+      .filter((s) => !seatedNames.has(s.name || s.姓名))
+      .sort((a, b) => ((a.student_no || a.学号) || "").localeCompare((b.student_no || b.学号) || "", undefined, { numeric: true }));
   }, [roster, seatedNames]);
 
   // ---------- 保存行列配置 ----------
@@ -110,13 +125,22 @@ export default function Seating() {
     const posStr = `${newR}x${newC}`;
     try {
       if (configRow) {
-        await updateRow("duties", configRow.id, { ...configRow, 岗位: posStr });
+        await updateRow("duties", configRow.id, {
+          ...configRow,
+          duty_name: posStr,
+          岗位: posStr,
+        });
       } else {
         await createRow("duties", {
+          duty_name: posStr,
+          student_name: "（系统）座位配置",
+          duty_type: "座位",
+          schedule_time: 班级,
+          notes: "",
+          岗位: posStr,
           学生: "（系统）座位配置",
           类型: "座位",
           时间: 班级,
-          岗位: posStr,
           备注: "",
         });
       }
@@ -134,9 +158,18 @@ export default function Seating() {
 
     if (studentName) {
       if (exist) {
-        await updateRow("duties", exist.id, { ...exist, 学生: studentName });
+        await updateRow("duties", exist.id, {
+          ...exist,
+          student_name: studentName,
+          学生: studentName,
+        });
       } else {
         await createRow("duties", {
+          duty_name: pos,
+          student_name: studentName,
+          duty_type: "座位",
+          schedule_time: 班级,
+          notes: "",
           岗位: pos,
           学生: studentName,
           类型: "座位",
@@ -200,7 +233,7 @@ export default function Seating() {
     try {
       const data = JSON.parse(dataStr);
       const targetKey = `${targetR}-${targetC}`;
-      const targetCurrent = seatMap.get(targetKey)?.学生 || "";
+      const targetCurrent = (seatMap.get(targetKey)?.student_name || seatMap.get(targetKey)?.学生) || "";
 
       // 情况 A：从下方待安排池拖上来
       if (data.type === "from-pool") {
@@ -255,7 +288,7 @@ export default function Seating() {
   // ---------- 触屏与点击模式（点名字 -> 点格子） ----------
   const handleSeatClick = async (r: number, c: number) => {
     const key = `${r}-${c}`;
-    const currentOccupant = seatMap.get(key)?.学生 || "";
+    const currentOccupant = (seatMap.get(key)?.student_name || seatMap.get(key)?.学生) || "";
 
     // 如果当前选了未坐学生，点空格子落座
     if (selectedStudent) {
@@ -296,9 +329,15 @@ export default function Seating() {
         for (const c of colIndices) {
           if (studentIndex >= roster.length) break;
           const s = roster[studentIndex];
+          const sName = s.name || s.姓名;
           newSeats.push({
+            duty_name: `${r}排${c}列`,
+            student_name: sName,
+            duty_type: "座位",
+            schedule_time: 班级,
+            notes: "",
             岗位: `${r}排${c}列`,
-            学生: s.姓名,
+            学生: sName,
             类型: "座位",
             时间: 班级,
             备注: "",
@@ -479,7 +518,7 @@ export default function Seating() {
                 return Array.from({ length: cols }).map((_, cIdx) => {
                   const c = cIdx + 1;
                   const key = `${r}-${c}`;
-                  const occupant = seatMap.get(key)?.学生 || "";
+                  const occupant = (seatMap.get(key)?.student_name || seatMap.get(key)?.学生) || "";
                   const isDragOver = dragOverKey === key;
                   const isSelectedForMove = selectedStudent && selectedStudent === occupant;
 
@@ -607,18 +646,20 @@ export default function Seating() {
           ) : (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {unseatedStudents.map((s) => {
-                const isSelected = selectedStudent === s.姓名;
+                const sName = s.name || s.姓名;
+                const sNo = s.student_no || s.学号;
+                const isSelected = selectedStudent === sName;
                 return (
                   <div
-                    key={s.学号}
+                    key={sNo || sName}
                     draggable
-                    onDragStart={(e) => handleDragStartFromPool(e, s.姓名)}
+                    onDragStart={(e) => handleDragStartFromPool(e, sName)}
                     onClick={() => {
                       if (isSelected) {
                         setSelectedStudent("");
                       } else {
-                        setSelectedStudent(s.姓名);
-                        message.info(`已选中「${s.姓名}」，点击上方空格子落座`);
+                        setSelectedStudent(sName);
+                        message.info(`已选中「${sName}」，点击上方空格子落座`);
                       }
                     }}
                     style={{
@@ -635,7 +676,7 @@ export default function Seating() {
                       transition: "all 0.15s ease",
                     }}
                   >
-                    {s.姓名}
+                    {sName}
                   </div>
                 );
               })}

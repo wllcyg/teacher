@@ -9,7 +9,6 @@ import {
   message,
   Grid,
   Segmented,
-  Space,
   Tag,
 } from "antd";
 import {
@@ -21,30 +20,32 @@ import {
 } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import dayjs from "dayjs";
-import { createRow, deleteRow, listTable, updateRow } from "../api";
+import { createRow, deleteRow, listAllTable, updateRow } from "../api";
 import { useCurrentClass, usePeriods } from "../hooks";
 import { WEEKDAYS } from "../periods";
 import type { Row } from "../types";
 import { triggerHaptic } from "../utils/haptics";
 
 export default function Schedule() {
-  const { 班级 } = useCurrentClass();
+  const { 班级, classItems } = useCurrentClass();
   const periods = usePeriods();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [form] = Form.useForm();
 
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ["schedule"],
-    queryFn: () => listTable("schedule"),
+    queryFn: () => listAllTable("schedule"),
   });
 
   // 按 (星期, 节次) 索引课程
   const cellMap = useMemo(() => {
     const map = new Map<string, Row>();
     (data ?? []).forEach((r: Row) => {
-      const key = `${r.星期}-${String(r.节次).replace(/第|节/g, "").trim()}`;
+      const wk = r.weekday || r.星期;
+      const p = String(r.period || r.节次).replace(/第|节/g, "").trim();
+      const key = `${wk}-${p}`;
       map.set(key, r);
     });
     return map;
@@ -60,8 +61,23 @@ export default function Schedule() {
   const [mobileViewMode, setMobileViewMode] = useState<"single" | "all">("single");
 
   const save = useMutation({
-    mutationFn: (v: Record<string, string>) =>
-      editing ? updateRow("schedule", editing.id, v) : createRow("schedule", v),
+    mutationFn: (v: Record<string, string>) => {
+      const targetClassName = v.class_name || v.班级;
+      const foundClass = classItems.find((c) => c.name === targetClassName || c.class_id === targetClassName);
+      const payload: Record<string, any> = {
+        weekday: v.weekday || v.星期,
+        period: v.period || v.节次,
+        class_id: foundClass?.class_id || undefined,
+        class_name: foundClass?.name || targetClassName,
+        subject: v.subject || v.科目,
+        // 兼容原字段
+        星期: v.weekday || v.星期,
+        节次: v.period || v.节次,
+        班级: foundClass?.name || targetClassName,
+        科目: v.subject || v.科目,
+      };
+      return editing ? updateRow("schedule", editing.id, payload) : createRow("schedule", payload);
+    },
     onSuccess: () => {
       triggerHaptic("success");
       message.success("已保存");
@@ -84,14 +100,32 @@ export default function Schedule() {
     triggerHaptic("light");
     setEditing(null);
     form.resetFields();
-    form.setFieldsValue({ 星期: day, 节次: String(period), 班级: 班级 || "", 科目: "" });
+    form.setFieldsValue({
+      weekday: day,
+      period: String(period),
+      class_name: 班级 || "",
+      subject: "",
+      星期: day,
+      节次: String(period),
+      班级: 班级 || "",
+      科目: "",
+    });
     setOpen(true);
   };
 
   const openEdit = (r: Row) => {
     triggerHaptic("light");
     setEditing(r);
-    form.setFieldsValue(r);
+    form.setFieldsValue({
+      weekday: r.weekday || r.星期,
+      period: String(r.period || r.节次).replace(/第|节/g, "").trim(),
+      class_name: r.class_name || r.班级,
+      subject: r.subject || r.科目,
+      星期: r.weekday || r.星期,
+      节次: String(r.period || r.节次).replace(/第|节/g, "").trim(),
+      班级: r.class_name || r.班级,
+      科目: r.subject || r.科目,
+    });
     setOpen(true);
   };
 
@@ -189,9 +223,9 @@ export default function Schedule() {
                     {lesson ? (
                       <>
                         <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
-                          {lesson.科目}
+                          {lesson.subject || lesson.科目}
                           <Tag color="green" style={{ marginLeft: 8, fontWeight: 500, fontSize: 11 }}>
-                            {lesson.班级}
+                            {lesson.class_name || lesson.班级}
                           </Tag>
                         </div>
                         <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
@@ -256,7 +290,7 @@ export default function Schedule() {
 
             {/* 节次行 */}
             {periods.map((p) => (
-              <>
+              <div key={`period-row-${p.n}`} style={{ display: "contents" }}>
                 <div
                   key={`label-${p.n}`}
                   style={{
@@ -299,10 +333,10 @@ export default function Schedule() {
                       {lesson ? (
                         <div style={{ textAlign: "center", padding: "4px 8px" }}>
                           <div style={{ fontWeight: 600, color: "#2e7d32", fontSize: 15 }}>
-                            {lesson.班级}
+                            {lesson.class_name || lesson.班级}
                           </div>
                           <div style={{ color: "#558b2f", fontSize: 13, marginTop: 2 }}>
-                            {lesson.科目}
+                            {lesson.subject || lesson.科目}
                           </div>
                         </div>
                       ) : (
@@ -311,7 +345,7 @@ export default function Schedule() {
                     </div>
                   );
                 })}
-              </>
+              </div>
             ))}
           </div>
         </div>
@@ -340,16 +374,16 @@ export default function Schedule() {
         ]}
       >
         <Form form={form} layout="vertical" onFinish={(v) => save.mutate(v)}>
-          <Form.Item name="星期" label="星期" rules={[{ required: true }]}>
+          <Form.Item name="weekday" label="星期" rules={[{ required: true, message: "请选择星期" }]}>
             <Select options={WEEKDAYS.map((d) => ({ value: d, label: d }))} />
           </Form.Item>
-          <Form.Item name="节次" label="节次" rules={[{ required: true }]}>
+          <Form.Item name="period" label="节次" rules={[{ required: true, message: "请选择节次" }]}>
             <Select options={periods.map((p) => ({ value: String(p.n), label: `第${p.n}节 (${p.time})` }))} />
           </Form.Item>
-          <Form.Item name="班级" label="班级" rules={[{ required: true }]}>
+          <Form.Item name="class_name" label="班级" rules={[{ required: true, message: "请输入班级" }]}>
             <Input placeholder="例如：八4班" />
           </Form.Item>
-          <Form.Item name="科目" label="科目" rules={[{ required: true }]}>
+          <Form.Item name="subject" label="科目" rules={[{ required: true, message: "请输入科目" }]}>
             <Input placeholder="例如：地理" />
           </Form.Item>
         </Form>
