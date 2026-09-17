@@ -197,14 +197,20 @@ export default function Today() {
     queryKey: ["todos", "pending"],
     queryFn: async () => {
       const res = await listTable("todos", { status_ne: "已办", page: 1, page_size: 50 });
-      return res.items ?? [];
+      return Array.isArray(res?.items) ? res.items : [];
     },
   });
 
   // 课表：全班级（教师视角），按今天星期几过滤
   const schedule = useQuery({ queryKey: ["schedule"], queryFn: () => listAllTable("schedule") });
+  const scheduleList = useMemo(() => {
+    if (Array.isArray(schedule.data)) return schedule.data;
+    if (Array.isArray((schedule.data as any)?.items)) return (schedule.data as any).items;
+    return [];
+  }, [schedule.data]);
+
   const todayLessons = useMemo(() => {
-    return (schedule.data ?? [])
+    return scheduleList
       .filter((r: any) => (r.weekday || r.星期) === weekLabel)
       .map((r: any) => {
         const pStr = r.period || r.节次;
@@ -218,7 +224,7 @@ export default function Today() {
         };
       })
       .sort((a: any, b: any) => a.节次号 - b.节次号);
-  }, [schedule.data, weekLabel]);
+  }, [scheduleList, weekLabel]);
 
   // 📱 antd-mobile 下拉手势刷新
   const handleRefreshAll = async () => {
@@ -375,20 +381,26 @@ export default function Today() {
     return list.map((x: any) => (typeof x === "string" ? x : x?.姓名 ?? String(x)));
   }, [examReport.data]);
 
-  // 待办：今天的未办 + 逾期的未办
+  // 待办：今天的未办 + 逾期的未办（严谨防御性提取，杜绝非数组引发 filter 报错）
+  const todoList = useMemo(() => {
+    if (Array.isArray(todos.data)) return todos.data;
+    if (Array.isArray((todos.data as any)?.items)) return (todos.data as any).items;
+    return [];
+  }, [todos.data]);
+
   const todayTodos = useMemo(
     () =>
-      (todos.data ?? []).filter(
+      todoList.filter(
         (t: any) => (t.date || t.日期) === 今天 && (t.status || t.状态) !== "已办"
       ),
-    [todos.data, 今天]
+    [todoList, 今天]
   );
   const overdueTodos = useMemo(
     () =>
-      (todos.data ?? []).filter(
+      todoList.filter(
         (t: any) => (t.date || t.日期) && (t.date || t.日期) < 今天 && (t.status || t.状态) !== "已办"
       ),
-    [todos.data, 今天]
+    [todoList, 今天]
   );
 
   const s = summary.data;

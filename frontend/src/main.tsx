@@ -11,6 +11,12 @@ import "./index.css";
 
 dayjs.locale("zh-cn");
 
+// 优雅处理 Vite 动态分包更新失败问题（发版或热更后旧 hash 脚本 404 时自动刷新自愈）
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+  window.location.reload();
+});
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
