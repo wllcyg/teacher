@@ -31,6 +31,10 @@
           <t-icon name="home" size="30rpx" color="#00288E" />
           <text class="chip-text">房贷计算</text>
         </view>
+        <view class="chip-item" hover-class="touch-active" bindtap="navigateToPrepayment">
+          <t-icon name="undertake-transaction" size="30rpx" color="#059669" />
+          <text class="chip-text">提前还款</text>
+        </view>
         <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="salary">
           <t-icon name="chart-bubble" size="30rpx" color="#00288E" />
           <text class="chip-text">个税计算</text>

@@ -3,6 +3,7 @@
   <t-navbar
     title="2026 年度财务总结"
     left-arrow
+    delta="{{0}}"
     bind:go-back="onBack"
     t-class="custom-navbar"
   />

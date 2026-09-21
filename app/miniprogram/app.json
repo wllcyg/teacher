@@ -5,6 +5,7 @@
     "pages/ai/ai",
     "pages/mine/mine",
     "pages/result/result",
+    "pages/prepayment/prepayment",
     "pages/compare/compare",
     "pages/poster/poster"
   ],

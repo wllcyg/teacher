@@ -1,101 +1,176 @@
 <view class="compare-container">
   <!-- 1. 自定义吸顶导航栏 -->
   <t-navbar
-    title="年终奖计税方式对比"
+    title="年终奖计税方案对比"
     left-arrow
+    delta="{{0}}"
     bind:go-back="onBack"
     t-class="custom-navbar"
   />
 
   <view class="content-body">
-    <!-- 2. 省税推荐大看板 -->
-    <view class="highlight-banner card-shadow-lg">
-      <view class="banner-top">
-        <view class="badge-tag">
-          <t-icon name="check-circle" size="28rpx" color="#059669" />
-          <text class="badge-text">最优筹划建议</text>
+    <!-- 2. 核心参数输入卡片 -->
+    <view class="input-card card-shadow">
+      <view class="input-group">
+        <view class="group-header">
+          <text class="group-title">年终奖金额 (元)</text>
+          <text class="group-hint">输入拟发放税前年终奖</text>
         </view>
-        <text class="banner-date">2026 适用</text>
-      </view>
-      <view class="banner-main">
-        <text class="save-title">选择「单独计税」预计可省</text>
-        <view class="save-amount">
-          <text class="symbol">¥</text>
-          <text class="num">3,200</text>
-          <text class="unit">.00</text>
+        <view class="input-row">
+          <text class="input-symbol">¥</text>
+          <input
+            class="main-input"
+            type="digit"
+            value="{{annualBonus}}"
+            bindinput="onBonusInput"
+            placeholder="0"
+          />
+        </view>
+        <!-- 快捷选项 -->
+        <view class="chips-row">
+          <view
+            wx:for="{{bonusPresets}}"
+            wx:key="*this"
+            class="chip-tag {{annualBonus === item ? 'active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectBonusPreset"
+            data-val="{{item}}"
+          >
+            {{item >= 10000 ? (item / 10000) + '万' : item}}
+          </view>
         </view>
       </view>
-      <view class="banner-tip">
-        <text>方案 A (单独计税) 相比 方案 B (合并计税) 降低综合边际税率 10%</text>
+
+      <view class="input-divider"></view>
+
+      <view class="input-group">
+        <view class="group-header">
+          <text class="group-title">平时税前月薪 (元)</text>
+          <text class="group-hint">用于核定综合所得边际税阶</text>
+        </view>
+        <view class="input-row">
+          <text class="input-symbol">¥</text>
+          <input
+            class="main-input sub-input"
+            type="digit"
+            value="{{monthlySalary}}"
+            bindinput="onSalaryInput"
+            placeholder="15000"
+          />
+        </view>
       </view>
     </view>
 
-    <!-- 3. 双方案对比卡片并排/叠层 -->
+    <!-- 3. 年终奖盲区高危警示横幅 (命中盲区时展示) -->
+    <view wx:if="{{result.hitBlindZone}}" class="blind-warning-card card-shadow animate-fade-in">
+      <view class="blind-top">
+        <t-icon name="error-circle-filled" size="36rpx" color="#DC2626" />
+        <text class="blind-title">触碰年终奖税率盲区 (多发反而少拿)</text>
+      </view>
+      <text class="blind-desc">{{result.hitBlindZone.tip}}</text>
+      <view class="blind-action">
+        <view
+          class="btn-safe-fix"
+          hover-class="touch-active"
+          bindtap="applySafeAmount"
+          data-amount="{{result.hitBlindZone.safeAmount}}"
+        >
+          <t-icon name="check" size="28rpx" color="#FFFFFF" />
+          <text>一键改为 ¥{{result.hitBlindZone.safeAmount}} 安全金额</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 4. 省税推荐大看板 -->
+    <view class="highlight-banner card-shadow-lg {{result.betterPlan === 'combine' ? 'banner-blue' : ''}}">
+      <view class="banner-top">
+        <view class="badge-tag">
+          <t-icon name="check-circle" size="28rpx" color="{{result.betterPlan === 'combine' ? '#00288E' : '#059669'}}" />
+          <text class="badge-text">{{result.betterPlan === 'separate' ? '推荐单独计税' : (result.betterPlan === 'combine' ? '推荐合并计税' : '两种方式税负一致')}}</text>
+        </view>
+        <text class="banner-date">2026 最新个税准则</text>
+      </view>
+      <view class="banner-main">
+        <text class="save-title">{{result.betterPlan === 'separate' ? '选择「单独计税」预计可省税' : (result.betterPlan === 'combine' ? '选择「并入综合」预计可省税' : '两方案纳税完全相等')}}</text>
+        <view class="save-amount">
+          <text class="symbol">¥</text>
+          <text class="num">{{diffInteger}}</text>
+          <text class="unit">{{diffDecimal}}</text>
+        </view>
+      </view>
+      <view class="banner-tip">
+        <text>{{result.adviseText}}</text>
+      </view>
+    </view>
+
+    <!-- 5. 双方案对比卡片并排/叠层 -->
     <view class="compare-cards">
-      <!-- 方案 A: 单独计税 (推荐) -->
-      <view class="scheme-card scheme-recommend card-shadow">
+      <!-- 方案 A: 单独计税 -->
+      <view class="scheme-card {{result.betterPlan === 'separate' ? 'scheme-recommend' : 'scheme-normal'}} card-shadow">
         <view class="scheme-header">
           <view class="scheme-title-wrap">
-            <text class="scheme-tag">方案 A</text>
+            <text class="scheme-tag {{result.betterPlan !== 'separate' ? 'tag-gray' : ''}}">方案 A</text>
             <text class="scheme-name">年终奖单独计税</text>
           </view>
-          <t-tag theme="success" variant="dark" size="small">省税最多</t-tag>
+          <t-tag wx:if="{{result.betterPlan === 'separate'}}" theme="success" variant="dark" size="small">推荐方案</t-tag>
+          <t-tag wx:else theme="default" variant="light" size="small">方案备选</t-tag>
         </view>
 
         <view class="tax-total">
           <text class="label">全年合计总个税</text>
-          <text class="val color-green">¥ 18,810</text>
+          <text class="val {{result.betterPlan === 'separate' ? 'color-green' : 'color-red'}}">¥ {{result.schemeA.formatTotalTax}}</text>
         </view>
 
         <view class="scheme-details">
           <view class="s-row">
-            <text class="s-name">平时工资个税</text>
-            <text class="s-val">¥ 14,520</text>
+            <text class="s-name">年终奖应扣个税</text>
+            <text class="s-val font-bold">¥ {{result.schemeA.formatBonusTax}} ({{result.schemeA.ratePercent}}%)</text>
           </view>
           <view class="s-row">
-            <text class="s-name">年终奖个税 (¥50,000)</text>
-            <text class="s-val">¥ 4,290 (10%)</text>
+            <text class="s-name">年终奖税后到手</text>
+            <text class="s-val color-green">¥ {{result.schemeA.formatBonusNet}}</text>
           </view>
           <view class="s-row">
-            <text class="s-name">税后到手总计</text>
-            <text class="s-val font-bold">¥ 217,190</text>
+            <text class="s-name">全年税后总到手</text>
+            <text class="s-val font-bold">¥ {{result.schemeA.formatTotalNet}}</text>
           </view>
         </view>
       </view>
 
       <!-- 方案 B: 合并计税 -->
-      <view class="scheme-card scheme-normal card-shadow">
+      <view class="scheme-card {{result.betterPlan === 'combine' ? 'scheme-recommend' : 'scheme-normal'}} card-shadow">
         <view class="scheme-header">
           <view class="scheme-title-wrap">
-            <text class="scheme-tag tag-gray">方案 B</text>
+            <text class="scheme-tag {{result.betterPlan !== 'combine' ? 'tag-gray' : ''}}">方案 B</text>
             <text class="scheme-name">并入综合所得计税</text>
           </view>
-          <t-tag theme="default" variant="light" size="small">高税阶梯</t-tag>
+          <t-tag wx:if="{{result.betterPlan === 'combine'}}" theme="primary" variant="dark" size="small">推荐方案</t-tag>
+          <t-tag wx:else theme="default" variant="light" size="small">方案备选</t-tag>
         </view>
 
         <view class="tax-total">
           <text class="label">全年合计总个税</text>
-          <text class="val color-red">¥ 22,010</text>
+          <text class="val {{result.betterPlan === 'combine' ? 'color-green' : 'color-red'}}">¥ {{result.schemeB.formatTotalTax}}</text>
         </view>
 
         <view class="scheme-details">
           <view class="s-row">
-            <text class="s-name">年度综合收入</text>
-            <text class="s-val">¥ 290,000</text>
+            <text class="s-name">年终奖新增个税</text>
+            <text class="s-val font-bold">¥ {{result.schemeB.formatBonusTax}} (综合{{result.schemeB.ratePercent}}%)</text>
           </view>
           <view class="s-row">
-            <text class="s-name">年终奖拉高税阶至</text>
-            <text class="s-val color-red">20% 边际税率</text>
+            <text class="s-name">年终奖税后到手</text>
+            <text class="s-val">¥ {{result.schemeB.formatBonusNet}}</text>
           </view>
           <view class="s-row">
-            <text class="s-name">税后到手总计</text>
-            <text class="s-val font-bold">¥ 213,990</text>
+            <text class="s-name">全年税后总到手</text>
+            <text class="s-val font-bold">¥ {{result.schemeB.formatTotalNet}}</text>
           </view>
         </view>
       </view>
     </view>
 
-    <!-- 4. 详细逐项对照明细表 -->
+    <!-- 6. 详细逐项对照明细表 -->
     <view class="table-card card-shadow">
       <view class="table-header">
         <t-icon name="view-list" size="36rpx" color="#00288E" />
@@ -110,51 +185,57 @@
 
       <view class="table-row">
         <text class="col-item flex-2">年终奖基数</text>
-        <text class="col-item flex-1 text-center">¥50,000</text>
-        <text class="col-item flex-1 text-center">¥50,000</text>
+        <text class="col-item flex-1 text-center">¥{{result.formatAnnualBonus}}</text>
+        <text class="col-item flex-1 text-center">¥{{result.formatAnnualBonus}}</text>
       </view>
 
       <view class="table-row">
-        <text class="col-item flex-2">适用个税税率</text>
-        <text class="col-item flex-1 text-center font-bold color-green">10%</text>
-        <text class="col-item flex-1 text-center font-bold color-red">20%</text>
+        <text class="col-item flex-2">适用边际税率</text>
+        <text class="col-item flex-1 text-center font-bold color-green">{{result.schemeA.ratePercent}}%</text>
+        <text class="col-item flex-1 text-center font-bold {{result.schemeB.ratePercent > result.schemeA.ratePercent ? 'color-red' : ''}}">{{result.schemeB.ratePercent}}%</text>
       </view>
 
       <view class="table-row">
         <text class="col-item flex-2">速算扣除数</text>
-        <text class="col-item flex-1 text-center">¥210</text>
-        <text class="col-item flex-1 text-center">¥16,920</text>
+        <text class="col-item flex-1 text-center">¥{{result.schemeA.quickDeduction}}</text>
+        <text class="col-item flex-1 text-center">¥{{result.schemeB.quickDeduction}}</text>
       </view>
 
       <view class="table-row">
         <text class="col-item flex-2">年终奖实扣税额</text>
-        <text class="col-item flex-1 text-center font-bold color-green">¥4,290</text>
-        <text class="col-item flex-1 text-center font-bold color-red">¥7,490</text>
+        <text class="col-item flex-1 text-center font-bold color-green">¥{{result.schemeA.formatBonusTax}}</text>
+        <text class="col-item flex-1 text-center font-bold {{result.schemeB.bonusTax > result.schemeA.bonusTax ? 'color-red' : ''}}">¥{{result.schemeB.formatBonusTax}}</text>
+      </view>
+
+      <view class="table-row">
+        <text class="col-item flex-2">全年合计总纳税</text>
+        <text class="col-item flex-1 text-center font-bold">¥{{result.schemeA.formatTotalTax}}</text>
+        <text class="col-item flex-1 text-center font-bold">¥{{result.schemeB.formatTotalTax}}</text>
       </view>
     </view>
 
-    <!-- 5. 政策与年终奖盲区避坑贴士 -->
+    <!-- 7. 政策与年终奖盲区避坑贴士 -->
     <view class="tips-card card-shadow">
       <view class="tips-header">
         <t-icon name="info-circle-filled" size="34rpx" color="#0051D5" />
         <text class="tips-title">个税避坑与年终奖盲区提醒</text>
       </view>
       <text class="tips-content">
-        1. 根据财税最新规定，全年一次性奖金单独计税优惠政策延续执行；
-        2. 注意「年终奖临界盲区」：如年终奖发 36,000 元（税额 1,080 元，到手 34,920 元），若多发 1 元至 36,001 元，税率将从 3% 跳档至 10%，实纳税额升至 3,390.1 元，到手反而减少 2,309 元！
+        1. 根据国家财税规定，居民个人取得全年一次性奖金，符合规定的可不并入当年综合所得，单独计算纳税；
+        2. 谨防「6大临界点盲区」：3.6万、14.4万、30万、42万、66万、96万。处于盲区区间内，多发的奖金全部被新增税负吃掉甚至发生倒扣，遇到此类情况应与单位协商压至安全临界点发放。
       </text>
     </view>
   </view>
 
-  <!-- 6. 底部固定操作栏 -->
+  <!-- 8. 底部固定操作栏 -->
   <view class="bottom-bar-placeholder"></view>
   <view class="bottom-action-bar">
     <view class="action-btn-secondary" hover-class="touch-active" bindtap="onBack">
-      <text class="btn-text">返回重新测算</text>
+      <text class="btn-text">返回主页</text>
     </view>
     <view class="action-btn-primary" hover-class="touch-active" bindtap="navigateToPoster">
       <t-icon name="image" size="34rpx" color="#FFFFFF" />
-      <text class="btn-text">生成财务海报</text>
+      <text class="btn-text">生成决策海报</text>
     </view>
   </view>
 </view>

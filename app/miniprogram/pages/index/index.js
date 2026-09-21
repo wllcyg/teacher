@@ -14,26 +14,57 @@ Page({
 
   navigateToResult(e) {
     const type = e.currentTarget.dataset.type || 'salary';
+    const url = `/pages/result/result?type=${type}`;
     wx.navigateTo({
-      url: `/pages/result/result?type=${type}`
+      url,
+      fail: (err) => {
+        console.warn('[Index] navigateTo failed, trying redirectTo:', err);
+        wx.redirectTo({ url });
+      }
+    });
+  },
+
+  navigateToPrepayment() {
+    const url = '/pages/prepayment/prepayment';
+    wx.navigateTo({
+      url,
+      fail: (err) => {
+        console.warn('[Index] navigateTo prepayment failed:', err);
+        wx.redirectTo({ url });
+      }
     });
   },
 
   navigateToCompare() {
+    const url = '/pages/compare/compare';
     wx.navigateTo({
-      url: '/pages/compare/compare'
+      url,
+      fail: (err) => {
+        console.warn('[Index] navigateTo compare failed:', err);
+        wx.redirectTo({ url });
+      }
     });
   },
 
   navigateToPoster() {
+    const url = '/pages/poster/poster';
     wx.navigateTo({
-      url: '/pages/poster/poster'
+      url,
+      fail: (err) => {
+        console.warn('[Index] navigateTo poster failed:', err);
+        wx.redirectTo({ url });
+      }
     });
   },
 
   navigateToFeatured() {
+    const url = '/pages/featured/featured';
     wx.navigateTo({
-      url: '/pages/featured/featured'
+      url,
+      fail: (err) => {
+        console.warn('[Index] navigateTo featured failed:', err);
+        wx.redirectTo({ url });
+      }
     });
   },
 

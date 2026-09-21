@@ -1,0 +1,303 @@
+<view class="prepayment-page">
+  <!-- 1. 顶部沉浸式导航栏 -->
+  <t-navbar
+    title="提前还款推演终端"
+    left-arrow
+    delta="{{0}}"
+    fixed
+    placeholder
+    bind:go-back="onBack"
+    t-class="custom-navbar"
+  />
+
+  <view class="page-body">
+    <!-- 2. 核心成效双方案对比大看板 (Hero Comparison Card) -->
+    <view class="hero-card card-shadow">
+      <view class="hero-top">
+        <view class="hero-badge">
+          <t-icon name="chart-bubble" size="28rpx" color="#FFFFFF" />
+          <text class="badge-text">方案智能推演</text>
+        </view>
+        <view wx:if="{{isCalculating}}" class="loading-tag">
+          <t-loading theme="circular" size="24rpx" text="" />
+          <text class="loading-text">实时推演中</text>
+        </view>
+      </view>
+
+      <!-- 双方案并排对比卡片 -->
+      <view class="dual-plans-grid">
+        <!-- 方案 A: 缩短年限 (推荐·省息王者) -->
+        <view
+          class="plan-card {{activeOption === 'shorten_term' ? 'active-plan' : ''}}"
+          hover-class="touch-active"
+          bindtap="onOptionChange"
+          data-option="shorten_term"
+        >
+          <view class="plan-header">
+            <text class="plan-name">方案 A · 缩短年限</text>
+            <t-tag size="extra-small" theme="success" variant="dark">省息首选</t-tag>
+          </view>
+          
+          <view class="plan-main-stat">
+            <text class="stat-prefix">立省利息</text>
+            <view class="stat-number-wrap">
+              <text class="currency-symbol">¥</text>
+              <text class="main-amount">{{planShorten.savedInterestWan}}</text>
+              <text class="stat-unit">万</text>
+            </view>
+          </view>
+
+          <view class="plan-sub-info">
+            <view class="sub-item">
+              <text class="sub-label">提早还清：</text>
+              <text class="sub-val highlight-green">{{planShorten.savedYears}} 年</text>
+            </view>
+            <view class="sub-item">
+              <text class="sub-label">后续月供：</text>
+              <text class="sub-val">约 ¥{{planShorten.newPlan.newMonthlyPayment}}/月</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 方案 B: 减少月供 (减压王者) -->
+        <view
+          class="plan-card {{activeOption === 'reduce_payment' ? 'active-plan' : ''}}"
+          hover-class="touch-active"
+          bindtap="onOptionChange"
+          data-option="reduce_payment"
+        >
+          <view class="plan-header">
+            <text class="plan-name">方案 B · 减少月供</text>
+            <t-tag size="extra-small" theme="primary" variant="light">减轻月压</t-tag>
+          </view>
+
+          <view class="plan-main-stat">
+            <text class="stat-prefix">立省利息</text>
+            <view class="stat-number-wrap">
+              <text class="currency-symbol">¥</text>
+              <text class="main-amount">{{planReduce.savedInterestWan}}</text>
+              <text class="stat-unit">万</text>
+            </view>
+          </view>
+
+          <view class="plan-sub-info">
+            <view class="sub-item">
+              <text class="sub-label">新年月供：</text>
+              <text class="sub-val highlight-blue">¥{{planReduce.newPlan.newMonthlyPayment}}/月</text>
+            </view>
+            <view class="sub-item">
+              <text class="sub-label">剩余年限：</text>
+              <text class="sub-val">{{origSummary.remainYears}} 年不变</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 选中方案专家建议解析 -->
+      <view class="expert-tip-box">
+        <t-icon name="lightbulb" size="32rpx" color="#D97706" />
+        <text wx:if="{{activeOption === 'shorten_term'}}" class="tip-content">
+          方案 A 维持原有月供强度，将还款本金加速归还，可最大程度拦截后续利息，适合收入稳定、追求尽早解除债务的家庭。
+        </text>
+        <text wx:else class="tip-content">
+          方案 B 将还款年限按原计划拉满，显著将后续每月月供降低，适合近期家庭现金流趋紧、或希望释放月度结余用于理财消费的用户。
+        </text>
+      </view>
+    </view>
+
+    <!-- 3. 还款参数配置表单 -->
+    <view class="form-card card-shadow">
+      <view class="form-title-bar">
+        <text class="form-title">贷款与提前还款参数</text>
+        <view class="repay-switch">
+          <view
+            class="switch-opt {{repaymentType === 'equal_installment' ? 'active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onRepaymentTypeChange"
+            data-type="equal_installment"
+          >
+            等额本息
+          </view>
+          <view
+            class="switch-opt {{repaymentType === 'equal_principal' ? 'active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onRepaymentTypeChange"
+            data-type="equal_principal"
+          >
+            等额本金
+          </view>
+        </view>
+      </view>
+
+      <!-- 原贷款金额 -->
+      <view class="form-item">
+        <view class="item-label">
+          <text class="label-text">原贷款总额</text>
+          <text class="label-desc">原申请商业贷款本金</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="custom-input"
+            type="digit"
+            confirm-type="done"
+            value="{{originalLoanAmount}}"
+            bindinput="onOrigAmountInput"
+          />
+          <text class="unit-text">万元</text>
+        </view>
+      </view>
+
+      <!-- 原年利率与年限 -->
+      <view class="form-row-2">
+        <view class="form-item mini-item">
+          <text class="label-text">原年利率</text>
+          <view class="input-wrap">
+            <input
+              class="custom-input"
+              type="digit"
+              confirm-type="done"
+              value="{{annualRate}}"
+              bindinput="onRateInput"
+            />
+            <text class="unit-text">%</text>
+          </view>
+        </view>
+        <view class="form-item mini-item">
+          <text class="label-text">原贷款年限</text>
+          <view class="input-wrap">
+            <input
+              class="custom-input"
+              type="number"
+              confirm-type="done"
+              value="{{originalYears}}"
+              bindinput="onYearsInput"
+            />
+            <text class="unit-text">年</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 已还款时间 (年 + 月) -->
+      <view class="form-item">
+        <view class="item-label">
+          <text class="label-text">已正常还款期数</text>
+          <text class="label-desc">截至当前已还款时间</text>
+        </view>
+        <view class="double-input-wrap">
+          <view class="input-cell">
+            <input
+              class="custom-input cell-input"
+              type="number"
+              confirm-type="done"
+              value="{{paidYears}}"
+              bindinput="onPaidYearsInput"
+            />
+            <text class="unit-text">年</text>
+          </view>
+          <view class="input-cell">
+            <input
+              class="custom-input cell-input"
+              type="number"
+              confirm-type="done"
+              value="{{paidMonthsPart}}"
+              bindinput="onPaidMonthsInput"
+            />
+            <text class="unit-text">个月</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 提前还款金额 -->
+      <view class="form-item highlight-form-item">
+        <view class="item-label">
+          <text class="label-text text-primary">本次提前还款本金</text>
+          <text class="label-desc">计划一次性冲抵的金额</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="custom-input font-bold"
+            type="digit"
+            confirm-type="done"
+            value="{{prepayAmount}}"
+            bindinput="onPrepayAmountInput"
+          />
+          <text class="unit-text text-primary">万元</text>
+        </view>
+      </view>
+
+      <!-- 快捷金额选择胶囊 -->
+      <view class="quick-amount-chips">
+        <view
+          class="chip-btn {{prepayAmount === 10 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onQuickPrepay"
+          data-amount="10"
+        >
+          10万
+        </view>
+        <view
+          class="chip-btn {{prepayAmount === 20 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onQuickPrepay"
+          data-amount="20"
+        >
+          20万
+        </view>
+        <view
+          class="chip-btn {{prepayAmount === 30 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onQuickPrepay"
+          data-amount="30"
+        >
+          30万
+        </view>
+        <view
+          class="chip-btn {{prepayAmount === 50 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onQuickPrepay"
+          data-amount="50"
+        >
+          50万
+        </view>
+      </view>
+    </view>
+
+    <!-- 4. 关键本金与财务数据深度剖析 -->
+    <view class="data-breakdown-card card-shadow">
+      <view class="breakdown-header">
+        <t-icon name="layers" size="32rpx" color="#00288E" />
+        <text class="title">本金账单与资金走向剖析</text>
+      </view>
+      <view class="breakdown-grid">
+        <view class="breakdown-cell">
+          <text class="cell-label">提前还款前剩余本金</text>
+          <text class="cell-val">¥{{origSummary.remainPrincipalWan}} 万元</text>
+        </view>
+        <view class="breakdown-cell">
+          <text class="cell-label">提前还款后剩余本金</text>
+          <text class="cell-val text-green font-bold">
+            ¥{{activeOption === 'shorten_term' ? planShorten.newRemainPrincipalWan : planReduce.newRemainPrincipalWan}} 万元
+          </text>
+        </view>
+        <view class="breakdown-cell">
+          <text class="cell-label">原剩余待还利息</text>
+          <text class="cell-val">¥{{origSummary.origRemainingInterestWan}} 万元</text>
+        </view>
+        <view class="breakdown-cell">
+          <text class="cell-label">新方案剩余总利息</text>
+          <text class="cell-val text-blue font-bold">
+            ¥{{activeOption === 'shorten_term' ? planShorten.newTotalInterestWan : planReduce.newTotalInterestWan}} 万元
+          </text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 5. 底部固定操作栏 -->
+    <view class="bottom-bar">
+      <button class="btn-share" open-type="share">
+        <t-icon name="share" size="32rpx" color="#00288E" />
+        <text>分享此推演结果</text>
+      </button>
+    </view>
+  </view>
+</view>

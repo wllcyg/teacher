@@ -1,0 +1,554 @@
+/* pages/prepayment/prepayment.wxss */
+.prepayment-page {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  padding-bottom: 160rpx;
+  box-sizing: border-box;
+}
+
+.custom-navbar {
+  --td-navbar-bg-color: var(--card-bg) !important;
+  --td-navbar-color: var(--text-main) !important;
+  font-weight: 600;
+}
+
+.page-body {
+  padding: 24rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+}
+
+/* 1. 双方案对比大看板 */
+.hero-card {
+  background: var(--card-bg);
+  border-radius: 28rpx;
+  padding: 32rpx;
+  border: 1rpx solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 40, 142, 0.08),
+              0 12rpx 40rpx rgba(0, 40, 142, 0.05);
+}
+
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+  padding: 8rpx 18rpx;
+  border-radius: 30rpx;
+}
+
+.badge-text {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--card-bg);
+}
+
+.loading-tag {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.loading-text {
+  font-size: 22rpx;
+  color: var(--text-regular);
+}
+
+/* 并排方案网格 */
+.dual-plans-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+}
+
+.plan-card {
+  background: var(--card-bg-subtle);
+  border: 2rpx solid var(--border-color);
+  border-radius: 20rpx;
+  padding: 20rpx 16rpx;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.2s ease;
+  min-height: 280rpx;
+}
+
+.plan-card.active-plan {
+  background: var(--card-bg);
+  border: 3rpx solid var(--success-color);
+  box-shadow: 0 0 0 4rpx rgba(5, 150, 105, 0.1),
+              0 8rpx 24rpx rgba(5, 150, 105, 0.15);
+  transform: translateY(-2rpx);
+}
+
+.plan-card:last-child.active-plan {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 4rpx rgba(0, 40, 142, 0.1),
+              0 8rpx 24rpx rgba(0, 40, 142, 0.15);
+}
+
+.plan-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.plan-name {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.plan-main-stat {
+  margin-bottom: 16rpx;
+}
+
+.stat-prefix {
+  font-size: 22rpx;
+  color: var(--text-regular);
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.stat-number-wrap {
+  display: flex;
+  align-items: baseline;
+  color: var(--success-color);
+}
+
+.plan-card:last-child .stat-number-wrap {
+  color: var(--primary-color);
+}
+
+.currency-symbol {
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.main-amount {
+  font-size: 44rpx;
+  font-weight: 800;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  line-height: 1;
+}
+
+.stat-unit {
+  font-size: 22rpx;
+  font-weight: 600;
+  margin-left: 4rpx;
+}
+
+.plan-sub-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  font-size: 22rpx;
+  color: var(--text-regular);
+  border-top: 1rpx dashed var(--border-color);
+  padding-top: 14rpx;
+}
+
+.sub-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8rpx;
+}
+
+.sub-label {
+  flex-shrink: 0;
+}
+
+.sub-val {
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.highlight-green {
+  color: var(--success-color);
+  font-weight: 600;
+}
+
+.highlight-blue {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.plan-select-indicator {
+  position: absolute;
+  top: 16rpx;
+  right: 16rpx;
+}
+
+/* 专家建议 */
+.expert-tip-box {
+  background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+  border: 1rpx solid #FDE68A;
+  border-left: 4rpx solid var(--warning-color);
+  border-radius: 16rpx;
+  padding: 18rpx 20rpx;
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.tip-content {
+  font-size: 24rpx;
+  color: #92400E;
+  line-height: 1.65;
+  letter-spacing: 0.3rpx;
+  flex: 1;
+}
+
+/* 2. 表单卡片 */
+.form-card {
+  background: var(--card-bg);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  border: 1rpx solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 28rpx;
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.06),
+              0 8rpx 24rpx rgba(15, 23, 42, 0.04);
+}
+
+.form-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.form-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.repay-switch {
+  display: flex;
+  background: var(--card-bg-subtle);
+  padding: 6rpx;
+  border-radius: 12rpx;
+}
+
+.switch-opt {
+  font-size: 24rpx;
+  padding: 8rpx 18rpx;
+  color: var(--text-regular);
+  border-radius: 8rpx;
+  transition: all 0.2s;
+}
+
+.switch-opt.active {
+  background: var(--card-bg);
+  color: var(--primary-color);
+  font-weight: 600;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+.form-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.item-label {
+  display: flex;
+  flex-direction: column;
+}
+
+.label-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.label-desc {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  margin-top: 4rpx;
+}
+
+.input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--card-bg-subtle);
+  border: 1rpx solid #CBD5E1;
+  border-radius: 12rpx;
+  padding: 12rpx 20rpx;
+  transition: all 0.2s;
+}
+
+/* 焦点态需要通过 JS 动态添加 class="focused" 实现 */
+.input-wrap.focused {
+  border-color: var(--primary-color);
+  background: var(--card-bg);
+  box-shadow: 0 0 0 3rpx rgba(0, 40, 142, 0.1);
+}
+
+.custom-input {
+  width: 140rpx;
+  text-align: right;
+  font-size: 30rpx;
+  color: var(--text-main);
+}
+
+.unit-text {
+  font-size: 26rpx;
+  color: var(--text-regular);
+  margin-left: 8rpx;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20rpx;
+}
+
+.mini-item {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
+}
+
+.mini-item .input-wrap {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: space-between;
+}
+
+.mini-item .custom-input {
+  width: 100%;
+  text-align: right;
+}
+
+/* 已还年月双输入框 */
+.double-input-wrap {
+  display: flex;
+  gap: 16rpx;
+}
+
+.input-cell {
+  display: flex;
+  align-items: center;
+  background: var(--card-bg-subtle);
+  border: 1rpx solid #CBD5E1;
+  border-radius: 12rpx;
+  padding: 12rpx 16rpx;
+  transition: all 0.2s;
+}
+
+/* 焦点态需要通过 JS 动态添加 class="focused" 实现 */
+.input-cell.focused {
+  border-color: var(--primary-color);
+  background: var(--card-bg);
+  box-shadow: 0 0 0 3rpx rgba(0, 40, 142, 0.1);
+}
+
+.cell-input {
+  width: 80rpx;
+  text-align: right;
+  font-size: 28rpx;
+  color: var(--text-main);
+}
+
+/* 重点强调提前还款本金 */
+.highlight-form-item {
+  background: #F0FDF4;
+  border: 2rpx solid #86EFAC;
+  padding: 20rpx;
+  border-radius: 16rpx;
+}
+
+.text-primary {
+  color: var(--success-color) !important;
+}
+
+/* 快捷点选胶囊 */
+.quick-amount-chips {
+  display: flex;
+  gap: 16rpx;
+}
+
+.chip-btn {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  background: var(--card-bg-subtle);
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: var(--text-regular);
+  border: 1rpx solid transparent;
+  transition: all 0.2s;
+}
+
+.chip-btn.chip-active {
+  background: linear-gradient(135deg, #D1FAE5 0%, #A7F3D0 100%);
+  color: #065F46;
+  border: 2rpx solid #10B981;
+  box-shadow: 0 4rpx 12rpx rgba(16, 185, 129, 0.2);
+  font-weight: 700;
+  transform: scale(1.02);
+}
+
+/* 3. 剖析表 */
+.data-breakdown-card {
+  background: var(--card-bg);
+  border-radius: 24rpx;
+  padding: 32rpx;
+  border: 1rpx solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.06),
+              0 8rpx 24rpx rgba(15, 23, 42, 0.04);
+}
+
+.breakdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.breakdown-header .title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.breakdown-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18rpx;
+  background: linear-gradient(135deg, var(--card-bg-subtle) 0%, #F1F5F9 100%);
+  padding: 20rpx;
+  border-radius: 16rpx;
+  border: 1rpx solid var(--border-color);
+}
+
+.breakdown-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+}
+
+.cell-label {
+  font-size: 22rpx;
+  color: var(--text-regular);
+}
+
+.cell-val {
+  font-size: 26rpx;
+  color: var(--text-main);
+}
+
+.text-green {
+  color: var(--success-color);
+}
+
+.text-blue {
+  color: var(--primary-color);
+}
+
+.font-bold {
+  font-weight: 700;
+}
+
+/* 4. 底部栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 100rpx;
+  background: var(--card-bg);
+  border-top: 1rpx solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32rpx;
+  gap: 16rpx;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+  z-index: 100;
+}
+
+.btn-share {
+  flex: 1;
+  height: 76rpx;
+  background: var(--card-bg-subtle);
+  border-radius: 38rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: var(--primary-color);
+  border: none;
+  line-height: normal;
+  padding: 0;
+  transition: all 0.2s;
+}
+
+.btn-share::after {
+  border: none;
+}
+
+.btn-share:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
+/* 骨架屏加载态 */
+.skeleton-box {
+  background: linear-gradient(90deg, var(--card-bg-subtle) 25%, var(--border-color) 50%, var(--card-bg-subtle) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8rpx;
+  height: 60rpx;
+  width: 160rpx;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.card-shadow {
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.06),
+              0 8rpx 24rpx rgba(15, 23, 42, 0.04);
+}
+
+.touch-active {
+  opacity: 0.85;
+  transform: scale(0.985);
+}
+
+/* 响应式优化：小屏设备 */
+@media (max-width: 375px) {
+  .dual-plans-grid {
+    gap: 12rpx;
+  }
+
+  .plan-card {
+    padding: 18rpx 14rpx;
+  }
+
+  .main-amount {
+    font-size: 40rpx;
+  }
+}
