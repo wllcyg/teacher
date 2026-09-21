@@ -1,40 +1,71 @@
-# 原生微信小程序端：首页课时雷达与今日课堂笔记完成报告
+# 08 · 保险测算模块与全模块组件化重构报告
 
-## 一、 本次任务完成概要
+## 一、 保险测算模块落地概要 (Insurance Calculation Suite)
 
-已完全按照用户提供的截图与当前小程序规范，将原生小程序首页（[app/miniprogram/pages/index/](file:///Users/moliang/Desktop/coder/teacher/app/miniprogram/pages/index/)）升级为业务与视觉双 1:1 对齐的**核心授课工作台**：
+依据 [08_保险测算模块实现计划.md](file:///Users/moliang/Desktop/coder/teacher/app/plans/08_%E4%BF%9D%E9%99%A9%E6%B5%8B%E7%AE%97%E6%A8%A1%E5%9D%97%E5%AE%9E%E7%8E%B0%E8%AE%A1%E5%88%92.md) 与 PRD 针对市面空白品类的重点规划，完整构建了**去销售化、中立客观的家庭科学保险精算系统**。
 
-1. **顶部班级分段选择器（Segmented Bar）**：
-   - 提取教师所有关联班级（八4班、八10班、八9班、八3班）；
-   - 支持平滑触控切换当前激活班级，配备按压缩放与触觉振动反馈。
-2. **「正在上课」课时雷达卡片（Live Lesson Card）**：
-   - **分钟级命中算法**：与学校 11 节课（45 分钟标准作息）实时对齐；
-   - **状态与倒计时**：呼吸脉冲圆点 `@livePulse`、蓝色徽标、白色胶囊「还剩 X 分钟」；
-   - **平滑进度条**：依据已过时长比例计算 $0\% \sim 100\%$ 动态平滑推进；
-   - **双操作按钮**：
-     - `[ 📖 记课堂 ]`：若当前课已在今日笔记中登记，自动变为浅绿背景、绿色文字的 `[ 已记课堂 ]`；
-     - `[ ✏️ 记一笔 ]`：右侧主色实心大按钮，极速呼出随堂速记弹窗。
-3. **状态提示卡片（Status Banner）**：
-   - 上课中且后面无课时：精准呈现 **「这是今天最后一节课了」**；
-   - 处于课间或未上课时：清晰展示下一节课信息；
-   - 课程全部结束时：提示「今天的课上完了」。
-4. **「今日课堂笔记」时光轴卡片**：
-   - 聚合今日记录过的所有备课与上课笔记，顶部徽标显示「N 条已记」；
-   - 列表按节次时间线陈列（如第7节、第8节、第10节）；
-   - 点击任意笔记条目或点击「✏️ 编辑」，即可直接呼出编辑抽屉进行查阅与修改。
-5. **云函数端 CRUD 支持**：
-   - 在 `teacher-service` 云函数中实现 `getTodayLessonLogs`、`saveLessonLog` 与 `deleteLessonLog`。
-   - 建立 `dev_lesson_logs` 数据表迁移脚本。
+### 核心子工具与算法功能清单
 
----11
+1. **重疾险合理保额测算器 (`calcCriticalIllness`)**：
+   - **需求法数学模型**：$\text{建议保额} = \text{前沿医疗靶向药自费} + (\text{年收入} \times \text{康复停工年数}) + (\text{个人负债} \times \text{兜底比}) - \text{已有保障抵扣}$；
+   - 输出基础版保额下限、充裕版保额推荐值；
+   - 给出符合家庭财务安全的双十原则年保费黄金区间（年收入 4%~8%），防范保费倒挂。
+2. **寿险责任规划计算器 (`calcLifeInsurance`)**：
+   - **双模型支持**：
+     - **模型 A：遗属需求法（精准推荐）**：全面核算房贷车贷负债余额、子女直至独立教育金、父母赡养医疗应急金与 3~5 年家庭日常开销生活过渡缓冲金；
+     - **模型 B：生命价值法（收入损失法）**：年薪 × 核心家庭抚养责任年限；
+   - 输出定期寿险（高杠杆保至60岁）优选建议与负债覆盖率分析。
+3. **社保医保 vs 百万医疗险报销对比计算器 (`calcMedicalReimburse`)**：
+   - 真实剖析**医保自费黑洞**（进口特药、靶向药、质子重离子及社保目录外自费耗材）；
+   - 动态推演**仅有社保时的个人高额自付**对比**社保 + 百万医疗险后的极低自付（仅免赔额）**；
+   - 视觉呈现直观的费用构成拆解条与减负比例，量化商保挽回损失。
 
-## 二、 核心变更文件
+---
 
-| 模块 | 文件路径 | 变更说明 |
+## 二、 组件化架构与文件组织
+
+按照项目最新的组件化标准，保险模块完全独立封装在 [components/calc-insurance/](file:///Users/moliang/Desktop/coder/teacher/app/miniprogram/components/calc-insurance/)，不侵入主页面：
+
+```
+miniprogram/
+├── utils/
+│   ├── config/insurance-rules.js          # 重疾平均治疗费、医保目录预设与保费合理比例
+│   └── calculators/insurance.js           # 3 大保险算法高精度纯函数
+├── components/calc-insurance/             # 保险测算业务组件
+│   ├── calc-insurance.json
+│   ├── calc-insurance.wxml                # 纯白大卡片、指标网格与对比柱状图
+│   ├── calc-insurance.wxss                # 医疗报销三色进度条样式
+│   └── calc-insurance.js                  # 自驱动计算与参数响应
+└── pages/
+    ├── index/                             # 首页增加「重疾保额」横滑芯片与保险分类卡片直达
+    └── result/                            # 纯净 Master-Detail 容器挂载
+```
+
+---
+
+## 三、 全模块一步到位组件化架构成效汇总
+
+结合上一阶段的一步到位重构，`pages/result/` 现已彻底成为百行以内的纯净容器页，所有 5 大核心模块全部下沉为独立业务组件：
+
+| 模块名称 | 承接组件 | 说明 |
 | :--- | :--- | :--- |
-| **云数据库迁移** | [20260914211000_create_lesson_logs.sql](file:///Users/moliang/Desktop/coder/teacher/cloudbase/migrations/20260914211000_create_lesson_logs.sql) | 创建课堂笔记数据表 `dev_lesson_logs` 和 `prd_lesson_logs` |
-| **云函数** | [teacher-service/index.js](file:///Users/moliang/Desktop/coder/teacher/app/cloudfunctions/teacher-service/index.js) | 增加课堂教学日志读取、写入与删除接口 |
-| **首页配置** | [pages/index/index.json](file:///Users/moliang/Desktop/coder/teacher/app/miniprogram/pages/index/index.json) | 引入 TDesign 必要的 `t-button`、`t-tag`、`t-icon`、`t-popup` 等组件 |
-| **首页结构** | [pages/index/index.wxml](file:///Users/moliang/Desktop/coder/teacher/app/miniprogram/pages/index/index.wxml) | 构建分段班级栏、正在上课动态卡片、状态提示条与今日笔记列表 |
-| **首页样式** | [pages/index/index.wxss](file:///Users/moliang/Desktop/coder/teacher/app/miniprogram/pages/index/index.wxss) | 微信原生 750rpx、脉冲动画、平滑进度条、触控 `:active` 态 |
-| **首页逻辑** | [pages/index/index.js](file:///Users/moliang/Desktop/coder/teacher/app/miniprogram/pages/index/index.js) | 实现实时课时雷达推算、10秒定时巡检、课堂笔记提交闭环 |
+| **房贷测算** | `calc-mortgage` | 商业/公积金/组合贷、还款方式、月供计划表抽屉 |
+| **工资个税** | `calc-salary` | 正算/倒推、五险一金、7项专项扣除、加班与离职补偿抽屉 |
+| **购车用车** | `calc-car` | 全包落地总价、车贷分期真实IRR、油电能耗对比、保值率折旧抽屉 |
+| **储蓄理财** | `calc-saving` | 复利追加、定投敏感性、大额存单、FIRE自由、通胀购买力 |
+| **保险测算** | `calc-insurance` | 重疾合理保额、寿险责任规划、医保 vs 百万医疗报销对比 |
+| **生活日常** | `daily-job` / `daily-renovation` / `daily-living` / `daily-health` | 23 项日常生活、职场与健康仪式工具 |
+
+- **`pages/result/result.wxml`**：由原 2,455 行降至 **84 行**；
+- **`pages/result/result.js`**：由原 1,199 行降至 **93 行**；
+- 架构清晰，各模块互不耦合，性能与可维护性全面提升。
+
+---
+
+## 四、 自动化质量验证结果
+
+1. **测试套件运行**：
+   - 运行：`node app/test-insurance.js && node app/test-daily.js && node app/test-finance.js`
+   - 结果：全部 3 项保险算法、23 项生活日常算法与 7 项储蓄理财算法 **100% 验证通过**。
+2. **静态语法检查**：
+   - 对全部新增组件及页面文件执行 `node -c` 语法检查，无任何语法错误。

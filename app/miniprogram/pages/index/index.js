@@ -14,7 +14,17 @@ Page({
 
   navigateToResult(e) {
     const type = e.currentTarget.dataset.type || 'salary';
-    const url = `/pages/result/result?type=${type}`;
+    const tab = e.currentTarget.dataset.tab;
+    let url = `/pages/result/result?type=${type}`;
+    if (tab) {
+      if (type === 'saving') {
+        url += `&savingTab=${tab}`;
+      } else if (type === 'life') {
+        url += `&lifeTab=${tab}`;
+      } else {
+        url += `&tab=${tab}`;
+      }
+    }
     wx.navigateTo({
       url,
       fail: (err) => {

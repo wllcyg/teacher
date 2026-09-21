@@ -6,11 +6,14 @@
     "t-button": "tdesign-miniprogram/button/button",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-tag": "tdesign-miniprogram/tag/tag",
-    "t-input": "tdesign-miniprogram/input/input",
-    "t-radio": "tdesign-miniprogram/radio/radio",
-    "t-radio-group": "tdesign-miniprogram/radio-group/radio-group",
-    "t-tabs": "tdesign-miniprogram/tabs/tabs",
-    "t-tab-panel": "tdesign-miniprogram/tab-panel/tab-panel",
-    "t-popup": "tdesign-miniprogram/popup/popup"
+    "calc-mortgage": "/components/calc-mortgage/calc-mortgage",
+    "calc-salary": "/components/calc-salary/calc-salary",
+    "calc-car": "/components/calc-car/calc-car",
+    "calc-saving": "/components/calc-saving/calc-saving",
+    "daily-job": "/components/daily-job/daily-job",
+    "daily-renovation": "/components/daily-renovation/daily-renovation",
+    "daily-living": "/components/daily-living/daily-living",
+    "daily-health": "/components/daily-health/daily-health",
+    "calc-insurance": "/components/calc-insurance/calc-insurance"
   }
 }

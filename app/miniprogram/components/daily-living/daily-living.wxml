@@ -1,0 +1,377 @@
+<view class="daily-living-wrap">
+  <!-- 1. 子工具切换 -->
+  <view class="type-segmented form-item">
+    <view
+      class="type-btn {{subTool === 'utility' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="utility"
+    >
+      阶梯水电
+    </view>
+    <view
+      class="type-btn {{subTool === 'express' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="express"
+    >
+      快递运费
+    </view>
+    <view
+      class="type-btn {{subTool === 'parking' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="parking"
+    >
+      停车费分段
+    </view>
+    <view
+      class="type-btn {{subTool === 'discount' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="discount"
+    >
+      满减促销
+    </view>
+  </view>
+
+  <!-- ================= 3.1 阶梯水电 ================= -->
+  <block wx:if="{{subTool === 'utility'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">当月用电度数</text>
+          <text class="item-unit">度 (kWh)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="number"
+            value="{{elecKwh}}"
+            bindinput="onElecKwhInput"
+            placeholder="280"
+          />
+          <text class="unit-text">度</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">年用水量</text>
+          <text class="item-unit">m³ (含污水处理费)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="number"
+            value="{{waterM3}}"
+            bindinput="onWaterM3Input"
+            placeholder="180"
+          />
+          <text class="unit-text">m³</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 结果看板 (标准白底卡片) -->
+    <view wx:if="{{elecResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">当月阶梯电费测算</text>
+        <t-tag size="small" theme="primary" variant="light">综合均价 ¥{{elecResult.avgUnitPrice}}/度</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{elecResult.totalCostFormatted}}</text>
+        <text class="amount-unit">元</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>一档 ≤240度@0.50 · 二档 241~400@0.55 · 三档 >400度@0.80 · 综合年用水费 ¥{{waterResult.totalCostFormatted}}</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">一档电费 (≤240)</text>
+          <text class="stat-val">¥{{elecResult.tiers[0].cost}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">二档电费 (241~400)</text>
+          <text class="stat-val">¥{{elecResult.tiers[1].cost}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">三档电费 (>400)</text>
+          <text class="stat-val highlight-amber">¥{{elecResult.tiers[2].cost}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 3.2 快递运费 ================= -->
+  <block wx:if="{{subTool === 'express'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">包裹实际重量</text>
+          <text class="item-unit">kg</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{expressWeight}}"
+            bindinput="onExpressWeightInput"
+            placeholder="2.5"
+          />
+          <text class="unit-text">kg</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">承运物流类型</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{expressTemplate === 'sfExpress' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onExpressTemplateChange"
+            data-tmpl="sfExpress"
+          >
+            顺丰特快 (18+8)
+          </view>
+          <view
+            class="chip {{expressTemplate === 'standard' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onExpressTemplateChange"
+            data-tmpl="standard"
+          >
+            普通电商快递 (10+4)
+          </view>
+          <view
+            class="chip {{expressTemplate === 'heavy' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onExpressTemplateChange"
+            data-tmpl="heavy"
+          >
+            大件快运 (35+3.5)
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{expressResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">预估物流运费</text>
+        <t-tag size="small" theme="primary" variant="light">{{expressResult.templateName}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{expressResult.freightFormatted}}</text>
+        <text class="amount-unit">元</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>计费重量 {{expressResult.chargeWeightKg}}kg · 首重 ¥{{expressResult.firstPrice}} · 续重 ¥{{expressResult.continuePrice}}/kg</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">实际重量</text>
+          <text class="stat-val">{{expressResult.actualWeightKg}} kg</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">计费重量</text>
+          <text class="stat-val">{{expressResult.chargeWeightKg}} kg</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">续重单价</text>
+          <text class="stat-val highlight-amber">¥{{expressResult.continuePrice}}/kg</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 3.3 停车费分段 ================= -->
+  <block wx:if="{{subTool === 'parking'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">停车时长</text>
+          <text class="item-unit">分钟 (min)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="number"
+            value="{{parkingMinutes}}"
+            bindinput="onParkingMinutesInput"
+            placeholder="120"
+          />
+          <text class="unit-text">分钟</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">停车场所类型</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{parkingTemplate === 'commercial' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onParkingTemplateChange"
+            data-tmpl="commercial"
+          >
+            核心商圈商场 (封顶80)
+          </view>
+          <view
+            class="chip {{parkingTemplate === 'office' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onParkingTemplateChange"
+            data-tmpl="office"
+          >
+            写字楼园区 (封顶60)
+          </view>
+          <view
+            class="chip {{parkingTemplate === 'airport' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onParkingTemplateChange"
+            data-tmpl="airport"
+          >
+            机场高铁枢纽 (封顶100)
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{parkingResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">应缴停车费用</text>
+        <t-tag size="small" theme="primary" variant="light">{{parkingResult.templateName}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{parkingResult.totalFeeFormatted}}</text>
+        <text class="amount-unit">元</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>计费 {{parkingResult.billableHours}} 小时 · 24小时封顶上限 ¥{{parkingResult.dailyCap}} · {{parkingResult.isFree ? '当前处于免费时段' : '按分段标准计费'}}</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">计费时段</text>
+          <text class="stat-val">{{parkingResult.billableHours}} 小时</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">昼夜封顶</text>
+          <text class="stat-val">¥{{parkingResult.dailyCap}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">免费状态</text>
+          <text class="stat-val {{parkingResult.isFree ? 'color-green' : ''}}">{{parkingResult.isFree ? '免费期内' : '正常计费'}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 3.4 满减促销折扣 ================= -->
+  <block wx:if="{{subTool === 'discount'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">商品原价总额</text>
+          <text class="item-unit">元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{discountOrigin}}"
+            bindinput="onDiscountOriginInput"
+            placeholder="650"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">店铺优惠券</text>
+          <text class="item-unit">元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{discountShopCoupon}}"
+            bindinput="onDiscountShopCouponInput"
+            placeholder="20"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">平台红包 / 品类券</text>
+          <text class="item-unit">元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{discountPlatformCoupon}}"
+            bindinput="onDiscountPlatformCouponInput"
+            placeholder="10"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{discountResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">最终实付金额</text>
+        <t-tag size="small" theme="primary" variant="light">相当于 {{discountResult.discountRateText}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{discountResult.finalPayFormatted}}</text>
+        <text class="amount-unit">元 (省 ¥{{discountResult.totalDiscount}})</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>原价 ¥{{discountResult.originTotal}} · 减免比例 {{discountResult.savePercent}}% · 跨店满减立省 ¥{{discountResult.crossShopDiscount}}</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">跨店满减</text>
+          <text class="stat-val color-green">-¥{{discountResult.crossShopDiscount}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">优惠券红包</text>
+          <text class="stat-val color-green">-¥{{discountResult.shopCoupon + discountResult.platformCoupon}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">真实折让</text>
+          <text class="stat-val highlight-amber">{{discountResult.discountRateText}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

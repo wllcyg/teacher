@@ -1,0 +1,503 @@
+<!-- components/calc-insurance/calc-insurance.wxml -->
+<view class="page-body">
+  <!-- 1. 顶部 3 大微场景切换 Segmented Tabs -->
+  <view class="segmented-control card-shadow">
+    <view
+      class="segment-btn {{insuranceTab === 'critical' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onTabChange"
+      data-tab="critical"
+    >
+      重疾合理保额
+    </view>
+    <view
+      class="segment-btn {{insuranceTab === 'life' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onTabChange"
+      data-tab="life"
+    >
+      寿险责任规划
+    </view>
+    <view
+      class="segment-btn {{insuranceTab === 'medical' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onTabChange"
+      data-tab="medical"
+    >
+      医保报销对比
+    </view>
+  </view>
+
+  <!-- ================= 模式 1: 重疾险合理保额 ================= -->
+  <view wx:if="{{insuranceTab === 'critical'}}">
+    <view class="form-card card-shadow">
+      <!-- 个人税后年收入 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">个人税后年收入 (用于折算收入损失补偿)</text>
+          <text class="item-unit">万元/年</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{ciIncomeWan}}"
+            bindinput="onCiIncomeInput"
+            bindconfirm="onConfirmInput"
+            bindblur="onBlurInput"
+            placeholder="15"
+          />
+          <text class="unit-text">万</text>
+        </view>
+        <view class="quick-presets">
+          <view
+            wx:for="{{[10, 15, 20, 30, 50]}}"
+            wx:key="*this"
+            class="chip {{ciIncomeWan === item ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectCiIncomePreset"
+            data-val="{{item}}"
+          >
+            {{item}}万
+          </view>
+        </view>
+      </view>
+
+      <!-- 治疗与康复基础费用 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">预估前沿治疗与靶向药自费开支</text>
+          <text class="item-unit">行业均值约 30~50 万元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{ciTreatmentWan}}"
+            bindinput="onCiTreatmentInput"
+            bindconfirm="onConfirmInput"
+            bindblur="onBlurInput"
+            placeholder="30"
+          />
+          <text class="unit-text">万</text>
+        </view>
+      </view>
+
+      <!-- 停工康复过渡年数 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">停工康复过渡期 (医学建议 3~5 年)</text>
+        </view>
+        <view class="year-chips">
+          <view
+            wx:for="{{[1, 2, 3, 5]}}"
+            wx:key="*this"
+            class="chip {{ciRehabYears === item ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectCiRehabYears"
+            data-years="{{item}}"
+          >
+            {{item}}年
+          </view>
+        </view>
+      </view>
+
+      <!-- 个人负债余额 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">个人承担的房贷/车贷等负债余额</text>
+          <text class="item-unit">万元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{ciDebtWan}}"
+            bindinput="onCiDebtInput"
+            bindconfirm="onConfirmInput"
+            bindblur="onBlurInput"
+            placeholder="0"
+          />
+          <text class="unit-text">万</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 测算结果大看板 -->
+    <view wx:if="{{ciResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">建议重疾保额 (需求法模型)</text>
+        <t-tag size="small" theme="primary" variant="light">科学保全</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{ciResult.formatBasicWan}}</text>
+        <text class="amount-unit">万</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>充裕版建议保额 ¥{{ciResult.formatComfortWan}}万 · 合理年保费区间 {{ciResult.formatPremiumRange}}/年</text>
+      </view>
+
+      <view class="dash-ratio-bar">
+        <view class="bar-track">
+          <view class="bar-fill-blue" style="width: {{ciResult.treatmentShare}}%"></view>
+          <view class="bar-fill-amber" style="width: {{ciResult.incomeLossShare}}%"></view>
+        </view>
+        <view class="ratio-labels">
+          <view class="label-item">
+            <view class="dot dot-blue"></view>
+            <text class="ratio-txt">医疗特效药: {{ciResult.treatmentShare}}%</text>
+          </view>
+          <view class="label-item">
+            <view class="dot dot-amber"></view>
+            <text class="ratio-txt">收入补偿: {{ciResult.incomeLossShare}}%</text>
+          </view>
+          <view class="label-item">
+            <view class="dot dot-gray"></view>
+            <text class="ratio-txt">负债兜底: {{ciResult.debtShare}}%</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">基础保额下限</text>
+          <text class="stat-val">¥{{ciResult.formatBasicWan}}<text class="stat-unit">万</text></text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">收入补偿总额</text>
+          <text class="stat-val highlight-amber">¥{{ciResult.incomeLossCompensationWan}}<text class="stat-unit">万</text></text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">建议年保费</text>
+          <text class="stat-val">约{{ciResult.minAnnualPremium / 1000}}k<text class="stat-unit">/年</text></text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ================= 模式 2: 寿险责任规划 ================= -->
+  <view wx:if="{{insuranceTab === 'life'}}">
+    <view class="form-card card-shadow">
+      <!-- 算法模型切换 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">测算模型</text>
+        </view>
+        <view class="type-segmented">
+          <view
+            class="type-btn {{lifeModelType === 'needs' ? 'type-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectLifeModelType"
+            data-model="needs"
+          >
+            遗属需求法 (精准推荐)
+          </view>
+          <view
+            class="type-btn {{lifeModelType === 'income' ? 'type-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectLifeModelType"
+            data-model="income"
+          >
+            收入损失法 (生命价值)
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{lifeModelType === 'needs'}}">
+        <!-- 房贷与家庭负债 -->
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">家庭剩余负债总额 (房贷/车贷)</text>
+            <text class="item-unit">万元</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{lifeDebtWan}}"
+              bindinput="onLifeDebtInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="80"
+            />
+            <text class="unit-text">万</text>
+          </view>
+        </view>
+
+        <!-- 子女抚养教育金 -->
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">子女成长与高等教育金储备</text>
+            <text class="item-unit">万元</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{lifeChildFundWan}}"
+              bindinput="onLifeChildFundInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="30"
+            />
+            <text class="unit-text">万</text>
+          </view>
+        </view>
+
+        <!-- 父母赡养与应急金 -->
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">父母赡养与医疗应急金预留</text>
+            <text class="item-unit">万元</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{lifeParentFundWan}}"
+              bindinput="onLifeParentFundInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="10"
+            />
+            <text class="unit-text">万</text>
+          </view>
+        </view>
+
+        <!-- 家庭年基本支出与缓冲年数 -->
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">家庭年日常基本支出</text>
+            <text class="item-unit">万元/年</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{lifeExpenseWan}}"
+              bindinput="onLifeExpenseInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="8"
+            />
+            <text class="unit-text">万</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{lifeModelType === 'income'}}">
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">个人税后年收入</text>
+            <text class="item-unit">万元/年</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{lifeIncomeWan}}"
+              bindinput="onLifeIncomeInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="18"
+            />
+            <text class="unit-text">万</text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">家庭核心责任年限 (至子女独立或房贷结束)</text>
+          </view>
+          <view class="year-chips">
+            <view
+              wx:for="{{[10, 15, 20, 25, 30]}}"
+              wx:key="*this"
+              class="chip {{lifeDutyYears === item ? 'chip-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="selectLifeDutyYears"
+              data-years="{{item}}"
+            >
+              {{item}}年
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 寿险结果看板 -->
+    <view wx:if="{{lifeResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">{{lifeModelType === 'needs' ? '家庭遗属责任保额建议' : '生命价值收入折算建议'}}</text>
+        <t-tag size="small" theme="primary" variant="light">定期寿险优选</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{lifeResult.formatRecommendedWan}}</text>
+        <text class="amount-unit">万</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>优选定期寿险保至 60 岁 · 千元保费即可撬动百万杠杆，覆盖经济支柱风险</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">负债风险占比</text>
+          <text class="stat-val font-bold color-red">{{lifeResult.debtShare}}%</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">教育与抚养占比</text>
+          <text class="stat-val highlight-amber">{{lifeResult.childShare}}%</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">生活过渡金</text>
+          <text class="stat-val">¥{{lifeResult.familyLivingBufferWan}}<text class="stat-unit">万</text></text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ================= 模式 3: 医保报销 vs 百万医疗对比 ================= -->
+  <view wx:if="{{insuranceTab === 'medical'}}">
+    <view class="form-card card-shadow">
+      <!-- 场景预设选择 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">常见重疾就医场景</text>
+        </view>
+        <view class="type-segmented">
+          <view
+            class="type-btn {{medicalPresetKey === 'general' ? 'type-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectMedicalPreset"
+            data-key="general"
+          >
+            普通重疾 (8万)
+          </view>
+          <view
+            class="type-btn {{medicalPresetKey === 'severe' ? 'type-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectMedicalPreset"
+            data-key="severe"
+          >
+            重症综合 (30万)
+          </view>
+          <view
+            class="type-btn {{medicalPresetKey === 'targeted' ? 'type-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectMedicalPreset"
+            data-key="targeted"
+          >
+            特药靶向 (60万)
+          </view>
+        </view>
+      </view>
+
+      <!-- 医疗总花费 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">医疗总花费 (住院与手术)</text>
+          <text class="item-unit">元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="number"
+            value="{{medicalTotalCost}}"
+            bindinput="onMedicalCostInput"
+            bindconfirm="onConfirmInput"
+            bindblur="onBlurInput"
+            placeholder="300000"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+
+      <!-- 目录内费用占比 -->
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">医保目录内费用占比 (进口药与自费耗材不在内)</text>
+          <text class="item-unit">{{medicalInScopeRatio * 100}}%</text>
+        </view>
+        <view class="year-chips">
+          <view
+            wx:for="{{[0.4, 0.55, 0.75, 0.9]}}"
+            wx:key="*this"
+            class="chip {{medicalInScopeRatio === item ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectInScopeRatio"
+            data-ratio="{{item}}"
+          >
+            {{item * 100}}%
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 医保对比看板 -->
+    <view wx:if="{{medicalResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">仅有社保 vs 增加百万医疗险对比</text>
+        <t-tag size="small" theme="success" variant="dark">自费减负 {{medicalResult.reimbursementRatioTotal}}%</t-tag>
+      </view>
+
+      <!-- 可节省金额 -->
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{medicalResult.formatSavedAmount}}</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>百万医疗险为您直接挽回自付损失 ¥{{medicalResult.formatSavedAmount}} 元</text>
+      </view>
+
+      <!-- 可视化进度条 -->
+      <view class="compare-progress-wrap">
+        <view class="compare-title-row">
+          <text>医疗总花费结构拆解 (总计 ¥{{medicalResult.formatTotalCost}})</text>
+        </view>
+        <view class="compare-bar-track">
+          <view class="bar-social-fill" style="width: {{medicalResult.socialReimburseRatioActual}}%"></view>
+          <view class="bar-commercial-fill" style="width: {{medicalResult.reimbursementRatioTotal - medicalResult.socialReimburseRatioActual}}%"></view>
+          <view class="bar-selfpay-fill" style="width: {{100 - medicalResult.reimbursementRatioTotal}}%"></view>
+        </view>
+        <view class="compare-legend">
+          <view class="legend-item">
+            <view class="dot-social"></view>
+            <text>医保报销: ¥{{medicalResult.formatSocialReimbursed}}</text>
+          </view>
+          <view class="legend-item">
+            <view class="dot-commercial"></view>
+            <text>商保报销: ¥{{medicalResult.formatCommercialReimbursed}}</text>
+          </view>
+          <view class="legend-item">
+            <view class="dot-selfpay"></view>
+            <text>最终自付: ¥{{medicalResult.formatWithCommercialSelfPay}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 对比表格 -->
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">若仅有社保自付</text>
+          <text class="stat-val font-bold color-red">¥{{medicalResult.formatOnlySocialSelfPay}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">社保+商保后自付</text>
+          <text class="stat-val font-bold color-green">¥{{medicalResult.formatWithCommercialSelfPay}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,4 @@
+/* daily-renovation.wxss */
+.ml-16 {
+  margin-left: 16rpx;
+}

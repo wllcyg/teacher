@@ -1109,3 +1109,68 @@
   from { opacity: 0; transform: translateY(-8rpx); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ================= 通用辅助类 ================= */
+.text-right {
+  text-align: right;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-2 {
+  flex: 2;
+}
+
+.flex-3 {
+  flex: 3;
+}
+
+/* ================= 通用辅助样式 ================= */
+.picker-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #F8F9FD;
+  border: 1rpx solid var(--border-color);
+  border-radius: 16rpx;
+  padding: 24rpx;
+}
+
+.picker-value {
+  font-size: 30rpx;
+  color: var(--text-main);
+}
+
+.month-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.month-chips {
+  display: flex;
+  gap: 12rpx;
+  padding: 8rpx 0;
+}
+
+.month-chip {
+  flex-shrink: 0;
+  padding: 12rpx 24rpx;
+  font-size: 26rpx;
+  border-radius: 30rpx;
+  background: #F1F5FD;
+  color: var(--text-regular);
+  transition: all 0.2s;
+}
+
+.month-chip.month-chip-active {
+  background: var(--primary-color);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+

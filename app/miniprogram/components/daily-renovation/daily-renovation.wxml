@@ -1,0 +1,525 @@
+<view class="daily-renov-wrap">
+  <!-- 1. 子工具切换 -->
+  <view class="type-segmented form-item">
+    <view
+      class="type-btn {{subTool === 'budget' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="budget"
+    >
+      综合预算
+    </view>
+    <view
+      class="type-btn {{subTool === 'tile' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="tile"
+    >
+      瓷砖用量
+    </view>
+    <view
+      class="type-btn {{subTool === 'paint' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="paint"
+    >
+      乳胶漆涂料
+    </view>
+    <view
+      class="type-btn {{subTool === 'flooring' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="flooring"
+    >
+      地板用量
+    </view>
+    <view
+      class="type-btn {{subTool === 'curtain' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="curtain"
+    >
+      窗帘用料
+    </view>
+  </view>
+
+  <!-- ================= 2.1 装修综合预算 ================= -->
+  <block wx:if="{{subTool === 'budget'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">房屋建筑面积</text>
+          <text class="item-unit">㎡</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{houseArea}}"
+            bindinput="onHouseAreaInput"
+            placeholder="100"
+          />
+          <text class="unit-text">㎡</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">全包装修档次</text>
+          <text class="item-unit">硬装包工包料均价</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{renovTierKey === 'simple' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onRenovTierChange"
+            data-tier="simple"
+          >
+            经济简装 (900元/㎡)
+          </view>
+          <view
+            class="chip {{renovTierKey === 'standard' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onRenovTierChange"
+            data-tier="standard"
+          >
+            舒适精装 (1600元/㎡)
+          </view>
+          <view
+            class="chip {{renovTierKey === 'luxury' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onRenovTierChange"
+            data-tier="luxury"
+          >
+            轻奢豪装 (2600元/㎡)
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 结果看板 (标准白底卡片) -->
+    <view wx:if="{{renovBudgetResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">装修硬装全包总估算</text>
+        <t-tag size="small" theme="primary" variant="light">{{renovBudgetResult.tierName}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{renovBudgetResult.totalBudgetFormatted}}</text>
+        <text class="amount-unit">元 (约 {{renovBudgetResult.totalBudgetWan}} 万元)</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>建筑面积 {{renovBudgetResult.houseArea}}㎡ · {{renovBudgetResult.unitPrice}}元/㎡ · 主材占比48% 人工占比30%</text>
+      </view>
+
+      <!-- 科学配比进度条 (复用系统标准 dash-ratio-bar) -->
+      <view class="dash-ratio-bar">
+        <view class="bar-track">
+          <view class="bar-fill-blue" style="width: 48%;"></view>
+          <view class="bar-fill-amber" style="width: 30%;"></view>
+        </view>
+        <view class="ratio-labels">
+          <view class="label-item">
+            <view class="dot dot-blue"></view>
+            <text class="ratio-txt">主材: ¥{{renovBudgetResult.breakdown[0].amount}} (48%)</text>
+          </view>
+          <view class="label-item">
+            <view class="dot dot-amber"></view>
+            <text class="ratio-txt">施工人工: ¥{{renovBudgetResult.breakdown[1].amount}} (30%)</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">辅料工程 (14%)</text>
+          <text class="stat-val">¥{{renovBudgetResult.breakdown[2].amount}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">设计监理 (8%)</text>
+          <text class="stat-val">¥{{renovBudgetResult.breakdown[3].amount}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">平米造价</text>
+          <text class="stat-val highlight-amber">¥{{renovBudgetResult.unitPrice}}/㎡</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 2.2 瓷砖用量 ================= -->
+  <block wx:if="{{subTool === 'tile'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">铺贴总面积</text>
+          <text class="item-unit">㎡</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{tileArea}}"
+            bindinput="onTileAreaInput"
+            placeholder="60"
+          />
+          <text class="unit-text">㎡</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">常用瓷砖规格</text>
+          <text class="item-unit">{{tileLengthMm}} × {{tileWidthMm}} mm</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{tileLengthMm === 800 && tileWidthMm === 800 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onTileSpecSelect"
+            data-length="800"
+            data-width="800"
+          >
+            800×800 客厅大砖
+          </view>
+          <view
+            class="chip {{tileLengthMm === 1200 && tileWidthMm === 600 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onTileSpecSelect"
+            data-length="1200"
+            data-width="600"
+          >
+            600×1200 连纹大板
+          </view>
+          <view
+            class="chip {{tileLengthMm === 600 && tileWidthMm === 600 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onTileSpecSelect"
+            data-length="600"
+            data-width="600"
+          >
+            600×600 厨卫地砖
+          </view>
+          <view
+            class="chip {{tileLengthMm === 600 && tileWidthMm === 300 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onTileSpecSelect"
+            data-length="600"
+            data-width="300"
+          >
+            300×600 经典墙砖
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">单片单价 (选填)</text>
+          <text class="item-unit">元/片</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{tilePrice}}"
+            bindinput="onTilePriceInput"
+            placeholder="45"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{tileResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">建议采购瓷砖片数 (含{{tileResult.lossRatePercent}}%损耗)</text>
+        <t-tag size="small" theme="primary" variant="light">{{tileLengthMm}}×{{tileWidthMm}}mm</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{tileResult.actualPieces}}</text>
+        <text class="amount-unit">片 (约 {{tileResult.boxes}} 箱)</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>理论净需 {{tileResult.theoreticalPieces}} 片 · 留存补缝备用 {{tileResult.extraBackupPieces}} 片 · 单片 {{tileResult.singleTileArea}}㎡</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">理论净片数</text>
+          <text class="stat-val">{{tileResult.theoreticalPieces}} 片</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">采购整箱数</text>
+          <text class="stat-val">{{tileResult.boxes}} 箱</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">预计瓷砖花费</text>
+          <text class="stat-val highlight-amber">¥{{tileResult.totalCostFormatted}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 2.3 乳胶漆涂料 ================= -->
+  <block wx:if="{{subTool === 'paint'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">涂刷墙顶面净面积</text>
+          <text class="item-unit">㎡ (通常建筑面积 × 2.5)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{paintArea}}"
+            bindinput="onPaintAreaInput"
+            placeholder="120"
+          />
+          <text class="unit-text">㎡</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">包装规格</text>
+          <text class="item-unit">常用 5L 标准或 18L 大桶</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{paintBucketLiters === 5 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onPaintBucketChange"
+            data-liters="5"
+          >
+            5L 家用标准桶
+          </view>
+          <view
+            class="chip {{paintBucketLiters === 18 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onPaintBucketChange"
+            data-liters="18"
+          >
+            18L 大容量经济桶
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{paintResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">建议采购涂料桶数 (刷2遍)</text>
+        <t-tag size="small" theme="primary" variant="light">{{paintResult.bucketLiters}}L / 桶</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{paintResult.bucketsNeeded}}</text>
+        <text class="amount-unit">桶 (需 {{paintResult.litersNeeded}} 升)</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>墙顶净面积 {{paintResult.wallArea}}㎡ · 涂刷 2 遍总面积 {{paintResult.totalAreaToPaint}}㎡ · 理论涂布率 12㎡/L</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">涂刷总面积</text>
+          <text class="stat-val">{{paintResult.totalAreaToPaint}} ㎡</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">理论所需升数</text>
+          <text class="stat-val">{{paintResult.litersNeeded}} L</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">单桶规格</text>
+          <text class="stat-val">{{paintResult.bucketLiters}} L/桶</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 2.4 地板用量 ================= -->
+  <block wx:if="{{subTool === 'flooring'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">铺设房间面积</text>
+          <text class="item-unit">㎡</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{floorArea}}"
+            bindinput="onFloorAreaInput"
+            placeholder="40"
+          />
+          <text class="unit-text">㎡</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">铺设工艺</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{floorMethod === 'straight' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onFloorMethodChange"
+            data-method="straight"
+          >
+            工字平铺 (5%损耗)
+          </view>
+          <view
+            class="chip {{floorMethod === 'herringbone' ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onFloorMethodChange"
+            data-method="herringbone"
+          >
+            人字拼 / 鱼骨拼 (10%损耗)
+          </view>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">地板平米单价 (选填)</text>
+          <text class="item-unit">元/㎡</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{floorPrice}}"
+            bindinput="onFloorPriceInput"
+            placeholder="180"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{floorResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">建议采购地板面积</text>
+        <t-tag size="small" theme="primary" variant="light">{{floorResult.methodName}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{floorResult.actualTotalArea}}</text>
+        <text class="amount-unit">㎡ ({{floorResult.actualPieces}} 片 / {{floorResult.boxes}} 箱)</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>房间净面积 {{floorResult.roomArea}}㎡ · 损耗率 {{floorResult.lossRate}}% · 单片规格 1215×195mm</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">实际采购片数</text>
+          <text class="stat-val">{{floorResult.actualPieces}} 片</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">整箱数量</text>
+          <text class="stat-val">{{floorResult.boxes}} 箱</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">预计地板费用</text>
+          <text class="stat-val highlight-amber">¥{{floorResult.totalCostFormatted}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 2.5 窗帘用料 ================= -->
+  <block wx:if="{{subTool === 'curtain'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">窗户导轨净宽</text>
+          <text class="item-unit">米 (m)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{curtainWinWidth}}"
+            bindinput="onCurtainWidthInput"
+            placeholder="3.0"
+          />
+          <text class="unit-text">米</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">褶皱倍数</text>
+        </view>
+        <view class="category-chips">
+          <view
+            class="chip {{curtainFold === 2.0 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onCurtainFoldChange"
+            data-fold="2.0"
+          >
+            2.0 倍褶皱 (主流推荐)
+          </view>
+          <view
+            class="chip {{curtainFold === 2.5 ? 'chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="onCurtainFoldChange"
+            data-fold="2.5"
+          >
+            2.5 倍褶皱 (丰满垂坠)
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{curtainResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">窗帘购买米数建议 (定高2.8m门幅)</text>
+        <t-tag size="small" theme="primary" variant="light">{{curtainResult.foldRatio}}倍褶皱</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{curtainResult.fabricMetersNeeded}}</text>
+        <text class="amount-unit">米</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>导轨净宽 {{curtainResult.windowWidthM}}米 · 成品布宽 {{curtainResult.finishedWidth}}米 · 含卷边余量 0.3米</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">导轨净宽</text>
+          <text class="stat-val">{{curtainResult.windowWidthM}} 米</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">褶皱倍数</text>
+          <text class="stat-val">{{curtainResult.foldRatio}} 倍</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">成品总布宽</text>
+          <text class="stat-val">{{curtainResult.finishedWidth}} 米</text>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

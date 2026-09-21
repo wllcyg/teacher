@@ -51,6 +51,26 @@
           <t-icon name="secured" size="30rpx" color="#00288E" />
           <text class="chip-text">五险一金</text>
         </view>
+        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="saving" data-tab="compound">
+          <t-icon name="chart-line-data" size="30rpx" color="#7C3AED" />
+          <text class="chip-text">复利定投</text>
+        </view>
+        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="saving" data-tab="fire">
+          <t-icon name="chart-bubble" size="30rpx" color="#7C3AED" />
+          <text class="chip-text">FIRE自由</text>
+        </view>
+        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="life" data-tab="job">
+          <t-icon name="user" size="30rpx" color="#0891B2" />
+          <text class="chip-text">延迟退休</text>
+        </view>
+        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="life" data-tab="renovation">
+          <t-icon name="view-module" size="30rpx" color="#0891B2" />
+          <text class="chip-text">装修预算</text>
+        </view>
+        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="insurance" data-tab="critical">
+          <t-icon name="secured" size="30rpx" color="#E11D48" />
+          <text class="chip-text">重疾保额</text>
+        </view>
       </view>
     </scroll-view>
   </view>
@@ -129,7 +149,7 @@
         </view>
         <view class="card-bottom">
           <text class="card-title">生活日常</text>
-          <text class="card-desc">实时汇率 / 水电阶梯</text>
+          <text class="card-desc">延迟退休 / 装修预算</text>
         </view>
       </view>
 
@@ -143,7 +163,7 @@
         </view>
         <view class="card-bottom">
           <text class="card-title">保险测算</text>
-          <text class="card-desc">养老退休 / 商业重疾</text>
+          <text class="card-desc">重疾保额 / 寿险 / 医保自费</text>
         </view>
       </view>
     </view>

@@ -1,0 +1,256 @@
+<!-- components/calc-mortgage/calc-mortgage.wxml -->
+<view class="page-body">
+  <!-- 1. 顶部贷款类型切换 Segmented Tabs -->
+  <view class="segmented-control card-shadow">
+    <view
+      class="segment-btn {{loanType === 'commercial' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onLoanTypeChange"
+      data-type="commercial"
+    >
+      商业贷款
+    </view>
+    <view
+      class="segment-btn {{loanType === 'fund' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onLoanTypeChange"
+      data-type="fund"
+    >
+      公积金贷款
+    </view>
+    <view
+      class="segment-btn {{loanType === 'combination' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onLoanTypeChange"
+      data-type="combination"
+    >
+      组合贷款
+    </view>
+  </view>
+
+  <!-- 2. 核心参数输入表单卡片 -->
+  <view class="form-card card-shadow">
+    <!-- 商贷金额 (商业贷或组合贷模式) -->
+    <view wx:if="{{loanType !== 'fund'}}" class="form-item">
+      <view class="item-header">
+        <text class="item-label">商业贷款金额</text>
+        <text class="item-unit">单位：万元</text>
+      </view>
+      <view class="input-wrap">
+        <input
+          class="amount-input"
+          type="digit"
+          confirm-type="done"
+          value="{{commercialAmount}}"
+          bindinput="onCommAmountInput"
+          bindconfirm="onConfirmInput"
+          bindblur="onBlurInput"
+          placeholder="0"
+        />
+        <text class="unit-text">万</text>
+      </view>
+    </view>
+
+    <!-- 公积金金额 (公积金贷或组合贷模式) -->
+    <view wx:if="{{loanType !== 'commercial'}}" class="form-item">
+      <view class="item-header">
+        <text class="item-label">公积金贷款金额</text>
+        <text class="item-unit">单位：万元</text>
+      </view>
+      <view class="input-wrap">
+        <input
+          class="amount-input"
+          type="digit"
+          confirm-type="done"
+          value="{{fundAmount}}"
+          bindinput="onFundAmountInput"
+          bindconfirm="onConfirmInput"
+          bindblur="onBlurInput"
+          placeholder="0"
+        />
+        <text class="unit-text">万</text>
+      </view>
+    </view>
+
+    <!-- 贷款年限 -->
+    <view class="form-item">
+      <view class="item-header">
+        <text class="item-label">按揭贷款年限</text>
+        <text class="item-unit">期数：{{years * 12}} 期</text>
+      </view>
+      <view class="year-chips">
+        <view
+          class="chip {{years === 10 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="selectYears"
+          data-years="10"
+        >
+          10年(120期)
+        </view>
+        <view
+          class="chip {{years === 20 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="selectYears"
+          data-years="20"
+        >
+          20年(240期)
+        </view>
+        <view
+          class="chip {{years === 30 ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="selectYears"
+          data-years="30"
+        >
+          30年(360期)
+        </view>
+      </view>
+    </view>
+
+    <!-- 商贷利率 -->
+    <view wx:if="{{loanType !== 'fund'}}" class="form-item">
+      <view class="item-header">
+        <text class="item-label">商贷执行利率 (LPR基准)</text>
+        <text class="item-action" bindtap="fillLatestLPR">最新基准 {{latestLprRate}}%</text>
+      </view>
+      <view class="input-wrap">
+        <input
+          class="amount-input"
+          type="digit"
+          confirm-type="done"
+          value="{{commercialRate}}"
+          bindinput="onCommRateInput"
+          bindconfirm="onConfirmInput"
+          bindblur="onBlurInput"
+          placeholder="3.10"
+        />
+        <text class="unit-text">%</text>
+      </view>
+    </view>
+
+    <!-- 还款方式 -->
+    <view class="form-item">
+      <view class="item-header">
+        <text class="item-label">还款计算方式</text>
+      </view>
+      <view class="type-segmented">
+        <view
+          class="type-btn {{repaymentType === 'equal_installment' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onRepaymentTypeChange"
+          data-type="equal_installment"
+        >
+          等额本息 (每月还款固定)
+        </view>
+        <view
+          class="type-btn {{repaymentType === 'equal_principal' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onRepaymentTypeChange"
+          data-type="equal_principal"
+        >
+          等额本金 (逐月递减)
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 3. 房贷结果看板 -->
+  <view wx:if="{{mortgageResult}}" class="result-dashboard card-shadow-lg">
+    <view class="dash-header">
+      <text class="dash-subtitle">
+        {{mortgageResult.repaymentType === 'equal_installment' ? '等额本息 · 每月固定还款' : '等额本金 · 首月还款最高'}}
+      </text>
+      <t-tag size="small" theme="primary" variant="light">精准测算</t-tag>
+    </view>
+
+    <view class="dash-main-amount">
+      <text class="amount-symbol">¥</text>
+      <text class="amount-integer">{{mortgageResult.monthlyPaymentFirst}}</text>
+      <text class="amount-unit">/月</text>
+    </view>
+
+    <view wx:if="{{mortgageResult.repaymentType === 'equal_principal'}}" class="dash-sub-decrease">
+      <text>每月递减约 ¥{{mortgageResult.monthlyPaymentDecrease}} 元 · 末月月供约 ¥{{mortgageResult.monthlyPaymentLast}} 元</text>
+    </view>
+
+    <view class="dash-ratio-bar">
+      <view class="bar-track">
+        <view class="bar-fill-blue" style="width: {{mortgageResult.principalPercent}}%"></view>
+        <view class="bar-fill-amber" style="width: {{mortgageResult.interestPercent}}%"></view>
+      </view>
+      <view class="ratio-labels">
+        <view class="label-item">
+          <view class="dot dot-blue"></view>
+          <text class="ratio-txt">贷款本金: {{mortgageResult.totalPrincipalWan}}万 ({{mortgageResult.principalPercent}}%)</text>
+        </view>
+        <view class="label-item">
+          <view class="dot dot-amber"></view>
+          <text class="ratio-txt">利息总额: {{mortgageResult.totalInterestWan}}万 ({{mortgageResult.interestPercent}}%)</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="dash-stats-grid">
+      <view class="stat-col">
+        <text class="stat-label">还款总额</text>
+        <text class="stat-val">¥{{mortgageResult.totalRepaymentWan}}<text class="stat-unit">万</text></text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">累计利息</text>
+        <text class="stat-val highlight-amber">¥{{mortgageResult.totalInterestWan}}<text class="stat-unit">万</text></text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">按揭期数</text>
+        <text class="stat-val">{{mortgageResult.totalMonths}}<text class="stat-unit">期</text></text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 4. 房贷快捷入口 -->
+  <view class="action-card-group">
+    <view class="action-entry card-shadow" hover-class="touch-active" bindtap="toggleSchedulePopup">
+      <view class="entry-left">
+        <t-icon name="view-list" size="40rpx" color="#00288E" />
+        <view class="entry-texts">
+          <text class="entry-title">查看 {{mortgageResult.totalMonths}} 期逐月还款明细表</text>
+          <text class="entry-sub">本金、利息与剩余本金全量账单</text>
+        </view>
+      </view>
+      <t-icon name="chevron-right" size="36rpx" color="#94A3B8" />
+    </view>
+  </view>
+
+  <!-- 5. 房贷 360 期逐月还款明细半屏抽屉 -->
+  <t-popup visible="{{showSchedulePopup}}" placement="bottom" bind:visible-change="toggleSchedulePopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">{{mortgageResult.years}}年全周期还款计划表</text>
+          <text class="drawer-sub">严格执行银行级本息平账校验</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleSchedulePopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="schedule-thead">
+        <text class="th th-month">期数</text>
+        <text class="th th-pay">月供(元)</text>
+        <text class="th th-prin">偿还本金</text>
+        <text class="th th-inte">偿还利息</text>
+        <text class="th th-rest">剩余本金</text>
+      </view>
+
+      <scroll-view class="schedule-scroll" scroll-y enable-flex>
+        <view wx:for="{{mortgageResult.schedule}}" wx:key="month" class="schedule-row {{item.month % 12 === 0 ? 'row-year-end' : ''}}">
+          <text class="td td-month">{{item.yearIndex}}年{{item.monthInYear}}月</text>
+          <text class="td td-pay font-bold">¥{{item.monthlyPayment}}</text>
+          <text class="td td-prin">¥{{item.principal}}</text>
+          <text class="td td-inte text-muted">¥{{item.interest}}</text>
+          <text class="td td-rest text-muted">¥{{item.remainingPrincipal}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

@@ -1,0 +1,310 @@
+<view class="daily-health-wrap">
+  <!-- 1. 子工具切换 -->
+  <view class="type-segmented form-item">
+    <view
+      class="type-btn {{subTool === 'bmi' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="bmi"
+    >
+      BMI健康评测
+    </view>
+    <view
+      class="type-btn {{subTool === 'pregnancy' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="pregnancy"
+    >
+      孕期预产期
+    </view>
+    <view
+      class="type-btn {{subTool === 'anniversary' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="anniversary"
+    >
+      纪念日计算
+    </view>
+    <view
+      class="type-btn {{subTool === 'wedding' ? 'type-active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSubToolChange"
+      data-tool="wedding"
+    >
+      婚礼全流程预算
+    </view>
+  </view>
+
+  <!-- ================= 4.1 BMI 评测 ================= -->
+  <block wx:if="{{subTool === 'bmi'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">身高</text>
+          <text class="item-unit">厘米 (cm)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="number"
+            value="{{bmiHeight}}"
+            bindinput="onBmiHeightInput"
+            placeholder="172"
+          />
+          <text class="unit-text">cm</text>
+        </view>
+      </view>
+
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">体重</text>
+          <text class="item-unit">公斤 (kg)</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{bmiWeight}}"
+            bindinput="onBmiWeightInput"
+            placeholder="65"
+          />
+          <text class="unit-text">kg</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 结果看板 (标准白底卡片) -->
+    <view wx:if="{{bmiResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">身体质量指数 (BMI)</text>
+        <t-tag size="small" theme="primary" variant="light">{{bmiResult.levelLabel}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{bmiResult.bmi}}</text>
+        <text class="amount-unit">kg/m²</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>{{bmiResult.diffAdvice}} · 理想健康区间 {{bmiResult.idealMinWeight}} ~ {{bmiResult.idealMaxWeight}} kg</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">黄金健康范围</text>
+          <text class="stat-val">{{bmiResult.idealMinWeight}}~{{bmiResult.idealMaxWeight}} kg</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">健康判定</text>
+          <text class="stat-val color-green">{{bmiResult.levelLabel}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">体型标准</text>
+          <text class="stat-val highlight-amber">中国成人指南</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 4.2 孕期预产期 ================= -->
+  <block wx:if="{{subTool === 'pregnancy'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">末次月经第 1 天 (LMP)</text>
+          <text class="item-unit">公历日期</text>
+        </view>
+        <picker mode="date" value="{{lmpDate}}" bindchange="onLmpDateChange">
+          <view class="picker-display">
+            <text class="picker-value font-bold">{{lmpDate}}</text>
+            <t-icon name="calendar" size="32rpx" color="#00288E" />
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view wx:if="{{pregnancyResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">预产日倒计时 (Due Date)</text>
+        <t-tag size="small" theme="primary" variant="light">{{pregnancyResult.trimester}}</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{pregnancyResult.dueDateString}}</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>当前孕周 {{pregnancyResult.currentWeek}} 周 {{pregnancyResult.currentDaysInWeek}} 天 · 距离出生还剩 {{pregnancyResult.daysRemaining}} 天 · 孕程已过 {{pregnancyResult.progressPercent}}%</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">当前孕周</text>
+          <text class="stat-val">{{pregnancyResult.currentWeek}}周{{pregnancyResult.currentDaysInWeek}}天</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">距预产期</text>
+          <text class="stat-val highlight-amber">{{pregnancyResult.daysRemaining}} 天</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">孕周阶段</text>
+          <text class="stat-val">{{pregnancyResult.trimester}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 产检时间轴抽屉入口 -->
+    <view class="action-card-group">
+      <view class="action-entry card-shadow" hover-class="touch-active" bindtap="togglePregnancyMilestonePopup">
+        <view class="entry-left">
+          <t-icon name="view-module" size="40rpx" color="#00288E" />
+          <view class="entry-texts">
+            <text class="entry-title">孕期 6 大核心产检时间轴</text>
+            <text class="entry-desc">早期建档NT、中期唐筛、大排畸四维、OGTT糖耐及胎心监护节点</text>
+          </view>
+        </view>
+        <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 4.3 纪念日计算 ================= -->
+  <block wx:if="{{subTool === 'anniversary'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">相伴起点日期</text>
+          <text class="item-unit">恋爱日 / 领证日 / 婚礼日</text>
+        </view>
+        <picker mode="date" value="{{annivDate}}" bindchange="onAnnivDateChange">
+          <view class="picker-display">
+            <text class="picker-value font-bold">{{annivDate}}</text>
+            <t-icon name="calendar" size="32rpx" color="#00288E" />
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view wx:if="{{annivResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">相伴累计时光</text>
+        <t-tag size="small" theme="primary" variant="light">{{annivResult.yearsPassed}} 年携手旅程</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-integer">{{annivResult.daysPassed}}</text>
+        <text class="amount-unit">天</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>下个百天里程碑：第 {{annivResult.nextHundredDays}} 天 (还剩 {{annivResult.daysToNextHundred}} 天) · 下个婚姻阶段：{{annivResult.nextWeddingMilestone.name}}</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">相守总年数</text>
+          <text class="stat-val">{{annivResult.yearsPassed}} 年</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">下个百天</text>
+          <text class="stat-val highlight-amber">还剩{{annivResult.daysToNextHundred}}天</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">婚姻纪念阶段</text>
+          <text class="stat-val">{{annivResult.nextWeddingMilestone.name}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ================= 4.4 婚礼全流程预算 ================= -->
+  <block wx:if="{{subTool === 'wedding'}}">
+    <view class="form-card card-shadow">
+      <view class="form-item">
+        <view class="item-header">
+          <text class="item-label">婚礼筹备总预算</text>
+          <text class="item-unit">元</text>
+        </view>
+        <view class="input-wrap">
+          <input
+            class="amount-input"
+            type="digit"
+            value="{{weddingBudget}}"
+            bindinput="onWeddingBudgetInput"
+            placeholder="150000"
+          />
+          <text class="unit-text">元</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{weddingResult}}" class="result-dashboard card-shadow-lg">
+      <view class="dash-header">
+        <text class="dash-subtitle">婚礼全流程预算科学配比</text>
+        <t-tag size="small" theme="primary" variant="light">总计 {{weddingResult.totalBudgetWan}} 万元</t-tag>
+      </view>
+
+      <view class="dash-main-amount">
+        <text class="amount-symbol">¥</text>
+        <text class="amount-integer">{{weddingResult.totalBudgetFormatted}}</text>
+        <text class="amount-unit">元</text>
+      </view>
+
+      <view class="dash-sub-decrease">
+        <text>婚宴酒席占 45% · 婚庆策划占 15% · 婚纱摄影占 12% · 珠宝对戒占 10%</text>
+      </view>
+
+      <view class="dash-stats-grid">
+        <view class="stat-col">
+          <text class="stat-label">婚宴酒席 (45%)</text>
+          <text class="stat-val">¥{{weddingResult.items[0].amountFormatted}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">婚庆策划 (15%)</text>
+          <text class="stat-val">¥{{weddingResult.items[1].amountFormatted}}</text>
+        </view>
+        <view class="stat-divider"></view>
+        <view class="stat-col">
+          <text class="stat-label">礼服摄影 (12%)</text>
+          <text class="stat-val">¥{{weddingResult.items[2].amountFormatted}}</text>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <!-- 产检时间轴抽屉 -->
+  <t-popup visible="{{showPregnancyMilestonePopup}}" placement="bottom" bind:visible-change="togglePregnancyMilestonePopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">孕期 6 大核心产检时间轴</text>
+          <text class="drawer-sub">科学产检 · 保驾护航</text>
+        </view>
+        <view class="drawer-close" bindtap="togglePregnancyMilestonePopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="schedule-thead">
+        <text class="th th-month">孕周</text>
+        <text class="th th-pay">核心项目</text>
+        <text class="th th-inte">检查要点</text>
+      </view>
+
+      <scroll-view class="schedule-scroll" scroll-y enable-flex>
+        <view wx:for="{{pregnancyResult.milestones}}" wx:key="week" class="schedule-row">
+          <text class="td td-month font-bold">{{item.week}} 周</text>
+          <text class="td td-pay font-bold">{{item.title}}</text>
+          <text class="td td-inte">{{item.desc}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+</view>

@@ -1,0 +1,488 @@
+<!-- components/calc-salary/calc-salary.wxml -->
+<view class="page-body">
+  <!-- 1. 顶部模式切换 (正算 / 倒推) -->
+  <view class="segmented-control card-shadow">
+    <view
+      class="segment-btn {{salaryMode === 'forward' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSalaryModeChange"
+      data-mode="forward"
+    >
+      税前算税后 (累计预扣)
+    </view>
+    <view
+      class="segment-btn {{salaryMode === 'reverse' ? 'active' : ''}}"
+      hover-class="touch-active"
+      bindtap="onSalaryModeChange"
+      data-mode="reverse"
+    >
+      税后倒推税前 (精准反解)
+    </view>
+  </view>
+
+  <!-- 2. 核心输入卡片 -->
+  <view class="form-card card-shadow">
+    <!-- 城市选择横滑 -->
+    <view class="form-item">
+      <view class="item-header">
+        <text class="item-label">参保城市 (自动匹配社保基数与比例)</text>
+      </view>
+      <scroll-view class="city-scroll no-scrollbar" scroll-x enable-flex>
+        <view class="city-chips">
+          <view
+            wx:for="{{cityList}}"
+            wx:key="key"
+            class="city-chip {{selectedCityKey === item.key ? 'city-chip-active' : ''}}"
+            hover-class="touch-active"
+            bindtap="selectCity"
+            data-key="{{item.key}}"
+          >
+            {{item.name}}
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 正算法: 输入税前月薪 -->
+    <view wx:if="{{salaryMode === 'forward'}}" class="form-item">
+      <view class="item-header">
+        <text class="item-label">税前月薪金额</text>
+        <text class="item-unit">单位：元/月</text>
+      </view>
+      <view class="input-wrap">
+        <input
+          class="amount-input"
+          type="digit"
+          value="{{preTaxSalary}}"
+          bindinput="onPreTaxSalaryInput"
+          bindconfirm="onConfirmInput"
+          bindblur="onBlurInput"
+          placeholder="0"
+        />
+        <text class="unit-text">元</text>
+      </view>
+      <view class="quick-presets">
+        <view
+          wx:for="{{[10000, 15000, 20000, 30000, 50000]}}"
+          wx:key="*this"
+          class="chip {{preTaxSalary === item ? 'chip-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="selectSalaryPreset"
+          data-val="{{item}}"
+        >
+          {{item / 1000}}k
+        </view>
+      </view>
+    </view>
+
+    <!-- 倒推法: 输入期望税后到手月薪 -->
+    <view wx:if="{{salaryMode === 'reverse'}}" class="form-item">
+      <view class="item-header">
+        <text class="item-label">期望税后到手月薪</text>
+        <text class="item-unit">单位：元/月</text>
+      </view>
+      <view class="input-wrap">
+        <input
+          class="amount-input"
+          type="digit"
+          value="{{targetNetSalary}}"
+          bindinput="onTargetNetInput"
+          bindconfirm="onConfirmInput"
+          bindblur="onBlurInput"
+          placeholder="0"
+        />
+        <text class="unit-text">元</text>
+      </view>
+    </view>
+
+    <!-- 五险一金 & 专项附加扣除 设置入口条 -->
+    <view class="config-entries">
+      <view class="config-bar" hover-class="touch-active" bindtap="toggleSocialDetailPopup">
+        <view class="bar-left">
+          <t-icon name="secured" size="36rpx" color="#00288E" />
+          <view class="bar-info">
+            <text class="bar-title">五险一金配置 ({{salaryResult.cityName}})</text>
+            <text class="bar-sub">个人缴纳 ¥{{salaryResult.socialRes.personal.formatTotal}} · 单位承担 ¥{{salaryResult.socialRes.company.formatTotal}}</text>
+          </view>
+        </view>
+        <t-icon name="chevron-right" size="32rpx" color="#94A3B8" />
+      </view>
+
+      <view class="config-bar" hover-class="touch-active" bindtap="toggleSpecialDeductionPopup">
+        <view class="bar-left">
+          <t-icon name="view-module" size="36rpx" color="#059669" />
+          <view class="bar-info">
+            <text class="bar-title">7大专项附加扣除</text>
+            <text class="bar-sub">当前已抵扣 ¥{{specialDeductionSummary.monthlyTotal}}元/月</text>
+          </view>
+        </view>
+        <t-icon name="chevron-right" size="32rpx" color="#94A3B8" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 3. 工资个税结果看板 -->
+  <view wx:if="{{salaryMode === 'forward' && salaryResult}}" class="result-dashboard card-shadow-lg">
+    <view class="dash-header">
+      <text class="dash-subtitle">首月实发工资 (税后到手)</text>
+      <t-tag size="small" theme="success" variant="light">累计预扣算法</t-tag>
+    </view>
+
+    <view class="dash-main-amount">
+      <text class="amount-symbol">¥</text>
+      <text class="amount-integer">{{salaryResult.firstMonth.formatNetSalary}}</text>
+      <text class="amount-unit">/月</text>
+    </view>
+
+    <view class="dash-sub-decrease">
+      <text>首月扣税 ¥{{salaryResult.firstMonth.formatTax}} ({{salaryResult.firstMonth.taxRate}}%) · 五险一金 ¥{{salaryResult.socialRes.personal.formatTotal}}</text>
+    </view>
+
+    <view class="dash-stats-grid">
+      <view class="stat-col">
+        <text class="stat-label">全年税后总计</text>
+        <text class="stat-val">¥{{salaryResult.annualSummary.formatTotalAnnualNet}}</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">全年应缴个税</text>
+        <text class="stat-val highlight-amber">¥{{salaryResult.annualSummary.formatTotalAnnualTax}}</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">企业用工成本</text>
+        <text class="stat-val">¥{{salaryResult.annualSummary.formatTotalAnnualCompanyCost}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{salaryMode === 'reverse' && reverseResult}}" class="result-dashboard card-shadow-lg">
+    <view class="dash-header">
+      <text class="dash-subtitle">反解税前应发月薪建议</text>
+      <t-tag size="small" theme="primary" variant="light">二分法数值迭代</t-tag>
+    </view>
+
+    <view class="dash-main-amount">
+      <text class="amount-symbol">¥</text>
+      <text class="amount-integer">{{reverseResult.formatPreTaxSalary}}</text>
+      <text class="amount-unit">/月</text>
+    </view>
+
+    <view class="dash-sub-decrease">
+      <text>期望税后 ¥{{reverseResult.formatTargetNet}} · 首月实发 ¥{{reverseResult.detail.firstMonth.formatNetSalary}}</text>
+    </view>
+
+    <view class="dash-stats-grid">
+      <view class="stat-col">
+        <text class="stat-label">预估个税</text>
+        <text class="stat-val highlight-amber">¥{{reverseResult.detail.firstMonth.formatTax}}</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">五险一金扣除</text>
+        <text class="stat-val">¥{{reverseResult.detail.socialRes.personal.formatTotal}}</text>
+      </view>
+      <view class="stat-divider"></view>
+      <view class="stat-col">
+        <text class="stat-label">单位总成本</text>
+        <text class="stat-val">¥{{reverseResult.detail.annualSummary.formatTotalAnnualCompanyCost}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 4. 工资个税增值入口 -->
+  <view class="action-card-group">
+    <view class="action-entry card-shadow" hover-class="touch-active" bindtap="toggleSalarySchedulePopup">
+      <view class="entry-left">
+        <t-icon name="chart-bubble" size="40rpx" color="#00288E" />
+        <view class="entry-texts">
+          <text class="entry-title">查看 1~12 月逐月预扣明细 (跳档推演)</text>
+          <text class="entry-sub">洞察下半年个税跳档及各月实际到手波动</text>
+        </view>
+      </view>
+      <t-icon name="chevron-right" size="36rpx" color="#94A3B8" />
+    </view>
+
+    <view class="action-entry card-shadow" hover-class="touch-active" bindtap="goToCompare">
+      <view class="entry-left">
+        <t-icon name="swap" size="40rpx" color="#059669" />
+        <view class="entry-texts">
+          <text class="entry-title">年终奖单独计税 vs 合并计税筹划</text>
+          <text class="entry-sub">测算年终奖避税临界点与最优发放建议</text>
+        </view>
+      </view>
+      <t-icon name="chevron-right" size="36rpx" color="#94A3B8" />
+    </view>
+
+    <view class="sub-tools-row">
+      <view class="sub-tool-card card-shadow" hover-class="touch-active" bindtap="openSubTool" data-tool="overtime">
+        <t-icon name="time" size="36rpx" color="#D97706" />
+        <text class="tool-title">加班费计算器</text>
+        <text class="tool-sub">工作日/周末/法定节假日</text>
+      </view>
+      <view class="sub-tool-card card-shadow" hover-class="touch-active" bindtap="openSubTool" data-tool="severance">
+        <t-icon name="user" size="36rpx" color="#7C3AED" />
+        <text class="tool-title">离职补偿金 N+1</text>
+        <text class="tool-sub">3倍社平免税合规测算</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 5. 弹窗区 -->
+  <!-- 5.1 工资 1~12 月逐月预扣明细抽屉 -->
+  <t-popup visible="{{showSalarySchedulePopup}}" placement="bottom" bind:visible-change="toggleSalarySchedulePopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">1~12 月全景累计预扣税明细表</text>
+          <text class="drawer-sub">清晰洞察各月份跳档及实发工资变动</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleSalarySchedulePopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="schedule-thead">
+        <text class="th th-month">月份</text>
+        <text class="th th-pay">实发工资</text>
+        <text class="th th-prin">当月个税</text>
+        <text class="th th-inte">税率档位</text>
+        <text class="th th-rest">累计应税额</text>
+      </view>
+
+      <scroll-view class="schedule-scroll" scroll-y enable-flex>
+        <view wx:for="{{salaryResult.schedule}}" wx:key="month" class="schedule-row">
+          <text class="td td-month">{{item.monthName}}</text>
+          <text class="td td-pay font-bold color-green">¥{{item.formatNetSalary}}</text>
+          <text class="td td-prin">¥{{item.formatTax}}</text>
+          <text class="td td-inte {{item.taxRate > 3 ? 'color-amber' : ''}}">{{item.taxRate}}%</text>
+          <text class="td td-rest text-muted">¥{{item.accTaxable}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+
+  <!-- 5.2 五险一金明细弹窗抽屉 -->
+  <t-popup visible="{{showSocialDetailPopup}}" placement="bottom" bind:visible-change="toggleSocialDetailPopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">{{salaryResult.cityName}} 五险一金缴纳明细</text>
+          <text class="drawer-sub">社保基数：¥{{salaryResult.socialRes.socialBase}} · 公积金基数：¥{{salaryResult.socialRes.fundBase}}</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleSocialDetailPopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="social-table">
+        <view class="social-row social-head">
+          <text class="s-col flex-2">缴纳险种</text>
+          <text class="s-col flex-1 text-center">个人部分</text>
+          <text class="s-col flex-1 text-center">企业部分</text>
+        </view>
+        <view class="social-row">
+          <text class="s-col flex-2">养老保险</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.personal.pension}}</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.company.pension}}</text>
+        </view>
+        <view class="social-row">
+          <text class="s-col flex-2">医疗保险 (含生育)</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.personal.medical}}</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.company.medical}}</text>
+        </view>
+        <view class="social-row">
+          <text class="s-col flex-2">失业保险</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.personal.unemployment}}</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.company.unemployment}}</text>
+        </view>
+        <view class="social-row">
+          <text class="s-col flex-2">工伤保险</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.personal.injury}}</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.company.injury}}</text>
+        </view>
+        <view class="social-row">
+          <text class="s-col flex-2">住房公积金 ({{customFundRatePercent}}%)</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.personal.fund}}</text>
+          <text class="s-col flex-1 text-center">¥{{salaryResult.socialRes.company.fund}}</text>
+        </view>
+        <view class="social-row social-total">
+          <text class="s-col flex-2 font-bold">合计缴纳</text>
+          <text class="s-col flex-1 text-center font-bold color-amber">¥{{salaryResult.socialRes.personal.formatTotal}}</text>
+          <text class="s-col flex-1 text-center font-bold">¥{{salaryResult.socialRes.company.formatTotal}}</text>
+        </view>
+      </view>
+
+      <view class="fund-rate-setter">
+        <text class="setter-label">调整公积金缴存比例：</text>
+        <view class="rate-chips">
+          <view
+            wx:for="{{[5, 7, 8, 10, 12]}}"
+            wx:key="*this"
+            class="rate-chip {{customFundRatePercent === item ? 'rate-chip-active' : ''}}"
+            bindtap="selectFundRate"
+            data-rate="{{item}}"
+          >
+            {{item}}%
+          </view>
+        </view>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 5.3 7大专项附加扣除配置弹窗 -->
+  <t-popup visible="{{showSpecialDeductionPopup}}" placement="bottom" bind:visible-change="toggleSpecialDeductionPopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">个税专项附加扣除申报</text>
+          <text class="drawer-sub">国家法定 7 大专项扣除 · 自动计入每月应税减免</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleSpecialDeductionPopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <scroll-view class="special-list" scroll-y enable-flex>
+        <view class="special-item">
+          <view class="item-text">
+            <text class="item-name">3岁以下婴幼儿照护</text>
+            <text class="item-desc">2000元/月/孩</text>
+          </view>
+          <view class="stepper">
+            <view class="step-btn" bindtap="changeSpecialCount" data-field="babyCareCount" data-delta="-1">-</view>
+            <text class="step-num">{{babyCareCount}} 人</text>
+            <view class="step-btn" bindtap="changeSpecialCount" data-field="babyCareCount" data-delta="1">+</view>
+          </view>
+        </view>
+
+        <view class="special-item">
+          <view class="item-text">
+            <text class="item-name">子女教育</text>
+            <text class="item-desc">2000元/月/孩 (学前至博士教育)</text>
+          </view>
+          <view class="stepper">
+            <view class="step-btn" bindtap="changeSpecialCount" data-field="childEduCount" data-delta="-1">-</view>
+            <text class="step-num">{{childEduCount}} 人</text>
+            <view class="step-btn" bindtap="changeSpecialCount" data-field="childEduCount" data-delta="1">+</view>
+          </view>
+        </view>
+
+        <view class="special-item">
+          <view class="item-text">
+            <text class="item-name">赡养老人 (满60岁父母)</text>
+            <text class="item-desc">{{isOnlyChild ? '独生子女 3000元/月' : '非独生子女 1500元/月'}}</text>
+          </view>
+          <view class="toggle-chips">
+            <view class="chip {{isOnlyChild ? 'chip-active' : ''}}" bindtap="toggleOnlyChild" data-val="true">独生</view>
+            <view class="chip {{!isOnlyChild ? 'chip-active' : ''}}" bindtap="toggleOnlyChild" data-val="false">非独生</view>
+          </view>
+        </view>
+
+        <view class="special-item">
+          <view class="item-text">
+            <text class="item-name">住房贷款利息 / 租金</text>
+            <text class="item-desc">房贷1000元/月 · 房租1500元/月</text>
+          </view>
+          <view class="toggle-chips">
+            <view class="chip {{housingDeductionType === 'loan' ? 'chip-active' : ''}}" bindtap="selectHousingType" data-type="loan">首套房贷</view>
+            <view class="chip {{housingDeductionType === 'rent' ? 'chip-active' : ''}}" bindtap="selectHousingType" data-type="rent">租房</view>
+            <view class="chip {{housingDeductionType === 'none' ? 'chip-active' : ''}}" bindtap="selectHousingType" data-type="none">无</view>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="drawer-btn-wrap">
+        <view class="btn-confirm" hover-class="touch-active" bindtap="toggleSpecialDeductionPopup">
+          完成并测算
+        </view>
+      </view>
+    </view>
+  </t-popup>
+
+  <!-- 5.4 辅助工具弹窗 (加班费 / 离职补偿金) -->
+  <t-popup visible="{{activeSubTool !== 'none'}}" placement="bottom" bind:visible-change="closeSubTool">
+    <view wx:if="{{activeSubTool === 'overtime'}}" class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">法定加班费测算器</text>
+          <text class="drawer-sub">以月薪 ¥{{preTaxSalary}} 为基准，折算小时工资 ¥{{overtimeResult.formatHourSalary}}</text>
+        </view>
+        <view class="drawer-close" bindtap="closeSubTool">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="tool-content">
+        <view class="tool-input-row">
+          <text class="tool-label">工作日延时加班 (1.5倍)</text>
+          <view class="tool-input-wrap">
+            <input class="tool-input" type="number" value="{{overtimeWorkdayHours}}" bindinput="onOvertimeHoursInput" data-field="overtimeWorkdayHours" />
+            <text class="tool-unit">小时</text>
+          </view>
+        </view>
+
+        <view class="tool-input-row">
+          <text class="tool-label">休息日周末加班 (2.0倍)</text>
+          <view class="tool-input-wrap">
+            <input class="tool-input" type="number" value="{{overtimeWeekendHours}}" bindinput="onOvertimeHoursInput" data-field="overtimeWeekendHours" />
+            <text class="tool-unit">小时</text>
+          </view>
+        </view>
+
+        <view class="tool-input-row">
+          <text class="tool-label">法定节假日加班 (3.0倍)</text>
+          <view class="tool-input-wrap">
+            <input class="tool-input" type="number" value="{{overtimeHolidayHours}}" bindinput="onOvertimeHoursInput" data-field="overtimeHolidayHours" />
+            <text class="tool-unit">小时</text>
+          </view>
+        </view>
+
+        <view class="tool-result-box card-shadow">
+          <text class="r-label">预计应发加班费总额</text>
+          <text class="r-val color-amber">¥ {{overtimeResult.formatTotalOvertimePay}}</text>
+          <text class="r-tip">含加班费后月薪总额预计为 ¥{{overtimeResult.formatTotalSalaryWithOvertime}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{activeSubTool === 'severance'}}" class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">离职经济补偿金 (N / N+1) 测算</text>
+          <text class="drawer-sub">适用{{severanceResult.cityName}}标准 · 3倍社平免税基准：¥{{severanceResult.formatTaxFreeLimit}}</text>
+        </view>
+        <view class="drawer-close" bindtap="closeSubTool">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="tool-content">
+        <view class="tool-input-row">
+          <text class="tool-label">工作年限 (年)</text>
+          <view class="tool-input-wrap">
+            <input class="tool-input" type="digit" value="{{severanceYears}}" bindinput="onSeveranceInput" data-field="severanceYears" />
+            <text class="tool-unit">年</text>
+          </view>
+        </view>
+
+        <view class="tool-input-row">
+          <text class="tool-label">补偿方案类型</text>
+          <view class="toggle-chips">
+            <view class="chip {{!severanceIsNPlusOne ? 'chip-active' : ''}}" bindtap="toggleNPlusOne">标准 N</view>
+            <view class="chip {{severanceIsNPlusOne ? 'chip-active' : ''}}" bindtap="toggleNPlusOne">代通知金 N+1</view>
+          </view>
+        </view>
+
+        <view class="tool-result-box card-shadow">
+          <text class="r-label">实际到手经济补偿金</text>
+          <text class="r-val color-green">¥ {{severanceResult.formatNetSeverance}}</text>
+          <view class="r-detail-row">
+            <text>补偿金总额: ¥{{severanceResult.formatTotalSeverance}}</text>
+            <text>应扣个税: ¥{{severanceResult.formatTax}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </t-popup>
+</view>

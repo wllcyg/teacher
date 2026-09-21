@@ -1,0 +1,1130 @@
+<!-- components/calc-saving/calc-saving.wxml -->
+<view class="page-body">
+    <!-- 1. 顶部 4 大微场景切换 Segmented Tabs (统一采用主色激活态) -->
+    <view class="segmented-control card-shadow">
+      <view
+        class="segment-btn {{savingTab === 'compound' ? 'active' : ''}}"
+        hover-class="touch-active"
+        bindtap="onSavingTabChange"
+        data-tab="compound"
+      >
+        复利与定投
+      </view>
+      <view
+        class="segment-btn {{savingTab === 'fire' ? 'active' : ''}}"
+        hover-class="touch-active"
+        bindtap="onSavingTabChange"
+        data-tab="fire"
+      >
+        FIRE退休规划
+      </view>
+      <view
+        class="segment-btn {{savingTab === 'inflation' ? 'active' : ''}}"
+        hover-class="touch-active"
+        bindtap="onSavingTabChange"
+        data-tab="inflation"
+      >
+        通胀购买力
+      </view>
+      <view
+        class="segment-btn {{savingTab === 'yield' ? 'active' : ''}}"
+        hover-class="touch-active"
+        bindtap="onSavingTabChange"
+        data-tab="yield"
+      >
+        收益率换算
+      </view>
+    </view>
+
+    <!-- ================= 模式 1: 复利与定投 ================= -->
+    <view wx:if="{{savingTab === 'compound'}}">
+      <!-- 子模式选择 (统一采用 type-segmented 经典交互) -->
+      <view class="type-segmented form-item">
+        <view
+          class="type-btn {{compoundSubMode === 'universal' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onCompoundSubModeChange"
+          data-mode="universal"
+        >
+          通用复利追加
+        </view>
+        <view
+          class="type-btn {{compoundSubMode === 'aip' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onCompoundSubModeChange"
+          data-mode="aip"
+        >
+          基金定投
+        </view>
+        <view
+          class="type-btn {{compoundSubMode === 'deposit' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onCompoundSubModeChange"
+          data-mode="deposit"
+        >
+          银行存款
+        </view>
+      </view>
+
+      <!-- 1.1 通用复利追加表单 -->
+      <view wx:if="{{compoundSubMode === 'universal'}}" class="form-card card-shadow">
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">初始启动本金</text>
+            <text class="item-unit">一次性投入 (元)</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              confirm-type="done"
+              value="{{savingInitialPrincipal}}"
+              bindinput="onSavingPrincipalInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="0"
+            />
+            <text class="unit-text">元</text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">定期追加储蓄金额</text>
+            <text class="item-unit">持续滚存存入 (元)</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              confirm-type="done"
+              value="{{savingRegularAmount}}"
+              bindinput="onSavingRegularAmountInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+              placeholder="0"
+            />
+            <text class="unit-text">元</text>
+          </view>
+        </view>
+
+        <!-- 追加频率 -->
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">追加储蓄频率</text>
+          </view>
+          <view class="type-segmented">
+            <view
+              class="type-btn {{savingRegularFreq === 'monthly' ? 'type-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="onSavingRegularFreqChange"
+              data-freq="monthly"
+            >
+              每月追加
+            </view>
+            <view
+              class="type-btn {{savingRegularFreq === 'yearly' ? 'type-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="onSavingRegularFreqChange"
+              data-freq="yearly"
+            >
+              每年追加
+            </view>
+            <view
+              class="type-btn {{savingRegularFreq === 'none' ? 'type-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="onSavingRegularFreqChange"
+              data-freq="none"
+            >
+              不追加(纯利滚利)
+            </view>
+          </view>
+        </view>
+
+        <!-- 收益率与年限 -->
+        <view class="form-grid-2">
+          <view class="form-item">
+            <view class="item-header">
+              <text class="item-label">预期年化收益率</text>
+            </view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{savingAnnualRate}}"
+                bindinput="onSavingRateInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">%</text>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header">
+              <text class="item-label">投资复利年限</text>
+            </view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="number"
+                value="{{savingYears}}"
+                bindinput="onSavingYearsInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">年</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 1.2 基金定投表单 -->
+      <view wx:if="{{compoundSubMode === 'aip'}}" class="form-card card-shadow">
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">每期定投金额</text>
+            <text class="item-unit">单位：元</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{aipPeriodAmount}}"
+              bindinput="onAipAmountInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">元</text>
+          </view>
+        </view>
+
+        <view class="form-grid-2">
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">定投周期</text></view>
+            <view class="type-segmented">
+              <view class="type-btn {{aipCycle === 'month' ? 'type-active' : ''}}" bindtap="onAipCycleChange" data-cycle="month">按月扣款</view>
+              <view class="type-btn {{aipCycle === 'week' ? 'type-active' : ''}}" bindtap="onAipCycleChange" data-cycle="week">按周扣款</view>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">扣款时点</text></view>
+            <view class="type-segmented">
+              <view class="type-btn {{aipTiming === 'end' ? 'type-active' : ''}}" bindtap="onAipTimingChange" data-timing="end">期末扣款</view>
+              <view class="type-btn {{aipTiming === 'begin' ? 'type-active' : ''}}" bindtap="onAipTimingChange" data-timing="begin">期初扣款</view>
+            </view>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">预期年化收益率</text>
+            <text class="item-unit">参考配置一键填入</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{aipRate}}"
+              bindinput="onAipRateInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">%</text>
+          </view>
+          <view class="quick-presets">
+            <view
+              wx:for="{{aipPresets}}"
+              wx:key="rate"
+              class="chip {{aipRate === item.rate ? 'chip-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="onSelectAipRatePreset"
+              data-rate="{{item.rate}}"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header"><text class="item-label">定投年限</text></view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="number"
+              value="{{aipYears}}"
+              bindinput="onAipYearsInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">年</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 1.3 银行存款表单 -->
+      <view wx:if="{{compoundSubMode === 'deposit'}}" class="form-card card-shadow">
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">存款本金</text>
+            <text class="item-unit">元</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{depositPrincipal}}"
+              bindinput="onDepositPrincipalInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">元</text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">定期挂牌与大额存单基准利率</text>
+            <text class="item-unit">国有大行最新挂牌</text>
+          </view>
+          <view class="quick-presets">
+            <view class="chip" hover-class="touch-active" bindtap="onSelectBankRatePreset" data-key="term1Y">定存1年 1.10%</view>
+            <view class="chip" hover-class="touch-active" bindtap="onSelectBankRatePreset" data-key="term2Y">定存2年 1.20%</view>
+            <view class="chip" hover-class="touch-active" bindtap="onSelectBankRatePreset" data-key="term3Y">定存3年 1.50%</view>
+            <view class="chip" hover-class="touch-active" bindtap="onSelectCdRatePreset" data-key="cd3Y">大额存单 1.90%</view>
+            <view class="chip" hover-class="touch-active" bindtap="onSelectCdRatePreset" data-key="treasury3Y">国债3年 1.93%</view>
+          </view>
+        </view>
+
+        <view class="form-grid-2">
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">存款年利率</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{depositRate}}"
+                bindinput="onDepositRateInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">%</text>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">存期时长</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="number"
+                value="{{depositTermValue}}"
+                bindinput="onDepositTermValueInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">{{depositTermType === 'year' ? '年' : (depositTermType === 'month' ? '月' : '天')}}</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 复利计息开关 (符合标准卡片配置条) -->
+        <view class="config-bar" bindtap="onDepositCompoundToggle">
+          <view class="bar-left">
+            <t-icon name="swap" size="36rpx" color="#00288E" />
+            <view class="bar-info">
+              <text class="bar-title">利滚利复利计息 (按月滚存)</text>
+              <text class="bar-sub">适用于定期自动转存、红利再投或外币理财</text>
+            </view>
+          </view>
+          <t-switch value="{{depositIsCompound}}" />
+        </view>
+      </view>
+
+      <!-- 结果看板 1: 通用复利 (标准白底卡片) -->
+      <view wx:if="{{compoundSubMode === 'universal' && compoundResult}}" class="result-dashboard card-shadow-lg">
+        <view class="dash-header">
+          <text class="dash-subtitle">预期到期总资产 (含本息终值)</text>
+          <t-tag size="small" theme="primary" variant="light">复利积累 {{savingYears}} 年</t-tag>
+        </view>
+
+        <!-- 大字号主金额 -->
+        <view class="dash-main-amount">
+          <text class="amount-symbol">¥</text>
+          <text class="amount-integer">{{compoundResult.finalAssetFormatted}}</text>
+          <text class="amount-unit">元</text>
+        </view>
+
+        <view class="dash-sub-decrease">
+          <text>初始本金 ¥{{savingInitialPrincipal}} · 累计追加 ¥{{compoundResult.totalPrincipal - savingInitialPrincipal}} · 利息贡献率 {{compoundResult.interestContributionRate}}%</text>
+        </view>
+
+        <!-- 本息占比条 (严格使用标准的 dash-ratio-bar) -->
+        <view class="dash-ratio-bar">
+          <view class="bar-track">
+            <view class="bar-fill-blue" style="width: {{100 - compoundResult.interestContributionRate}}%;"></view>
+            <view class="bar-fill-amber" style="width: {{compoundResult.interestContributionRate}}%;"></view>
+          </view>
+          <view class="ratio-labels">
+            <view class="label-item">
+              <view class="dot dot-blue"></view>
+              <text class="ratio-txt">本金投入: ¥{{compoundResult.totalPrincipalFormatted}} ({{100 - compoundResult.interestContributionRate}}%)</text>
+            </view>
+            <view class="label-item">
+              <view class="dot dot-amber"></view>
+              <text class="ratio-txt">利息收益: ¥{{compoundResult.totalInterestFormatted}} ({{compoundResult.interestContributionRate}}%)</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 三列指标网格 -->
+        <view class="dash-stats-grid">
+          <view class="stat-col">
+            <text class="stat-label">累计本金投入</text>
+            <text class="stat-val">¥{{compoundResult.totalPrincipalFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">纯利息收益</text>
+            <text class="stat-val highlight-amber">+¥{{compoundResult.totalInterestFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">年化收益率</text>
+            <text class="stat-val font-bold color-green">{{savingAnnualRate}}%</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 快捷入口卡片 (标准 action-card-group) -->
+      <view wx:if="{{compoundSubMode === 'universal' && compoundResult}}" class="action-card-group">
+        <view class="action-entry card-shadow" hover-class="touch-active" bindtap="toggleCompoundSchedulePopup">
+          <view class="entry-left">
+            <t-icon name="view-list" size="40rpx" color="#00288E" />
+            <view class="entry-texts">
+              <text class="entry-title">查看 {{compoundResult.years}} 年逐年复利增长明细账单</text>
+              <text class="entry-sub">包含每年年初本金、追加、利息与年末总资产轨迹</text>
+            </view>
+          </view>
+          <t-icon name="chevron-right" size="36rpx" color="#94A3B8" />
+        </view>
+      </view>
+
+      <!-- 结果看板 2: 基金定投 (标准白底卡片) -->
+      <view wx:if="{{compoundSubMode === 'aip' && aipResult}}" class="result-dashboard card-shadow-lg">
+        <view class="dash-header">
+          <text class="dash-subtitle">定投到期总市值 ({{aipYears}}年/{{aipResult.totalPeriods}}期)</text>
+          <t-tag size="small" theme="success" variant="light">总收益率 +{{aipResult.returnRate}}%</t-tag>
+        </view>
+
+        <view class="dash-main-amount">
+          <text class="amount-symbol">¥</text>
+          <text class="amount-integer">{{aipResult.finalAssetFormatted}}</text>
+          <text class="amount-unit">元</text>
+        </view>
+
+        <view class="dash-sub-decrease">
+          <text>每期定投 ¥{{aipPeriodAmount}} · 定投 {{aipYears}} 年 (共 {{aipResult.totalPeriods}} 期) · 收益率 {{aipRate}}%</text>
+        </view>
+
+        <view class="dash-stats-grid">
+          <view class="stat-col">
+            <text class="stat-label">累计定投本金</text>
+            <text class="stat-val">¥{{aipResult.totalPrincipalFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">定投净赚收益</text>
+            <text class="stat-val highlight-amber">+¥{{aipResult.totalProfitFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">预期年化假设</text>
+            <text class="stat-val font-bold color-green">{{aipRate}}%</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{compoundSubMode === 'aip' && aipResult}}" class="action-card-group">
+        <view class="action-entry card-shadow" hover-class="touch-active" bindtap="toggleAipSensitivityPopup">
+          <view class="entry-left">
+            <t-icon name="swap" size="40rpx" color="#00288E" />
+            <view class="entry-texts">
+              <text class="entry-title">定投收益率敏感性阶梯分析 (±2%~4%)</text>
+              <text class="entry-sub">测算年化收益浮动时最终总资产的波动敏感度</text>
+            </view>
+          </view>
+          <t-icon name="chevron-right" size="36rpx" color="#94A3B8" />
+        </view>
+      </view>
+
+      <!-- 结果看板 3: 银行存款 (标准白底卡片) -->
+      <view wx:if="{{compoundSubMode === 'deposit' && depositResult}}" class="result-dashboard card-shadow-lg">
+        <view class="dash-header">
+          <text class="dash-subtitle">{{depositIsCompound ? '定期复利到期本息 (利滚利)' : '到期本息合计 (单利模型)'}}</text>
+          <t-tag size="small" theme="primary" variant="light">年利率 {{depositRate}}%</t-tag>
+        </view>
+
+        <view class="dash-main-amount">
+          <text class="amount-symbol">¥</text>
+          <text class="amount-integer">{{depositResult.totalAmountFormatted}}</text>
+          <text class="amount-unit">元</text>
+        </view>
+
+        <view class="dash-sub-decrease">
+          <text wx:if="{{depositIsCompound}}">
+            实际有效年利率 (APY) {{depositResult.effectiveAnnualRate}}% · 相比单利多赚 ¥{{depositResult.extraGainFormatted}}
+          </text>
+          <text wx:else>
+            日均产生利息约 ¥{{depositResult.dailyInterestFormatted}} · 总计收益率 {{depositResult.yieldPercent}}%
+          </text>
+        </view>
+
+        <view class="dash-stats-grid">
+          <view class="stat-col">
+            <text class="stat-label">到期纯利息</text>
+            <text class="stat-val highlight-amber">¥{{depositResult.totalInterestFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">{{depositIsCompound ? '有效年利率(APY)' : '日均利息'}}</text>
+            <text class="stat-val font-bold color-green">{{depositIsCompound ? (depositResult.effectiveAnnualRate + '%') : ('¥' + depositResult.dailyInterestFormatted)}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">{{depositIsCompound ? '复利额外增益' : '总收益率'}}</text>
+            <text class="stat-val font-bold {{depositIsCompound ? 'color-green' : ''}}">
+              {{depositIsCompound ? ('+¥' + depositResult.extraGainFormatted) : (depositResult.yieldPercent + '%')}}
+            </text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- ================= 模式 2: FIRE 财务自由 ================= -->
+    <view wx:if="{{savingTab === 'fire'}}">
+      <!-- 规则选择 (统一使用 type-segmented) -->
+      <view class="type-segmented form-item">
+        <view
+          class="type-btn {{fireRuleType === 'classic' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onFireRuleSelect"
+          data-rule="classic"
+        >
+          经典 FIRE (4%法则)
+        </view>
+        <view
+          class="type-btn {{fireRuleType === 'lean' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onFireRuleSelect"
+          data-rule="lean"
+        >
+          瘦 FIRE (极简 5%)
+        </view>
+        <view
+          class="type-btn {{fireRuleType === 'fat' ? 'type-active' : ''}}"
+          hover-class="touch-active"
+          bindtap="onFireRuleSelect"
+          data-rule="fat"
+        >
+          肥 FIRE (富足 3%)
+        </view>
+      </view>
+
+      <!-- FIRE 表单 -->
+      <view class="form-card card-shadow">
+        <view class="form-grid-2">
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">当前年龄</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="number"
+                value="{{fireCurrentAge}}"
+                bindinput="onFireAgeInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">岁</text>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">现有投资净资产</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{fireCurrentAssets}}"
+                bindinput="onFireAssetInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">元</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="form-grid-2">
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">当前每月到手收入</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{fireMonthlyIncome}}"
+                bindinput="onFireIncomeInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">元</text>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">当前月度实际支出</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{fireCurrentExpense}}"
+                bindinput="onFireCurrentExpenseInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">元</text>
+            </view>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">退休后期望月生活支出</text>
+            <text class="item-unit">根据开销反解所需资金</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{fireMonthlyExpense}}"
+              bindinput="onFireExpenseInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">元/月</text>
+          </view>
+          <view class="quick-presets">
+            <view
+              wx:for="{{fireExpensePresets}}"
+              wx:key="value"
+              class="chip {{fireMonthlyExpense === item.value ? 'chip-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="onSelectExpensePreset"
+              data-val="{{item.value}}"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <view class="form-grid-2">
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">预期投资年化收益</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{fireExpectedReturn}}"
+                bindinput="onFireReturnInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">%</text>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">长期通胀率预设</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{fireInflation}}"
+                bindinput="onFireInflationInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">%</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- FIRE 自由结果看板 (标准白底卡片) -->
+      <view wx:if="{{fireResult}}" class="result-dashboard card-shadow-lg">
+        <view class="dash-header">
+          <text class="dash-subtitle">FIRE 财务自由目标总资产</text>
+          <t-tag size="small" theme="{{fireResult.isAchieved ? 'success' : 'primary'}}" variant="dark">
+            {{fireResult.isAchieved ? '已达成自由' : (fireResult.yearsNeeded > 0 ? (fireResult.fireAge + '岁达成自由') : '需提高储蓄率')}}
+          </t-tag>
+        </view>
+
+        <view class="dash-main-amount">
+          <text class="amount-symbol">¥</text>
+          <text class="amount-integer">{{fireResult.targetUserFormatted}}</text>
+          <text class="amount-unit">元</text>
+        </view>
+
+        <view class="dash-sub-decrease">
+          <text>
+            每年新增储蓄 ¥{{fireResult.annualSavingsFormatted}} · 真实投资回报率 {{fireResult.realReturnRatePercent}}% · 月均被动收入 ¥{{fireResult.monthlyPassiveIncomeFormatted}}
+          </text>
+        </view>
+
+        <view class="dash-stats-grid">
+          <view class="stat-col">
+            <text class="stat-label">达成所需年限</text>
+            <text class="stat-val highlight-amber">{{fireResult.yearsNeeded > 0 ? (fireResult.yearsNeeded + ' 年') : '未达标'}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">退休月被动现金流</text>
+            <text class="stat-val font-bold color-green">¥{{fireResult.monthlyPassiveIncomeFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">每年新增储蓄投入</text>
+            <text class="stat-val">¥{{fireResult.annualSavingsFormatted}}</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 海岸 FIRE 提示条 (复用 config-bar 规范) -->
+      <view class="config-bar form-item">
+        <view class="bar-left">
+          <t-icon name="secured" size="36rpx" color="#00288E" />
+          <view class="bar-info">
+            <text class="bar-title">海岸 FIRE (Coast FIRE) 现值: ¥{{fireResult.coastFireAmountFormatted}}</text>
+            <text class="bar-sub">若现有资金达到该基准，不再追加投入也可在 60 岁自然达成 FIRE 目标</text>
+          </view>
+        </view>
+        <t-tag size="small" theme="{{fireResult.isCoastFireReached ? 'success' : 'default'}}" variant="light">
+          {{fireResult.isCoastFireReached ? '已达标' : '进行中'}}
+        </t-tag>
+      </view>
+
+      <!-- 快捷入口卡片 -->
+      <view class="action-card-group">
+        <view class="action-entry card-shadow" hover-class="touch-active" bindtap="toggleFireTrajectoryPopup">
+          <view class="entry-left">
+            <t-icon name="chart-bubble" size="40rpx" color="#00288E" />
+            <view class="entry-texts">
+              <text class="entry-title">查看逐年资产爬坡历程与退休年龄推演</text>
+              <text class="entry-sub">清晰洞悉本金增长曲线与自由达标里程碑节点</text>
+            </view>
+          </view>
+          <t-icon name="chevron-right" size="36rpx" color="#94A3B8" />
+        </view>
+      </view>
+    </view>
+
+    <!-- ================= 模式 3: 通货膨胀与实际购买力 ================= -->
+    <view wx:if="{{savingTab === 'inflation'}}">
+      <view class="form-card card-shadow">
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">测算资金总额</text>
+            <text class="item-unit">当前金额 (元)</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{inflationAmount}}"
+              bindinput="onInflationAmountInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">元</text>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header">
+            <text class="item-label">预计年均通货膨胀率</text>
+            <text class="item-unit">参考历史预设</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{inflationRate}}"
+              bindinput="onInflationRateInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">%</text>
+          </view>
+          <view class="quick-presets">
+            <view
+              wx:for="{{inflationPresets}}"
+              wx:key="rate"
+              class="chip {{inflationRate === item.rate ? 'chip-active' : ''}}"
+              hover-class="touch-active"
+              bindtap="onSelectInflationPreset"
+              data-rate="{{item.rate}}"
+            >
+              {{item.label}}
+            </view>
+          </view>
+        </view>
+
+        <view class="form-item">
+          <view class="item-header"><text class="item-label">时间跨度年限</text></view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="number"
+              value="{{inflationYears}}"
+              bindinput="onInflationYearsInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">年</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 通胀结果看板 (标准白底卡片) -->
+      <view wx:if="{{inflationResult}}" class="result-dashboard card-shadow-lg">
+        <view class="dash-header">
+          <text class="dash-subtitle">{{inflationYears}} 年后实际购买力 (现值折损)</text>
+          <t-tag size="small" theme="danger" variant="light">购买力缩水 -{{inflationResult.depreciationRate}}%</t-tag>
+        </view>
+
+        <view class="dash-main-amount">
+          <text class="amount-symbol">¥</text>
+          <text class="amount-integer">{{inflationResult.futurePowerFormatted}}</text>
+          <text class="amount-unit">元</text>
+        </view>
+
+        <view class="dash-sub-decrease">
+          <text>
+            未来要维持当前的相同生活水平，需要准备 ¥{{inflationResult.futureNeededFormatted}} (增加 ¥{{(inflationResult.futureNeededAmount - inflationAmount) / 10000}}万)
+          </text>
+        </view>
+
+        <view class="dash-stats-grid">
+          <view class="stat-col">
+            <text class="stat-label">当前测算资金</text>
+            <text class="stat-val">¥{{inflationAmount / 10000}}<text class="stat-unit">万</text></text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">未来等值所需</text>
+            <text class="stat-val highlight-amber">¥{{inflationResult.futureNeededFormatted}}</text>
+          </view>
+          <view class="stat-divider"></view>
+          <view class="stat-col">
+            <text class="stat-label">累计贬值幅度</text>
+            <text class="stat-val font-bold color-red">-{{inflationResult.depreciationRate}}%</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 历年购买力衰减明细表 (标准 table-card) -->
+      <view wx:if="{{inflationResult}}" class="table-card card-shadow">
+        <view class="table-header">
+          <t-icon name="view-list" size="36rpx" color="#00288E" />
+          <text class="table-title">历年购买力衰减与所需资金阶梯表</text>
+        </view>
+        <view class="table-row table-head-row">
+          <text class="col-item flex-1">跨度年数</text>
+          <text class="col-item flex-2 text-right">实际购买力</text>
+          <text class="col-item flex-2 text-right">等值所需资金</text>
+          <text class="col-item flex-1 text-center">缩水率</text>
+        </view>
+        <view wx:for="{{inflationResult.schedule}}" wx:key="year" class="table-row">
+          <text class="col-item flex-1 text-muted">{{item.year}} 年后</text>
+          <text class="col-item flex-2 text-right font-bold">¥{{item.purchasingPowerFormatted}}</text>
+          <text class="col-item flex-2 text-right text-muted">¥{{item.neededAmountFormatted}}</text>
+          <text class="col-item flex-1 text-center color-red">-{{item.dropPercent}}%</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ================= 模式 4: 理财收益率换算 ================= -->
+    <view wx:if="{{savingTab === 'yield'}}">
+      <view class="type-segmented form-item">
+        <view
+          class="type-btn {{yieldConvertType === 'daily_to_annual' ? 'type-active' : ''}}"
+          bindtap="onYieldTypeChange"
+          data-type="daily_to_annual"
+        >
+          日万份转年化
+        </view>
+        <view
+          class="type-btn {{yieldConvertType === 'annual_to_daily' ? 'type-active' : ''}}"
+          bindtap="onYieldTypeChange"
+          data-type="annual_to_daily"
+        >
+          年化转日万份
+        </view>
+        <view
+          class="type-btn {{yieldConvertType === 'term_to_annual' ? 'type-active' : ''}}"
+          bindtap="onYieldTypeChange"
+          data-type="term_to_annual"
+        >
+          封闭期转年化
+        </view>
+        <view
+          class="type-btn {{yieldConvertType === 'actual_profit' ? 'type-active' : ''}}"
+          bindtap="onYieldTypeChange"
+          data-type="actual_profit"
+        >
+          实际收益测算
+        </view>
+      </view>
+
+      <view class="form-card card-shadow">
+        <!-- 4.1 日万份转年化 -->
+        <view wx:if="{{yieldConvertType === 'daily_to_annual'}}" class="form-item">
+          <view class="item-header">
+            <text class="item-label">日万份收益</text>
+            <text class="item-unit">元/万份/天 (如余额宝)</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{yieldDailyValue}}"
+              bindinput="onYieldDailyInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">元</text>
+          </view>
+        </view>
+
+        <!-- 4.2 年化转日万份 -->
+        <view wx:if="{{yieldConvertType === 'annual_to_daily'}}" class="form-item">
+          <view class="item-header">
+            <text class="item-label">产品年化收益率</text>
+            <text class="item-unit">%</text>
+          </view>
+          <view class="input-wrap">
+            <input
+              class="amount-input"
+              type="digit"
+              value="{{yieldAnnualValue}}"
+              bindinput="onYieldAnnualInput"
+              bindconfirm="onConfirmInput"
+              bindblur="onBlurInput"
+            />
+            <text class="unit-text">%</text>
+          </view>
+        </view>
+
+        <!-- 4.3 封闭期转年化 -->
+        <view wx:if="{{yieldConvertType === 'term_to_annual'}}">
+          <view class="form-item">
+            <view class="item-header">
+              <text class="item-label">到期综合收益率</text>
+              <text class="item-unit">标称期满总收益率 (%)</text>
+            </view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{yieldTermValue}}"
+                bindinput="onYieldTermInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">%</text>
+            </view>
+          </view>
+          <view class="form-item">
+            <view class="item-header">
+              <text class="item-label">封闭期实际天数</text>
+              <text class="item-unit">天</text>
+            </view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="number"
+                value="{{yieldTermDays}}"
+                bindinput="onYieldDaysInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">天</text>
+            </view>
+          </view>
+        </view>
+
+        <!-- 4.4 实际收益测算 -->
+        <view wx:if="{{yieldConvertType === 'actual_profit'}}">
+          <view class="form-item">
+            <view class="item-header"><text class="item-label">投资理财本金</text></view>
+            <view class="input-wrap">
+              <input
+                class="amount-input"
+                type="digit"
+                value="{{yieldPrincipal}}"
+                bindinput="onYieldPrincipalInput"
+                bindconfirm="onConfirmInput"
+                bindblur="onBlurInput"
+              />
+              <text class="unit-text">元</text>
+            </view>
+          </view>
+          <view class="form-grid-2">
+            <view class="form-item">
+              <view class="item-header"><text class="item-label">预期年化收益率</text></view>
+              <view class="input-wrap">
+                <input
+                  class="amount-input"
+                  type="digit"
+                  value="{{yieldAnnualValue}}"
+                  bindinput="onYieldAnnualInput"
+                  bindconfirm="onConfirmInput"
+                  bindblur="onBlurInput"
+                />
+                <text class="unit-text">%</text>
+              </view>
+            </view>
+            <view class="form-item">
+              <view class="item-header"><text class="item-label">投资天数</text></view>
+              <view class="input-wrap">
+                <input
+                  class="amount-input"
+                  type="number"
+                  value="{{yieldTermDays}}"
+                  bindinput="onYieldDaysInput"
+                  bindconfirm="onConfirmInput"
+                  bindblur="onBlurInput"
+                />
+                <text class="unit-text">天</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <!-- 收益率换算结果看板 (标准白底卡片) -->
+      <view wx:if="{{yieldResult}}" class="result-dashboard card-shadow-lg">
+        <view class="dash-header">
+          <text class="dash-subtitle">精准等价换算结果</text>
+          <t-tag size="small" theme="primary" variant="light">金融无偏折算</t-tag>
+        </view>
+
+        <view class="dash-main-amount">
+          <text class="amount-symbol">{{yieldConvertType === 'actual_profit' || yieldConvertType === 'annual_to_daily' ? '¥' : ''}}</text>
+          <text class="amount-integer">
+            {{yieldConvertType === 'daily_to_annual' ? yieldResult.annualRate : (yieldConvertType === 'annual_to_daily' ? yieldResult.dailyTenThousand : (yieldConvertType === 'term_to_annual' ? yieldResult.annualRate : yieldResult.profitFormatted))}}
+          </text>
+          <text class="amount-unit">{{yieldConvertType === 'daily_to_annual' || yieldConvertType === 'term_to_annual' ? '%' : ''}}</text>
+        </view>
+
+        <view class="dash-sub-decrease">
+          <text>{{yieldResult.desc}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- ==================== 储蓄理财相关抽屉弹窗 (统一 Drawer 风格) ==================== -->
+
+  <!-- 1. 复利逐年增长明细账单抽屉 -->
+  <t-popup visible="{{showCompoundSchedulePopup}}" placement="bottom" bind:visible-change="toggleCompoundSchedulePopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">逐年复利资产累积明细表</text>
+          <text class="drawer-sub">初始本金 ¥{{compoundResult.initialPrincipal}} · {{compoundResult.years}}年复利推演</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleCompoundSchedulePopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="schedule-thead">
+        <text class="th th-month">年度</text>
+        <text class="th th-pay">年末总资产</text>
+        <text class="th th-prin">累计本金</text>
+        <text class="th th-inte">累计利息</text>
+        <text class="th th-rest">利息占比</text>
+      </view>
+
+      <scroll-view class="schedule-scroll" scroll-y enable-flex>
+        <view wx:for="{{compoundResult.schedule}}" wx:key="year" class="schedule-row">
+          <text class="td td-month">第 {{item.year}} 年</text>
+          <text class="td td-pay font-bold">¥{{item.endBalanceFormatted}}</text>
+          <text class="td td-prin">¥{{item.cumulativePrincipalFormatted}}</text>
+          <text class="td td-inte highlight-amber">¥{{item.cumulativeInterestFormatted}}</text>
+          <text class="td td-rest color-green">{{item.interestRatio}}%</text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+
+  <!-- 2. 定投收益率敏感性阶梯抽屉 -->
+  <t-popup visible="{{showAipSensitivityPopup}}" placement="bottom" bind:visible-change="toggleAipSensitivityPopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">定投收益率敏感性分析表</text>
+          <text class="drawer-sub">每期 ¥{{aipPeriodAmount}} · 定投 {{aipYears}} 年 (本金 ¥{{aipResult.totalPrincipalFormatted}})</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleAipSensitivityPopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="schedule-thead">
+        <text class="th th-month">收益率情景</text>
+        <text class="th th-pay">预期年化</text>
+        <text class="th th-prin">到期总资产</text>
+        <text class="th th-inte">净投资回报</text>
+      </view>
+
+      <scroll-view class="schedule-scroll" scroll-y enable-flex>
+        <view wx:for="{{aipResult.sensitivityTable}}" wx:key="annualRate" class="schedule-row {{item.isBase ? 'row-year-end' : ''}}">
+          <text class="td td-month font-bold">{{item.stepLabel}}</text>
+          <text class="td td-pay">{{item.annualRate}}%</text>
+          <text class="td td-prin font-bold">¥{{item.finalAssetFormatted}}</text>
+          <text class="td td-inte highlight-amber">¥{{item.totalProfitFormatted}}</text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+
+  <!-- 3. FIRE 资产爬坡轨迹与退休里程碑抽屉 -->
+  <t-popup visible="{{showFireTrajectoryPopup}}" placement="bottom" bind:visible-change="toggleFireTrajectoryPopup">
+    <view class="schedule-drawer">
+      <view class="drawer-header">
+        <view class="drawer-title-group">
+          <text class="drawer-title">FIRE 资产爬坡与财务自由历程</text>
+          <text class="drawer-sub">目标资产 ¥{{fireResult.targetUserFormatted}} · 每年储蓄 ¥{{fireResult.annualSavingsFormatted}}</text>
+        </view>
+        <view class="drawer-close" bindtap="toggleFireTrajectoryPopup">
+          <t-icon name="close" size="40rpx" color="#64748B" />
+        </view>
+      </view>
+
+      <view class="schedule-thead">
+        <text class="th th-month">年限</text>
+        <text class="th th-pay">年龄</text>
+        <text class="th th-prin">累计总资产</text>
+        <text class="th th-inte">达标状态</text>
+      </view>
+
+      <scroll-view class="schedule-scroll" scroll-y enable-flex>
+        <view wx:for="{{fireResult.trajectory}}" wx:key="year" class="schedule-row {{item.isReached ? 'row-year-end' : ''}}">
+          <text class="td td-month">{{item.year === 0 ? '当下起步' : ('第 ' + item.year + ' 年')}}</text>
+          <text class="td td-pay font-bold">{{item.age}} 岁</text>
+          <text class="td td-prin font-bold">¥{{item.assetFormatted}}</text>
+          <text class="td td-inte {{item.isReached ? 'color-green font-bold' : 'text-muted'}}">
+            {{item.isReached ? '已达成自由' : '持续积累'}}
+          </text>
+        </view>
+      </scroll-view>
+    </view>
+  </t-popup>
+

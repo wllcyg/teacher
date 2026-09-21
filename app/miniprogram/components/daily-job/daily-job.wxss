@@ -1,0 +1,31 @@
+/* daily-job.wxss */
+.month-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.month-chips {
+  display: flex;
+  gap: 12rpx;
+  padding: 8rpx 0;
+}
+
+.month-chip {
+  flex-shrink: 0;
+  padding: 12rpx 24rpx;
+  font-size: 26rpx;
+  border-radius: 30rpx;
+  background: #F1F5FD;
+  color: var(--text-regular);
+  transition: all 0.2s;
+}
+
+.month-chip.month-chip-active {
+  background: var(--primary-color);
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+.ml-16 {
+  margin-left: 16rpx;
+}
