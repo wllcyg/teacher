@@ -1,11 +1,12 @@
 {
-  "navigationBarTitleText": "教师工作台",
-  "enablePullDownRefresh": true,
+  "navigationBarTitleText": "工作台",
+  "enablePullDownRefresh": false,
   "usingComponents": {
     "t-button": "tdesign-miniprogram/button/button",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-icon": "tdesign-miniprogram/icon/icon",
     "t-popup": "tdesign-miniprogram/popup/popup",
-    "t-empty": "tdesign-miniprogram/empty/empty"
+    "t-empty": "tdesign-miniprogram/empty/empty",
+    "t-message": "tdesign-miniprogram/message/message"
   }
 }
