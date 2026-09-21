@@ -1,0 +1,160 @@
+<view class="compare-container">
+  <!-- 1. 自定义吸顶导航栏 -->
+  <t-navbar
+    title="年终奖计税方式对比"
+    left-arrow
+    bind:go-back="onBack"
+    t-class="custom-navbar"
+  />
+
+  <view class="content-body">
+    <!-- 2. 省税推荐大看板 -->
+    <view class="highlight-banner card-shadow-lg">
+      <view class="banner-top">
+        <view class="badge-tag">
+          <t-icon name="check-circle" size="28rpx" color="#059669" />
+          <text class="badge-text">最优筹划建议</text>
+        </view>
+        <text class="banner-date">2026 适用</text>
+      </view>
+      <view class="banner-main">
+        <text class="save-title">选择「单独计税」预计可省</text>
+        <view class="save-amount">
+          <text class="symbol">¥</text>
+          <text class="num">3,200</text>
+          <text class="unit">.00</text>
+        </view>
+      </view>
+      <view class="banner-tip">
+        <text>方案 A (单独计税) 相比 方案 B (合并计税) 降低综合边际税率 10%</text>
+      </view>
+    </view>
+
+    <!-- 3. 双方案对比卡片并排/叠层 -->
+    <view class="compare-cards">
+      <!-- 方案 A: 单独计税 (推荐) -->
+      <view class="scheme-card scheme-recommend card-shadow">
+        <view class="scheme-header">
+          <view class="scheme-title-wrap">
+            <text class="scheme-tag">方案 A</text>
+            <text class="scheme-name">年终奖单独计税</text>
+          </view>
+          <t-tag theme="success" variant="dark" size="small">省税最多</t-tag>
+        </view>
+
+        <view class="tax-total">
+          <text class="label">全年合计总个税</text>
+          <text class="val color-green">¥ 18,810</text>
+        </view>
+
+        <view class="scheme-details">
+          <view class="s-row">
+            <text class="s-name">平时工资个税</text>
+            <text class="s-val">¥ 14,520</text>
+          </view>
+          <view class="s-row">
+            <text class="s-name">年终奖个税 (¥50,000)</text>
+            <text class="s-val">¥ 4,290 (10%)</text>
+          </view>
+          <view class="s-row">
+            <text class="s-name">税后到手总计</text>
+            <text class="s-val font-bold">¥ 217,190</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 方案 B: 合并计税 -->
+      <view class="scheme-card scheme-normal card-shadow">
+        <view class="scheme-header">
+          <view class="scheme-title-wrap">
+            <text class="scheme-tag tag-gray">方案 B</text>
+            <text class="scheme-name">并入综合所得计税</text>
+          </view>
+          <t-tag theme="default" variant="light" size="small">高税阶梯</t-tag>
+        </view>
+
+        <view class="tax-total">
+          <text class="label">全年合计总个税</text>
+          <text class="val color-red">¥ 22,010</text>
+        </view>
+
+        <view class="scheme-details">
+          <view class="s-row">
+            <text class="s-name">年度综合收入</text>
+            <text class="s-val">¥ 290,000</text>
+          </view>
+          <view class="s-row">
+            <text class="s-name">年终奖拉高税阶至</text>
+            <text class="s-val color-red">20% 边际税率</text>
+          </view>
+          <view class="s-row">
+            <text class="s-name">税后到手总计</text>
+            <text class="s-val font-bold">¥ 213,990</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 4. 详细逐项对照明细表 -->
+    <view class="table-card card-shadow">
+      <view class="table-header">
+        <t-icon name="view-list" size="36rpx" color="#00288E" />
+        <text class="table-title">计税要素逐项对照明细</text>
+      </view>
+
+      <view class="table-row table-head-row">
+        <text class="col-item flex-2">对比项目</text>
+        <text class="col-item flex-1 text-center font-bold color-green">单独计税</text>
+        <text class="col-item flex-1 text-center font-bold">合并计税</text>
+      </view>
+
+      <view class="table-row">
+        <text class="col-item flex-2">年终奖基数</text>
+        <text class="col-item flex-1 text-center">¥50,000</text>
+        <text class="col-item flex-1 text-center">¥50,000</text>
+      </view>
+
+      <view class="table-row">
+        <text class="col-item flex-2">适用个税税率</text>
+        <text class="col-item flex-1 text-center font-bold color-green">10%</text>
+        <text class="col-item flex-1 text-center font-bold color-red">20%</text>
+      </view>
+
+      <view class="table-row">
+        <text class="col-item flex-2">速算扣除数</text>
+        <text class="col-item flex-1 text-center">¥210</text>
+        <text class="col-item flex-1 text-center">¥16,920</text>
+      </view>
+
+      <view class="table-row">
+        <text class="col-item flex-2">年终奖实扣税额</text>
+        <text class="col-item flex-1 text-center font-bold color-green">¥4,290</text>
+        <text class="col-item flex-1 text-center font-bold color-red">¥7,490</text>
+      </view>
+    </view>
+
+    <!-- 5. 政策与年终奖盲区避坑贴士 -->
+    <view class="tips-card card-shadow">
+      <view class="tips-header">
+        <t-icon name="info-circle-filled" size="34rpx" color="#0051D5" />
+        <text class="tips-title">个税避坑与年终奖盲区提醒</text>
+      </view>
+      <text class="tips-content">
+        1. 根据财税最新规定，全年一次性奖金单独计税优惠政策延续执行；
+        2. 注意「年终奖临界盲区」：如年终奖发 36,000 元（税额 1,080 元，到手 34,920 元），若多发 1 元至 36,001 元，税率将从 3% 跳档至 10%，实纳税额升至 3,390.1 元，到手反而减少 2,309 元！
+      </text>
+    </view>
+  </view>
+
+  <!-- 6. 底部固定操作栏 -->
+  <view class="bottom-bar-placeholder"></view>
+  <view class="bottom-action-bar">
+    <view class="action-btn-secondary" hover-class="touch-active" bindtap="onBack">
+      <text class="btn-text">返回重新测算</text>
+    </view>
+    <view class="action-btn-primary" hover-class="touch-active" bindtap="navigateToPoster">
+      <t-icon name="image" size="34rpx" color="#FFFFFF" />
+      <text class="btn-text">生成财务海报</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,80 @@
+<view class="ai-page">
+  <!-- 头部欢迎卡片 -->
+  <view class="ai-header-card">
+    <view class="assistant-avatar">
+      <t-icon name="chat" size="48rpx" color="#FFFFFF" />
+    </view>
+    <view class="assistant-info">
+      <view class="assistant-title-row">
+        <text class="assistant-name">AI 财务智能顾问</text>
+        <t-tag size="small" theme="primary" variant="light">基于腾讯混元</t-tag>
+      </view>
+      <text class="assistant-intro">告诉我你的收入、房贷或需求，直接为你推荐工具并测算</text>
+    </view>
+  </view>
+
+  <!-- 快捷指令推荐 -->
+  <view class="prompts-section">
+    <view class="section-title">你可以试着问我：</view>
+    <view class="prompt-chips">
+      <view class="chip-item" hover-class="touch-active" bindtap="usePrompt" data-text="我月薪2万在北京，算下五险一金和到手工资">
+        <t-icon name="lightbulb" size="28rpx" color="#00288E" />
+        <text class="chip-text">“月薪2万在北京，算五险一金和到手工资”</text>
+      </view>
+      <view class="chip-item" hover-class="touch-active" bindtap="usePrompt" data-text="商贷150万利率3.1%分30年，等额本息每月还多少">
+        <t-icon name="home" size="28rpx" color="#00288E" />
+        <text class="chip-text">“商贷150万利率3.1%等额本息每月还多少”</text>
+      </view>
+      <view class="chip-item" hover-class="touch-active" bindtap="usePrompt" data-text="年终奖5万是单独计税划算还是合并计税划算">
+        <t-icon name="chart-bubble" size="28rpx" color="#00288E" />
+        <text class="chip-text">“年终奖5万单独计税还是合并计税好”</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 模拟对话历史消息列表 -->
+  <scroll-view class="chat-list" scroll-y enable-flex scroll-into-view="{{lastMsgId}}">
+    <view wx:for="{{messages}}" wx:key="id" id="msg-{{item.id}}" class="msg-row {{item.sender === 'user' ? 'msg-user' : 'msg-ai'}}">
+      <view wx:if="{{item.sender === 'ai'}}" class="msg-avatar ai-bg">
+        <t-icon name="chat" size="32rpx" color="#FFFFFF" />
+      </view>
+      <view class="msg-bubble {{item.sender === 'user' ? 'bubble-user' : 'bubble-ai card-shadow'}}">
+        <text class="msg-text">{{item.text}}</text>
+        <!-- 如果带有推荐工具跳转卡片 -->
+        <view wx:if="{{item.action}}" class="action-card" hover-class="touch-active" bindtap="navigateToAction" data-action="{{item.action}}">
+          <view class="action-left">
+            <t-icon name="{{item.action.icon}}" size="36rpx" color="#00288E" />
+            <view class="action-meta">
+              <text class="action-title">{{item.action.title}}</text>
+              <text class="action-sub">{{item.action.sub}}</text>
+            </view>
+          </view>
+          <t-icon name="chevron-right" size="32rpx" color="#94A3B8" />
+        </view>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 底部输入框与发送区 -->
+  <view class="input-bar">
+    <view class="input-box">
+      <input
+        class="query-input"
+        placeholder="输入你的财务疑问或测算要求..."
+        value="{{inputValue}}"
+        bindinput="onInput"
+        bindconfirm="sendMessage"
+        confirm-type="send"
+      />
+    </view>
+    <t-button
+      theme="primary"
+      size="medium"
+      shape="round"
+      disabled="{{!inputValue}}"
+      bindtap="sendMessage"
+    >
+      发送
+    </t-button>
+  </view>
+</view>

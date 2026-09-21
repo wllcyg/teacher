@@ -1,0 +1,132 @@
+<view class="poster-page">
+  <!-- 1. 吸顶导航栏 -->
+  <t-navbar
+    title="2026 年度财务总结"
+    left-arrow
+    bind:go-back="onBack"
+    t-class="custom-navbar"
+  />
+
+  <view class="poster-content">
+    <!-- 2. 精美海报卡片 (Poster Card) -->
+    <view class="poster-card card-shadow-lg" id="posterCard">
+      <!-- 海报头部背景装饰与标题 -->
+      <view class="poster-header">
+        <view class="header-stamp">
+          <text class="stamp-year">2026</text>
+          <text class="stamp-sub">ANNUAL REPORT</text>
+        </view>
+        <text class="poster-main-title">个人年度财务总结账单</text>
+        <text class="poster-sub-title">让每一分汗水，都算得清清楚楚</text>
+      </view>
+
+      <!-- 核心总收入看板 -->
+      <view class="hero-box">
+        <text class="hero-title">年度综合总收入</text>
+        <view class="hero-money">
+          <text class="m-cur">¥</text>
+          <text class="m-num">290,000</text>
+          <text class="m-cents">.00</text>
+        </view>
+        <view class="hero-tag-wrap">
+          <view class="gold-badge">
+            <t-icon name="star-filled" size="24rpx" color="#B45309" />
+            <text class="gold-badge-text">击败同城 86% 财务管理者</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 财务三项核心沉淀指标 -->
+      <view class="stats-grid">
+        <view class="stat-cell bg-light-green">
+          <view class="stat-top">
+            <t-icon name="money" size="32rpx" color="#059669" />
+            <text class="stat-label">实发税后到手</text>
+          </view>
+          <text class="stat-val color-green">¥ 217,190</text>
+          <text class="stat-hint">生活与投资现金流</text>
+        </view>
+
+        <view class="stat-cell bg-light-blue">
+          <view class="stat-top">
+            <t-icon name="secured" size="32rpx" color="#0051D5" />
+            <text class="stat-label">公积金账户沉淀</text>
+          </view>
+          <text class="stat-val color-blue">¥ 33,600</text>
+          <text class="stat-hint">个人+单位购房蓄水池</text>
+        </view>
+
+        <view class="stat-cell bg-light-purple">
+          <view class="stat-top">
+            <t-icon name="chart-bubble" size="32rpx" color="#7C3AED" />
+            <text class="stat-label">依法纳税总额</text>
+          </view>
+          <text class="stat-val color-purple">¥ 18,810</text>
+          <text class="stat-hint">合规筹划节省 ¥3,200</text>
+        </view>
+
+        <view class="stat-cell bg-light-amber">
+          <view class="stat-top">
+            <t-icon name="shield" size="32rpx" color="#D97706" />
+            <text class="stat-label">社保养老累计</text>
+          </view>
+          <text class="stat-val color-amber">¥ 19,200</text>
+          <text class="stat-hint">未来退休金坚实后盾</text>
+        </view>
+      </view>
+
+      <!-- 个人年度财务勋章 -->
+      <view class="badge-section">
+        <text class="badge-section-title">2026 财务能力标签</text>
+        <view class="badge-list">
+          <view class="badge-item">
+            <view class="badge-icon-box">
+              <t-icon name="star-filled" size="40rpx" color="#F59E0B" />
+            </view>
+            <text class="b-title">精打细算</text>
+            <text class="b-desc">个税筹划省税高手</text>
+          </view>
+          <view class="badge-item">
+            <view class="badge-icon-box">
+              <t-icon name="secured" size="40rpx" color="#059669" />
+            </view>
+            <text class="b-title">保障全面</text>
+            <text class="b-desc">五险一金顶格存缴</text>
+          </view>
+          <view class="badge-item">
+            <view class="badge-icon-box">
+              <t-icon name="chart-line" size="40rpx" color="#00288E" />
+            </view>
+            <text class="b-title">稳健增长</text>
+            <text class="b-desc">现金流充沛健康</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 海报底部署名与二维码仿真 -->
+      <view class="poster-footer">
+        <view class="footer-left">
+          <text class="footer-app-name">微信小程序 · 财务计算器</text>
+          <text class="footer-slogan">权威基准利率 · 智能财务测算与筹划</text>
+        </view>
+        <view class="footer-qrcode">
+          <t-icon name="qrcode" size="64rpx" color="#00288E" />
+          <text class="qr-tip">长按扫码测算</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 3. 底部固定操作按钮 -->
+  <view class="action-bar-placeholder"></view>
+  <view class="bottom-action-bar">
+    <button class="share-btn" open-type="share">
+      <t-icon name="share" size="34rpx" color="#00288E" />
+      <text class="btn-text">分享给好友</text>
+    </button>
+    <view class="save-btn" hover-class="touch-active" bindtap="onSaveImage">
+      <t-icon name="download" size="34rpx" color="#FFFFFF" />
+      <text class="btn-text">保存海报到相册</text>
+    </view>
+  </view>
+</view>

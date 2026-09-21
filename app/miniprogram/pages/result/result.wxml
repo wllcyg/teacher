@@ -1,0 +1,162 @@
+<view class="result-container">
+  <!-- 1. 自定义吸顶导航栏 -->
+  <t-navbar
+    title="计算结果展示"
+    left-arrow
+    bind:go-back="onBack"
+    t-class="custom-navbar"
+  />
+
+  <view class="content-body">
+    <!-- 2. 主指标核心看板 (Display Figure) -->
+    <view class="hero-card card-shadow-lg">
+      <view class="hero-top">
+        <text class="hero-label">预计税后实发工资 (月均)</text>
+        <t-tag theme="success" variant="light" size="small">实发占比 71.8%</t-tag>
+      </view>
+      <view class="hero-amount">
+        <text class="currency">¥</text>
+        <text class="number">14,350</text>
+        <text class="cents">.00</text>
+      </view>
+      <view class="hero-foot">
+        <text class="foot-tip">根据 2026 最新个税税率及上海市社保基数计算</text>
+      </view>
+    </view>
+
+    <!-- 3. 三列核心数据速览 -->
+    <view class="metric-row">
+      <view class="metric-card card-shadow">
+        <text class="metric-label">税前应发</text>
+        <text class="metric-val">¥ 20,000</text>
+        <text class="metric-sub">月度基数</text>
+      </view>
+      <view class="metric-card card-shadow">
+        <text class="metric-label">五险一金(个人)</text>
+        <text class="metric-val color-amber">¥ 4,440</text>
+        <text class="metric-sub">扣除率 22.2%</text>
+      </view>
+      <view class="metric-card card-shadow">
+        <text class="metric-label">个人所得税</text>
+        <text class="metric-val color-blue">¥ 1,210</text>
+        <text class="metric-sub">综合税率 10%</text>
+      </view>
+    </view>
+
+    <!-- 4. 收入构成占比分析 -->
+    <view class="section-card card-shadow">
+      <view class="card-header">
+        <view class="header-left">
+          <t-icon name="chart" size="36rpx" color="#00288E" />
+          <text class="section-title">薪资结构占比</text>
+        </view>
+        <text class="header-right-text">总计 100%</text>
+      </view>
+
+      <view class="progress-item">
+        <view class="progress-info">
+          <text class="p-name">实际到手 (71.8%)</text>
+          <text class="p-amount">¥ 14,350.00</text>
+        </view>
+        <t-progress percentage="72" color="#059669" track-color="#E2E8F0" />
+      </view>
+
+      <view class="progress-item">
+        <view class="progress-info">
+          <text class="p-name">五险一金个人承担 (22.2%)</text>
+          <text class="p-amount">¥ 4,440.00</text>
+        </view>
+        <t-progress percentage="22" color="#D97706" track-color="#E2E8F0" />
+      </view>
+
+      <view class="progress-item">
+        <view class="progress-info">
+          <text class="p-name">个人所得税 (6.0%)</text>
+          <text class="p-amount">¥ 1,210.00</text>
+        </view>
+        <t-progress percentage="6" color="#0051D5" track-color="#E2E8F0" />
+      </view>
+    </view>
+
+    <!-- 5. 扣除项明细折叠面板 -->
+    <view class="section-card card-shadow">
+      <view class="card-header">
+        <view class="header-left">
+          <t-icon name="file-paste" size="36rpx" color="#00288E" />
+          <text class="section-title">五险一金明细列表</text>
+        </view>
+      </view>
+
+      <t-collapse defaultValue="{{['fund']}}" expandMutex>
+        <t-collapse-panel value="fund" header="住房公积金 (个人 7% + 企业 7%)" note="¥ 1,400">
+          <view class="detail-row">
+            <text class="detail-name">个人缴纳 (7%)</text>
+            <text class="detail-val">¥ 1,400.00</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-name">单位缴纳 (7%)</text>
+            <text class="detail-val">¥ 1,400.00</text>
+          </view>
+          <view class="detail-row total-highlight">
+            <text class="detail-name">每月公积金账户存入</text>
+            <text class="detail-val">¥ 2,800.00</text>
+          </view>
+        </t-collapse-panel>
+
+        <t-collapse-panel value="social" header="基本社会保险 (养老/医疗/失业)" note="¥ 3,040">
+          <view class="detail-row">
+            <text class="detail-name">养老保险 (个人 8%)</text>
+            <text class="detail-val">¥ 1,600.00</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-name">医疗保险 (个人 2% + 3元大病)</text>
+            <text class="detail-val">¥ 403.00</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-name">失业保险 (个人 0.5%)</text>
+            <text class="detail-val">¥ 100.00</text>
+          </view>
+          <view class="detail-row">
+            <text class="detail-name">工伤/生育保险 (个人免缴)</text>
+            <text class="detail-val">¥ 0.00</text>
+          </view>
+        </t-collapse-panel>
+      </t-collapse>
+    </view>
+
+    <!-- 6. 专项附加扣除享受情况 -->
+    <view class="section-card card-shadow">
+      <view class="card-header">
+        <view class="header-left">
+          <t-icon name="check-circle-filled" size="36rpx" color="#059669" />
+          <text class="section-title">已享受专项附加扣除</text>
+        </view>
+        <text class="header-right-tag">合计 ¥ 3,000/月</text>
+      </view>
+
+      <view class="deduct-tags">
+        <view class="deduct-chip">
+          <text class="chip-label">住房租金</text>
+          <text class="chip-val">-¥1,500</text>
+        </view>
+        <view class="deduct-chip">
+          <text class="chip-label">赡养老人</text>
+          <text class="chip-val">-¥1,500</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 7. 底部固定操作栏 -->
+  <view class="bottom-bar-placeholder"></view>
+  <view class="bottom-action-bar">
+    <view class="action-btn-secondary" hover-class="touch-active" bindtap="navigateToCompare">
+      <t-icon name="swap" size="34rpx" color="#00288E" />
+      <text class="btn-text">计税对比</text>
+    </view>
+    <view class="action-btn-primary" hover-class="touch-active" bindtap="navigateToPoster">
+      <t-icon name="image" size="34rpx" color="#FFFFFF" />
+      <text class="btn-text">生成财务总结海报</text>
+    </view>
+  </view>
+</view>

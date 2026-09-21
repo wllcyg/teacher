@@ -1,27 +1,58 @@
-/**app.wxss**/
-.container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
-} 
-
-button {
-  background: initial;
-}
-
-button:focus{
-  outline: 0;
-}
-
-button::after{
-  border: none;
-}
-
+/** app.wxss - 财务计算器全局样式与 Design Tokens **/
 
 page {
-  background: #f6f6f6;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
+  --primary-color: #00288E;
+  --primary-light: #1E40AF;
+  --primary-container: #EFF4FF;
+  --secondary-color: #0051D5;
+  --secondary-container: #316BF3;
+  --accent-color: #003C37;
+  
+  --bg-color: #F8F9FF;
+  --card-bg: #FFFFFF;
+  --card-bg-subtle: #F1F5FD;
+  
+  --text-main: #0B1C30;
+  --text-regular: #444653;
+  --text-muted: #757684;
+  --text-light: #9EA0B0;
+  
+  --border-color: #E2E8F0;
+  --border-light: #EFF2F7;
+  
+  --success-color: #059669;
+  --warning-color: #D97706;
+  --error-color: #DC2626;
+
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: var(--font-family);
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 隐藏滚动条 */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+  color: transparent;
+}
+
+/* 通用阴影与圆角 */
+.card-shadow {
+  box-shadow: 0 4rpx 16rpx rgba(11, 28, 48, 0.05);
+}
+
+.card-shadow-lg {
+  box-shadow: 0 10rpx 30rpx rgba(0, 40, 142, 0.08);
+}
+
+/* 点击微动效 */
+.touch-active {
+  transform: scale(0.98);
+  opacity: 0.9;
+  transition: all 0.15s ease;
 }

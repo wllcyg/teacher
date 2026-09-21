@@ -1,0 +1,349 @@
+/** pages/poster/poster.wxss **/
+
+.poster-page {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  box-sizing: border-box;
+}
+
+.custom-navbar {
+  --td-navbar-bg-color: #FFFFFF !important;
+  --td-navbar-color: var(--text-main) !important;
+}
+
+.poster-content {
+  padding: 24rpx 32rpx;
+  display: flex;
+  justify-content: center;
+}
+
+/* 1. 核心海报卡片 */
+.poster-card {
+  width: 100%;
+  background: #FFFFFF;
+  border-radius: 36rpx;
+  padding: 40rpx 32rpx;
+  border: 1rpx solid rgba(220, 233, 255, 0.8);
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 装饰性背景微斑 */
+.poster-card::before {
+  content: '';
+  position: absolute;
+  top: -80rpx;
+  right: -80rpx;
+  width: 240rpx;
+  height: 240rpx;
+  background: radial-gradient(circle, rgba(0, 81, 213, 0.08) 0%, rgba(255,255,255,0) 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.poster-header {
+  margin-bottom: 32rpx;
+}
+
+.header-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+  background-color: #00288E;
+  color: #FFFFFF;
+  padding: 6rpx 18rpx;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+}
+
+.stamp-year {
+  font-size: 26rpx;
+  font-weight: 800;
+  letter-spacing: 1rpx;
+}
+
+.stamp-sub {
+  font-size: 18rpx;
+  letter-spacing: 2rpx;
+  opacity: 0.8;
+}
+
+.poster-main-title {
+  font-size: 38rpx;
+  font-weight: 800;
+  color: var(--text-main);
+  display: block;
+  letter-spacing: -0.5rpx;
+}
+
+.poster-sub-title {
+  font-size: 24rpx;
+  color: var(--text-muted);
+  margin-top: 6rpx;
+  display: block;
+}
+
+/* 总收入看板 */
+.hero-box {
+  background: linear-gradient(135deg, #EFF4FF 0%, #E5EEFF 100%);
+  border-radius: 28rpx;
+  padding: 32rpx;
+  margin-bottom: 32rpx;
+  border: 1rpx solid #DCE9FF;
+}
+
+.hero-title {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #00288E;
+  display: block;
+}
+
+.hero-money {
+  display: flex;
+  align-items: baseline;
+  margin: 12rpx 0 16rpx 0;
+}
+
+.m-cur {
+  font-size: 38rpx;
+  font-weight: 600;
+  color: #00288E;
+  margin-right: 8rpx;
+}
+
+.m-num {
+  font-size: 64rpx;
+  font-weight: 800;
+  color: #00288E;
+  letter-spacing: -1rpx;
+  line-height: 1;
+}
+
+.m-cents {
+  font-size: 38rpx;
+  font-weight: 600;
+  color: #00288E;
+}
+
+.hero-tag-wrap {
+  display: flex;
+}
+
+.gold-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8rpx;
+  background-color: #FEF3C7;
+  padding: 6rpx 16rpx;
+  border-radius: 100rpx;
+}
+
+.gold-badge-text {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #92400E;
+}
+
+/* 4格指标分布 */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.stat-cell {
+  border-radius: 24rpx;
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+}
+
+.bg-light-green { background-color: #F0FDF4; border: 1rpx solid #DCFCE7; }
+.bg-light-blue { background-color: #EFF6FF; border: 1rpx solid #DBEAFE; }
+.bg-light-purple { background-color: #FAF5FF; border: 1rpx solid #F3E8FF; }
+.bg-light-amber { background-color: #FFFBEB; border: 1rpx solid #FEF3C7; }
+
+.stat-top {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  margin-bottom: 10rpx;
+}
+
+.stat-label {
+  font-size: 22rpx;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.stat-val {
+  font-size: 32rpx;
+  font-weight: 800;
+  margin-bottom: 4rpx;
+}
+
+.color-green { color: #059669; }
+.color-blue { color: #0051D5; }
+.color-purple { color: #7C3AED; }
+.color-amber { color: #D97706; }
+
+.stat-hint {
+  font-size: 20rpx;
+  color: var(--text-light);
+}
+
+/* 勋章卡片 */
+.badge-section {
+  background-color: #F8FAFC;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  margin-bottom: 32rpx;
+  border: 1rpx solid #E2E8F0;
+}
+
+.badge-section-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 16rpx;
+  display: block;
+}
+
+.badge-list {
+  display: flex;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.badge-item {
+  flex: 1;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 16rpx 10rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1rpx solid #EDF2F7;
+}
+
+.badge-icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  margin-bottom: 8rpx;
+}
+
+.b-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.b-desc {
+  font-size: 18rpx;
+  color: var(--text-muted);
+  margin-top: 4rpx;
+}
+
+/* 海报页脚 */
+.poster-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 24rpx;
+  border-top: 1rpx dashed #E2E8F0;
+}
+
+.footer-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.footer-app-name {
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #00288E;
+}
+
+.footer-slogan {
+  font-size: 20rpx;
+  color: var(--text-muted);
+  margin-top: 4rpx;
+}
+
+.footer-qrcode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.qr-tip {
+  font-size: 18rpx;
+  color: var(--text-light);
+  margin-top: 4rpx;
+}
+
+/* 底部操作栏 */
+.action-bar-placeholder {
+  height: 140rpx;
+}
+
+.bottom-action-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: #FFFFFF;
+  padding: 20rpx 32rpx;
+  display: flex;
+  gap: 20rpx;
+  border-top: 1rpx solid #E2E8F0;
+  box-shadow: 0 -4rpx 16rpx rgba(11, 28, 48, 0.05);
+  padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
+  z-index: 100;
+}
+
+.share-btn {
+  flex: 1;
+  height: 88rpx;
+  background-color: #EFF4FF !important;
+  border: 1rpx solid #DCE9FF !important;
+  border-radius: 24rpx !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: normal !important;
+}
+
+.share-btn .btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #00288E;
+}
+
+.save-btn {
+  flex: 1.8;
+  height: 88rpx;
+  background: linear-gradient(135deg, #00288E 0%, #0051D5 100%);
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  box-shadow: 0 4rpx 14rpx rgba(0, 40, 142, 0.25);
+}
+
+.save-btn .btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}

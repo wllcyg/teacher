@@ -1,12 +1,45 @@
 // pages/index/index.js
-import { getCollection, callCloudFunction, CURRENT_ENV } from '../../utils/db';
-
 Page({
-  data: {
-    currentEnv: CURRENT_ENV,
+  data: {},
+
+  onLoad() {},
+
+  onSearchFocus() {
+    wx.showToast({
+      title: '搜索功能开发中',
+      icon: 'none',
+      duration: 1500
+    });
   },
 
-  onLoad() {
-    console.log('[Index Page] 运行环境:', this.data.currentEnv);
+  navigateToResult(e) {
+    const type = e.currentTarget.dataset.type || 'salary';
+    wx.navigateTo({
+      url: `/pages/result/result?type=${type}`
+    });
   },
+
+  navigateToCompare() {
+    wx.navigateTo({
+      url: '/pages/compare/compare'
+    });
+  },
+
+  navigateToPoster() {
+    wx.navigateTo({
+      url: '/pages/poster/poster'
+    });
+  },
+
+  navigateToFeatured() {
+    wx.navigateTo({
+      url: '/pages/featured/featured'
+    });
+  },
+
+  showAITip() {
+    wx.switchTab({
+      url: '/pages/ai/ai'
+    });
+  }
 });

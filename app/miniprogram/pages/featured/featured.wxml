@@ -1,0 +1,88 @@
+<view class="featured-container">
+  <!-- 顶部 Banner -->
+  <view class="hero-banner">
+    <view class="banner-badge">热门专题</view>
+    <view class="banner-title">多维度财务决策对比</view>
+    <view class="banner-desc">帮你算清每一笔账，拒绝模棱两可的选择</view>
+  </view>
+
+  <!-- 专题对比卡片 1：年终奖发放 vs 摊入月薪 -->
+  <view class="topic-card card-shadow" hover-class="touch-active" bindtap="goToCompare">
+    <view class="topic-header">
+      <view class="topic-tag tag-blue">税负优化</view>
+      <view class="topic-heat">
+        <t-icon name="chart-bubble" size="28rpx" color="#EA580C" />
+        <text class="heat-text">8.9w人测算</text>
+      </view>
+    </view>
+    <view class="topic-body">
+      <view class="topic-info">
+        <text class="topic-title">年终奖单独计税 vs 合并计税</text>
+        <text class="topic-sub">测算年终奖避税临界点，警惕“多发1元多交千元税”盲区</text>
+      </view>
+      <view class="topic-action">
+        <t-button theme="primary" size="small" shape="round">立即对比</t-button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 专题对比卡片 2：租房 vs 买房全周期成本 -->
+  <view class="topic-card card-shadow" hover-class="touch-active" bindtap="goToResult" data-type="rent_vs_buy">
+    <view class="topic-header">
+      <view class="topic-tag tag-purple">置业决策</view>
+      <view class="topic-heat">
+        <t-icon name="chart-bubble" size="28rpx" color="#EA580C" />
+        <text class="heat-text">6.4w人测算</text>
+      </view>
+    </view>
+    <view class="topic-body">
+      <view class="topic-info">
+        <text class="topic-title">租房 vs 买房 10~30年财务复盘</text>
+        <text class="topic-sub">综合首付理财收益、租金年涨幅与房贷利息的真实净资产推演</text>
+      </view>
+      <view class="topic-action">
+        <t-button theme="light" size="small" shape="round">开始推演</t-button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 专题对比卡片 3：全款购车 vs 分期贷款 -->
+  <view class="topic-card card-shadow" hover-class="touch-active" bindtap="goToResult" data-type="car_loan">
+    <view class="topic-header">
+      <view class="topic-tag tag-amber">用车消费</view>
+      <view class="topic-heat">
+        <t-icon name="chart-bubble" size="28rpx" color="#EA580C" />
+        <text class="heat-text">4.2w人测算</text>
+      </view>
+    </view>
+    <view class="topic-body">
+      <view class="topic-info">
+        <text class="topic-title">全款购车 vs 低首付分期贴息</text>
+        <text class="topic-sub">算透 4S 店服务费、真实综合年化利率(IRR)与资金机会成本</text>
+      </view>
+      <view class="topic-action">
+        <t-button theme="light" size="small" shape="round">对比方案</t-button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 专题对比卡片 4：社保断缴与灵活就业 -->
+  <view class="topic-card card-shadow" hover-class="touch-active" bindtap="goToResult" data-type="social_security">
+    <view class="topic-header">
+      <view class="topic-tag tag-green">民生保障</view>
+      <view class="topic-heat">
+        <t-icon name="chart-bubble" size="28rpx" color="#EA580C" />
+        <text class="heat-text">5.1w人测算</text>
+      </view>
+    </view>
+    <view class="topic-body">
+      <view class="topic-info">
+        <text class="topic-title">职工社保 vs 灵活就业参保收益</text>
+        <text class="topic-sub">测算未来退休金发放额度与个人账户缴费性价比</text>
+      </view>
+      <view class="topic-action">
+        <t-button theme="light" size="small" shape="round">查看算法</t-button>
+      </view>
+    </view>
+  </view>
+</view>

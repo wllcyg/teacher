@@ -1,0 +1,84 @@
+<view class="mine-container">
+  <!-- 用户卡片 -->
+  <view class="profile-card card-shadow">
+    <view class="avatar-wrap">
+      <t-icon name="user" size="64rpx" color="#00288E" />
+    </view>
+    <view class="user-meta">
+      <text class="user-name">财务智算达人</text>
+      <text class="user-tip">已累计为您精准省税/优化利息</text>
+    </view>
+  </view>
+
+  <!-- 数据概览 -->
+  <view class="stats-row card-shadow">
+    <view class="stat-item" hover-class="touch-active">
+      <text class="stat-num">12</text>
+      <text class="stat-label">测算记录</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item" hover-class="touch-active">
+      <text class="stat-num">5</text>
+      <text class="stat-label">收藏工具</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item" hover-class="touch-active" bindtap="goToPoster">
+      <text class="stat-num">1</text>
+      <text class="stat-label">年度总结</text>
+    </view>
+  </view>
+
+  <!-- 历史测算记录快捷卡 -->
+  <view class="history-section card-shadow">
+    <view class="section-head">
+      <text class="section-title">最近测算记录</text>
+      <text class="section-more">全部 ></text>
+    </view>
+    <view class="history-list">
+      <view class="history-item" hover-class="touch-active" bindtap="goToResult" data-type="mortgage">
+        <view class="item-left">
+          <t-icon name="home" size="36rpx" color="#00288E" />
+          <view class="item-meta">
+            <text class="item-name">购房房贷 (商贷 120万 / 30年)</text>
+            <text class="item-time">今天 11:20 · 等额本息月供 ¥5,130</text>
+          </view>
+        </view>
+        <t-icon name="chevron-right" size="32rpx" color="#94A3B8" />
+      </view>
+
+      <view class="history-item" hover-class="touch-active" bindtap="goToCompare">
+        <view class="item-left">
+          <t-icon name="swap" size="36rpx" color="#059669" />
+          <view class="item-meta">
+            <text class="item-name">年终奖方案对比 (¥60,000)</text>
+            <text class="item-time">昨天 16:45 · 单独计税多省 ¥2,400</text>
+          </view>
+        </view>
+        <t-icon name="chevron-right" size="32rpx" color="#94A3B8" />
+      </view>
+    </view>
+  </view>
+
+  <!-- 设置与工具菜单 -->
+  <view class="menu-group card-shadow">
+    <t-cell-group theme="card">
+      <t-cell title="生成我的年度财务海报" hover arrow bindtap="goToPoster">
+        <t-icon slot="left-icon" name="image" size="40rpx" color="#00288E" />
+      </t-cell>
+      <t-cell title="国家最新税率与基准LPR" hover arrow bindtap="showDisclaimer">
+        <t-icon slot="left-icon" name="info-circle" size="40rpx" color="#00288E" />
+      </t-cell>
+      <t-cell title="免责声明与计算器说明" hover arrow bindtap="showDisclaimer">
+        <t-icon slot="left-icon" name="secured" size="40rpx" color="#00288E" />
+      </t-cell>
+    </t-cell-group>
+  </view>
+
+  <view class="footer-note">
+    <text>算法遵循国家现行税收法规与央行最新信贷基准</text>
+  </view>
+
+  <!-- tabbar 底部占位，防止内容被遮挡 -->
+  <view class="tabbar-placeholder"></view>
+
+</view>

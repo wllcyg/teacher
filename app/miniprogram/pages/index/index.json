@@ -1,12 +1,10 @@
 {
-  "navigationBarTitleText": "工作台",
+  "navigationBarTitleText": "财务计算器",
   "enablePullDownRefresh": false,
   "usingComponents": {
-    "t-button": "tdesign-miniprogram/button/button",
+    "t-search": "tdesign-miniprogram/search/search",
     "t-tag": "tdesign-miniprogram/tag/tag",
     "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-popup": "tdesign-miniprogram/popup/popup",
-    "t-empty": "tdesign-miniprogram/empty/empty",
-    "t-message": "tdesign-miniprogram/message/message"
+    "t-button": "tdesign-miniprogram/button/button"
   }
 }

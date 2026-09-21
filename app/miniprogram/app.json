@@ -1,13 +1,45 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/featured/featured",
+    "pages/ai/ai",
+    "pages/mine/mine",
+    "pages/result/result",
+    "pages/compare/compare",
+    "pages/poster/poster"
   ],
   "window": {
-    "backgroundColor": "#F6F7FB",
+    "backgroundColor": "#F8F9FF",
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#FFFFFF",
-    "navigationBarTitleText": "工作台",
+    "navigationBarTitleText": "财务计算器",
     "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "color": "#94A3B8",
+    "selectedColor": "#00288E",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "计算",
+        "iconPath": "images/tabbar/calc.png",
+        "selectedIconPath": "images/tabbar/calc-active.png"
+      },
+      {
+        "pagePath": "pages/ai/ai",
+        "text": "AI助手",
+        "iconPath": "images/tabbar/ai.png",
+        "selectedIconPath": "images/tabbar/ai-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "images/tabbar/mine.png",
+        "selectedIconPath": "images/tabbar/mine-active.png"
+      }
+    ]
   },
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents"
