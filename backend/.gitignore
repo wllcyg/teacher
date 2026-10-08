@@ -1,0 +1,16 @@
+.env
+# 核心数据保护（坚决阻止本地数据库覆盖线上）
+*.db
+*.sqlite
+*.sqlite3
+data/
+
+# 缓存与虚拟环境
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# 本地临时生成文件
+latest_newsletter.html
+latest_draft.md

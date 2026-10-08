@@ -1,0 +1,73 @@
+sources:
+  # 一手来源 (官方博客)
+  - name: "OpenAI News"
+    type: "rss"
+    url: "https://openai.com/news/rss.xml"
+    weight: 10
+    is_primary: true
+  - name: "Google DeepMind"
+    type: "rss"
+    url: "https://deepmind.google/blog/rss.xml"
+    weight: 10
+    is_primary: true
+  - name: "Google AI 产品动态"
+    type: "rss"
+    url: "https://blog.google/technology/ai/rss/"
+    weight: 8
+    is_primary: true
+  - name: "Google Research"
+    type: "rss"
+    url: "https://research.google/blog/rss/"
+    weight: 7
+    is_primary: true
+  - name: "Hugging Face Blog"
+    type: "rss"
+    url: "https://huggingface.co/blog/feed.xml"
+    weight: 9
+    is_primary: true
+    
+  # 一手来源 (论文，量大，靠AI筛选)
+  - name: "arXiv cs.CL (自然语言处理)"
+    type: "rss"
+    url: "https://rss.arxiv.org/rss/cs.CL"
+    weight: 6
+    is_primary: true
+  - name: "arXiv cs.AI (人工智能)"
+    type: "rss"
+    url: "https://rss.arxiv.org/rss/cs.AI"
+    weight: 5
+    is_primary: true
+    
+  # 一手来源 (GitHub，重点关注的几个开源项目)
+  - name: "GitHub Release: LangChain"
+    type: "rss"
+    url: "https://github.com/langchain-ai/langchain/releases.atom"
+    weight: 8
+    is_primary: true
+  - name: "GitHub Release: Vercel AI"
+    type: "rss"
+    url: "https://github.com/vercel/ai/releases.atom"
+    weight: 8
+    is_primary: true
+
+  # 媒体与资讯线索 (二手来源，仅做参考)
+  - name: "The Verge AI"
+    type: "rss"
+    url: "https://www.theverge.com/rss/ai-artificial-intelligence/index.xml"
+    weight: 5
+    is_primary: false
+  - name: "Ars Technica AI"
+    type: "rss"
+    url: "https://arstechnica.com/ai/feed/"
+    weight: 4
+    is_primary: false
+  - name: "MarkTechPost"
+    type: "rss"
+    url: "https://www.marktechpost.com/feed/"
+    weight: 4
+    is_primary: false
+
+llm:
+  scorer_model: "deepseek-chat"
+  writer_model: "deepseek-chat"
+  api_key_env_var: "LLM_API_KEY"
