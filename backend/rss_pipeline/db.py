@@ -1,11 +1,29 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import create_engine, Column, Integer, String, Boolean, DateTime, Text, Float, ForeignKey
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 # 数据库文件放在原项目 backend/data/ 下
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "rss_agent.db")
-engine = create_engine(f"sqlite:///{DB_PATH}", echo=False)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+engine = create_engine(
+    f"sqlite:///{DB_PATH}",
+    echo=False,
+    connect_args={"check_same_thread": False},  # 允许跨线程复用连接（asyncio.to_thread 必需）
+)
+
+# 启用 WAL 模式 + busy_timeout，防止并发写入时 "database is locked" 崩溃
+from sqlalchemy import event as sa_event
+
+@sa_event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_connection, connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -24,7 +42,7 @@ class Event(Base):
     __tablename__ = "events"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
-    first_seen_at = Column(DateTime, default=datetime.utcnow)
+    first_seen_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class Item(Base):
     """抓取到的原始条目"""
@@ -36,7 +54,7 @@ class Item(Base):
     title = Column(String, nullable=False)
     summary = Column(Text, nullable=True)
     published_at = Column(DateTime, nullable=True)
-    fetched_at = Column(DateTime, default=datetime.utcnow)
+    fetched_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
     event_id = Column(Integer, ForeignKey("events.id"), nullable=True)
 
 class Score(Base):
@@ -58,13 +76,13 @@ class Draft(Base):
     html = Column(Text, nullable=True)
     status = Column(String, default="pending")
     wechat_media_id = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
 class RunRecord(Base):
     """每次运行记录"""
     __tablename__ = "runs"
     id = Column(String, primary_key=True) # 可以用 YYYYMMDD 格式或 UUID
-    started_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     finished_at = Column(DateTime, nullable=True)
     status = Column(String, nullable=False) # running, success, failed
     stage = Column(String, nullable=True)

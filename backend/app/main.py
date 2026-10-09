@@ -14,11 +14,11 @@ import asyncio
 from datetime import datetime
 
 async def rss_daily_scheduler():
-    """纯原生的后台死循环定时器，每天早上 6:30 自动调用流水线"""
+    """纯原生的后台死循环定时器，每天早上 6:00 自动调用流水线"""
     while True:
         now = datetime.now()
-        if now.hour == 6 and now.minute == 30:
-            print("[RSS Scheduler] 到达 06:30，触发每日自动早报流水线...")
+        if now.hour == 6 and now.minute == 0:
+            print("[RSS Scheduler] 到达 06:00，触发每日自动早报流水线...")
             try:
                 # 动态导入，避免循环依赖，用 to_thread 避免阻塞主线程
                 from rss_pipeline.workflow import run_llm_pipeline
@@ -29,6 +29,19 @@ async def rss_daily_scheduler():
             await asyncio.sleep(61)
         else:
             await asyncio.sleep(30)
+
+async def rss_periodic_fetcher():
+    """每 4 小时自动抓取一次 RSS 数据入库，保证素材库时刻保持新鲜"""
+    while True:
+        try:
+            from rss_pipeline.fetcher import run_fetch_and_dedup
+            print("[RSS Fetcher] 定期 RSS 抓取任务触发...")
+            await asyncio.to_thread(run_fetch_and_dedup)
+            print("[RSS Fetcher] 定期抓取完成。")
+        except Exception as e:
+            print(f"[RSS Fetcher] 定期抓取失败: {e}")
+        # 每 4 小时执行一次
+        await asyncio.sleep(4 * 60 * 60)
 
 _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 if _env_path.exists():
@@ -52,10 +65,13 @@ async def lifespan(app: FastAPI):
     
     # 将早报任务作为守护协程挂载到 FastAPI 生命周期中
     rss_task = asyncio.create_task(rss_daily_scheduler())
+    # 每 4 小时后台定期抓取 RSS，保持素材库新鲜
+    fetch_task = asyncio.create_task(rss_periodic_fetcher())
     
     yield
     
     rss_task.cancel()
+    fetch_task.cancel()
 
 
 app = FastAPI(

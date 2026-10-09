@@ -116,59 +116,78 @@
 
     <!-- 真正用于展示和被复制的文章内容区域 -->
     <div class="wechat-container" id="article-content">
-        <h1>今日技术早报：GPT-6 发布、OpenAI 数学突破、Vercel AI SDK 更新</h1>
+        <h1>今日技术早报：GPT-6 携 Intelligent UI 登场，AI 全栈生态加速演进</h1>
 <blockquote>
-<p>AI 正在重塑交互、科研与企业工作流，而工具链的进化让开发者站上了浪潮之巅。</p>
+<p>当模型能力开始溢出，交互形态与工程集成才是开发者真正的战场。</p>
 </blockquote>
 <hr />
 <h2>🔥 AI 前沿</h2>
-<h3><a href="https://openai.com/index/gpt-6-for-everyone">GPT-6 全球发布，带来 Intelligent UI</a></h3>
+<h3><a href="https://openai.com/index/gpt-6-for-everyone">GPT-6 全球上线，Intelligent UI 重新定义交互形态</a></h3>
 <p><strong>深度看点：</strong><br />
-- GPT-6 在全球范围内向 ChatGPT 用户推送，核心升级在于 <strong>Intelligent UI</strong>——不再是纯文本对话，而是根据上下文动态生成可视化与交互式体验。<br />
-- 响应速度进一步提升，同时支持“探索并使用”直接在对话中生成的交互组件。<br />
-- 这意味着模型输出从“文本流”进化为“可操作的界面”，对前端交互设计范式产生直接冲击。</p>
+- GPT-6 正式在 ChatGPT 全球范围铺开，核心升级不只是模型能力，而是引入了 <strong>Intelligent UI</strong>——一种能根据对话上下文动态生成可视化与交互式体验的界面范式。<br />
+- 响应速度显著提升，输出不再局限于纯文本，而是可直接探索和操作的交互式内容。<br />
+- 这意味着模型输出层从「文本流」进化为「可执行界面」，对前端渲染管线提出全新要求。</p>
 <p><strong>极客点评：</strong><br />
-Intelligent UI 的本质是 <strong>LLM 输出结构化 UI 描述 + 前端运行时渲染</strong>。对开发者而言，未来 AI 应用的竞争力不再只是 prompt 调优，而是如何设计一套可靠的“模型输出 → UI 组件”映射层。建议关注 OpenAI 是否开放对应的结构化输出 schema，这将决定你能否在自己的产品中复现类似体验。</p>
+Intelligent UI 的出现意味着 AI 应用的输出层需要从「Markdown 渲染」升级为「动态组件渲染」。对于正在构建 Chat 类产品的团队，建议提前评估：你的前端能否消费结构化 UI Schema？是否支持流式组件挂载？这波升级会直接淘汰一批只会 <code>react-markdown</code> 的套壳应用。同时注意，动态 UI 带来的 XSS 与沙箱隔离问题将成为新的安全焦点。</p>
 <hr />
-<h3><a href="https://www.theverge.com/ai-artificial-intelligence/1005004/openai-math-release-github">OpenAI 用未发布的前沿模型解决数百个数学开放问题</a></h3>
+<h3><a href="https://openai.com/index/sharing-ai-progress-in-mathematics">OpenAI 公开前沿模型数学开放问题研究成果，开源 Lean 形式化证明</a></h3>
 <p><strong>深度看点：</strong><br />
-- OpenAI 发布了 <strong>722 篇手稿</strong>，覆盖 <strong>372 个结果族</strong>（将相关论文分组的集合），包含对“数百个”长期开放数学问题的解答。<br />
-- 这些结果由一个 <strong>未发布的前沿模型</strong> 产出，OpenAI 声称“平均每个结果”消耗约 <strong>3 小时 ChatGPT Pro 级别的推理算力</strong>。<br />
-- 发布通过 GitHub 仓库进行，包含论文修订与引用协议，同时附带了部分模型推理摘要和算力估算。<br />
-- 独立数学家咨询组 AGMAI 同步发布建议，呼吁 AI 实验室 <strong>不要将数学成果发布当作模型营销工具</strong>，并应披露模型名称、prompt 和算力成本。</p>
+- OpenAI 使用内部前沿模型在<strong>数学开放问题</strong>上取得新结果，而非仅做基准测试刷分。<br />
+- 同步在 GitHub 开源了 <strong>Lean 形式化证明</strong>，将 AI 推理链路完整暴露给学术界验证。<br />
+- 研究细节一并公开，覆盖模型如何生成可被机器验证的严格证明。</p>
 <p><strong>极客点评：</strong><br />
-这条新闻的技术信号远大于数学本身：<strong>前沿模型的推理算力正在被系统性地用于科学发现</strong>。3 小时 Pro 级推理约等于大量 CoT、搜索与验证循环，这套 pipeline 对做 AI4Science 的团队有直接参考价值。但 AGMAI 的警告同样值得重视——当 AI 产出的学术成果缺乏可追溯的 prompt 和算力披露时，可复现性就无从谈起。如果你在做科研类 AI 产品，<strong>从第一天就设计好审计日志和引用链路</strong>，否则后期补课成本极高。</p>
+这是 AI for Math 方向的重要信号：模型输出开始进入「可形式化验证」的闭环。对开发者而言，Lean 证明的开源意味着你可以直接复现推理管线，甚至将其作为代码正确性验证的参考架构。如果你在做代码生成或自动化推理相关产品，形式化验证 + LLM 的组合值得深入研究——这可能是解决幻觉问题的终极路径之一。</p>
 <hr />
-<h3><a href="https://openai.com/index/atlassian-partnership">Atlassian 与 OpenAI 扩大合作，将企业知识转化为行动</a></h3>
+<h3><a href="https://openai.com/index/atlassian-partnership">Atlassian 与 OpenAI 扩大合作，企业知识接入前沿模型</a></h3>
 <p><strong>深度看点：</strong><br />
-- 合作核心是将 <strong>前沿模型与企业知识库</strong> 直接连接，覆盖规划、构建、交付的完整工作流。<br />
-- 目标场景是让团队在 Jira、Confluence 等工具中直接调用模型能力，而非在独立聊天窗口中操作。</p>
+- 双方合作核心是将前沿模型与<strong>企业知识库</strong>深度连接，覆盖规划、构建、交付全工作流。<br />
+- 目标场景是让团队基于 Jira/Confluence 等沉淀数据直接驱动 AI 行动，而非停留在问答层面。<br />
+- 代表企业级 AI 从「辅助对话」向「知识驱动的行动执行」演进。</p>
 <p><strong>极客点评：</strong><br />
-这是 <strong>RAG + Agent 在企业场景的标准落地路径</strong>：知识源（Confluence）→ 检索 → 推理 → 动作（Jira 工单、PR、部署）。对开发者的启示是，企业 AI 集成的壁垒不在模型本身，而在 <strong>权限模型、数据隔离和操作审计</strong>。如果你在构建类似集成，优先解决“模型能看什么、能改什么、改了怎么追溯”这三个问题。</p>
-<hr />
-<h3><a href="https://openai.com/index/advancing-computer-use-with-ironclad">OpenAI 与 Ironclad 推进专业合同工作流中的 Computer Use Agent</a></h3>
-<p><strong>深度看点：</strong><br />
-- 双方合作训练和评估 AI Agent 在 <strong>复杂合同工作流</strong> 中的计算机使用能力。<br />
-- 重点在于让 Agent 操作真实软件界面完成专业任务，而非仅生成文本建议。</p>
-<p><strong>极客点评：</strong><br />
-Computer Use Agent 的难点从来不是“能不能点按钮”，而是 <strong>在长流程中保持状态一致性和错误恢复</strong>。合同工作流的特点是步骤多、依赖强、容错低，这正是检验 Agent 可靠性的理想场景。建议关注他们是否公开评估基准——如果有，这将成为衡量 Computer Use 方案成熟度的关键标尺。</p>
+企业 AI 落地的真正瓶颈从来不是模型，而是<strong>知识检索精度与权限隔离</strong>。Atlassian 的接入方式值得关注：它如何做 RAG 的权限过滤？如何处理跨项目的知识边界？如果你在做企业内部 AI 助手，这套「知识 → 行动」的链路设计比模型选型更值得参考。避坑提示：别低估企业数据的脏乱程度，向量化之前的清洗管线才是工作量大头。</p>
 <hr />
 <h2>🚀 开源框架动向</h2>
-<h3><a href="https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Ftypesafe-ai%403.0.16">Vercel AI SDK <code>@ai-sdk/typesafe-ai@3.0.16</code> 发布</a></h3>
+<h3><a href="https://github.com/langchain-ai/langchain/releases/tag/langchain-openai%3D%3D1.7.0">langchain-openai 1.7.0 发布：新增 Decisions API 支持</a></h3>
 <p><strong>深度看点：</strong><br />
-- <strong>实验性决策状态新增有序的 text、file、JSON 部分</strong>，支持在 OpenAI Decisions 和语言模型适配器中传入图像输入。<br />
-- <strong>状态归一化</strong>：所有公开状态形式在调用决策提供者前统一转为 parts 数组；直接传数组作为 state 时现在会包含 decision state parts，JSON 数组需包裹在对象或 json part 中。<br />
-- <strong>OpenTelemetry 集成</strong>：decision file 字节以 base64 序列化到 OTel state 属性中；模型调用 span 记录归一化后的 state parts，外层 span 保留公开 state 输入。<br />
-- Gateway 和 TypeSafe AI 仍拒绝文件输入，保持原有 string/JSON 请求格式。</p>
+- 本次更新核心是 <strong>feat(openai): support decisions api</strong>（PR #41125），为 LangChain 的 OpenAI 集成层引入决策类 API 能力。<br />
+- 依赖同步升级：<code>langgraph-sdk</code> 从 0.4.2 一路 bump 到 0.4.6，说明与 LangGraph 的 Agent 编排能力耦合在加强。<br />
+- 安全依赖更新：<code>pyjwt</code> 2.15.0 → 2.15.1，<code>urllib3</code> 2.7.0 → 2.8.0，建议顺手升级。</p>
 <p><strong>极客点评：</strong><br />
-这次更新的核心是 <strong>为多模态 Agent 状态管理建立统一抽象</strong>。<code>text | file | json</code> 的 ordered parts 模型实际上是在定义一套“决策上下文”的标准数据结构，这对构建可观测、可回放的 Agent 系统至关重要。<strong>注意破坏性变更</strong>：如果你之前直接传 JSON 数组作为 state，现在必须包裹成对象或 json part，否则会触发错误。OTel 的 base64 文件序列化对调试多模态链路很有用，但要注意大文件对 tracing 后端存储的压力。</p>
+Decisions API 的接入信号很明确：LangChain 正在把「决策」抽象为一等公民，这与 Agent 工作流中「让模型选择下一步动作」的模式高度契合。如果你在用 LangGraph 构建多步 Agent，这个版本值得升级。但注意 <code>langgraph-sdk</code> 连续跨版本 bump，升级前务必跑一遍集成测试，避免编排层行为漂移。</p>
 <hr />
-<h2>🛠️ 开发者工具</h2>
-<p>今日无独立工具类资讯，但 Vercel AI SDK 的更新本身即是面向 AI 应用开发者的核心工具链演进，详见上方开源框架模块。</p>
+<h3><a href="https://github.com/vercel/ai/releases/tag/%40ai-sdk%2Freact%404.0.139">@ai-sdk/react 4.0.139 发布，同步更新核心依赖</a></h3>
+<p><strong>深度看点：</strong><br />
+- 本次为 Patch 更新，主要同步依赖：<code>ai@7.0.136</code> 与 <code>@ai-sdk/mcp@2.0.73</code>。<br />
+- <code>@ai-sdk/mcp</code> 的持续迭代表明 Vercel AI SDK 正在深化对 <strong>Model Context Protocol</strong> 的支持。<br />
+- React 层作为前端集成入口，保持与核心包版本对齐。</p>
+<p><strong>极客点评：</strong><br />
+MCP 正在成为 AI 工具调用的事实标准，Vercel 将其纳入 SDK 依赖链说明前端侧的 AI 集成正在标准化。对于前端团队，建议关注 <code>@ai-sdk/mcp</code> 的演进——它可能决定你未来接入外部工具（数据库、API、文件系统）的方式。当前版本是 patch，可放心升级，但记得锁定 <code>ai</code> 核心包版本，避免 monorepo 中的版本地狱。</p>
 <hr />
-<h2>结语</h2>
-<p>今天的关键词是 <strong>“从对话到行动”</strong>：GPT-6 的 Intelligent UI 让输出可交互，OpenAI 的数学突破让推理可科研，Atlassian 和 Ironclad 的合作让 Agent 可操作企业系统。对开发者来说，<strong>结构化输出、状态管理和可观测性</strong> 是贯穿所有方向的基础设施能力。</p>
-<p>你怎么看 GPT-6 的 Intelligent UI 对前端架构的影响？欢迎在评论区聊聊你的判断。点个关注，明天见。</p>
+<h2>🛠️ 开发者工具速览</h2>
+<table>
+<thead>
+<tr>
+<th>工具</th>
+<th>版本</th>
+<th>关键变化</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>langchain-openai</td>
+<td>1.7.0</td>
+<td>新增 Decisions API 支持</td>
+</tr>
+<tr>
+<td>@ai-sdk/react</td>
+<td>4.0.139</td>
+<td>同步 ai@7.0.136、mcp@2.0.73</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p><strong>今日趋势判断：</strong> GPT-6 的 Intelligent UI 把竞争拉到交互层，而 LangChain 与 Vercel AI SDK 的更新则在夯实 Agent 与工具调用的工程底座。模型是弹药，集成能力才是枪。</p>
+<p>有想法？评论区聊聊你正在用哪套 AI 集成方案。觉得有料，点个关注，早报不断更。</p>
     </div>
 
     <script>

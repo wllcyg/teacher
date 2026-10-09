@@ -35,7 +35,7 @@ def fetch_rss_feed(feed_url: str):
     
     for attempt in range(2):
         try:
-            with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            with httpx.Client(timeout=25.0, follow_redirects=True) as client:  # 延长至 25s 防超时
                 response = client.get(feed_url, headers=headers)
                 response.raise_for_status()
                 return feedparser.parse(response.content)
@@ -75,6 +75,9 @@ def run_fetch_and_dedup():
         
         new_items_count = 0
         
+        # 性能优化：在所有源抓取开始前，一次性预加载最近 100 条标题，避免 N+1 查询
+        recent_items_cache = db.query(Item).order_by(Item.id.desc()).limit(100).all()
+        
         for source_cfg in config.get("sources", []):
             url = source_cfg["url"]
             source_obj = sources_map.get(url)
@@ -103,22 +106,21 @@ def run_fetch_and_dedup():
                 item_summary = getattr(entry, "description", getattr(entry, "summary", ""))
                 
                 # 简单的时间解析
-                pub_date = datetime.now(timezone.utc)
+                pub_date = datetime.now(timezone.utc).replace(tzinfo=None)
                 if hasattr(entry, "published_parsed") and entry.published_parsed:
                     import calendar
                     # feedparser的published_parsed是UTC的struct_time
                     timestamp = calendar.timegm(entry.published_parsed)
-                    pub_date = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                    pub_date = datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
                 
                 # 核心改动：丢弃超过 48 小时的历史新闻，只保留最近的
-                if (datetime.now(timezone.utc) - pub_date).total_seconds() > 48 * 3600:
+                if (datetime.now(timezone.utc).replace(tzinfo=None) - pub_date).total_seconds() > 48 * 3600:
                     continue
                 
                 # 2. 标题相似度事件合并去重
                 # 寻找最近 48 小时内的已有新闻进行标题比对，决定是否视为同一“事件”
                 matched_event = None
-                recent_items = db.query(Item).order_by(Item.id.desc()).limit(100).all()
-                for past_item in recent_items:
+                for past_item in recent_items_cache:  # 使用预加载缓存，避免 N+1 查询
                     if is_similar(item_title, past_item.title):
                         # 如果相似，直接复用它的 event_id
                         if past_item.event_id:
@@ -144,6 +146,8 @@ def run_fetch_and_dedup():
                 )
                 db.add(new_item)
                 db.commit()
+                # 将新条目追加到本地缓存，本次运行内同样生效去重
+                recent_items_cache.append(new_item)
                 new_items_count += 1
                 
         print(f"=== 抓取完成，共新增 {new_items_count} 条去重后的资讯 ===")

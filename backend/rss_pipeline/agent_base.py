@@ -3,6 +3,7 @@ import yaml
 import json
 from openai import OpenAI
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # 自动寻找并加载项目根目录下的 .env 文件
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
@@ -36,36 +37,59 @@ class BaseAgent:
         self.client = OpenAI(**client_kwargs)
         self.model = model_name or llm_cfg.get("scorer_model", "gemini-1.5-flash")
 
+    @retry(
+        stop=stop_after_attempt(3), 
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=False
+    )
+    def _do_call_llm_json(self, system_prompt: str, user_prompt: str) -> dict:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.3
+        )
+        content = response.choices[0].message.content
+        return json.loads(content)
+
     def call_llm_json(self, system_prompt: str, user_prompt: str) -> dict:
         """调用 LLM 并要求返回 JSON，适用于打分等结构化输出场景"""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.3
-            )
-            content = response.choices[0].message.content
-            return json.loads(content)
+            res = self._do_call_llm_json(system_prompt, user_prompt)
+            # 如果重试3次仍失败，tenacity (reraise=False) 会返回最终的异常对象
+            if isinstance(res, Exception):
+                raise res
+            return res
         except Exception as e:
-            print(f"[{self.__class__.__name__}] LLM JSON Call Error: {e}")
+            print(f"[{self.__class__.__name__}] LLM JSON Call Error after 3 retries: {e}")
             return {}
+
+    @retry(
+        stop=stop_after_attempt(3), 
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=False
+    )
+    def _do_call_llm_text(self, system_prompt: str, user_prompt: str) -> str:
+        response = self.client.chat.completions.create(
+            model=self.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7
+        )
+        return response.choices[0].message.content
 
     def call_llm_text(self, system_prompt: str, user_prompt: str) -> str:
         """调用 LLM 返回纯文本，适用于撰写文章、审校"""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.7
-            )
-            return response.choices[0].message.content
+            res = self._do_call_llm_text(system_prompt, user_prompt)
+            if isinstance(res, Exception):
+                raise res
+            return res
         except Exception as e:
-            print(f"[{self.__class__.__name__}] LLM Text Call Error: {e}")
+            print(f"[{self.__class__.__name__}] LLM Text Call Error after 3 retries: {e}")
             return ""

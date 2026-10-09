@@ -67,7 +67,98 @@ sources:
     weight: 4
     is_primary: false
 
+  # ---------------- 新增：一手模型大厂源 ----------------
+  - name: "Anthropic Blog"
+    type: "rss"
+    url: "https://www.anthropic.com/feed.xml"
+    weight: 10
+    is_primary: true
+  - name: "Mistral AI"
+    type: "rss"
+    url: "https://mistral.ai/news/feed.xml"
+    weight: 9
+    is_primary: true
+  - name: "Meta AI Blog"
+    type: "rss"
+    url: "https://ai.meta.com/blog/rss/"
+    weight: 9
+    is_primary: true
+
+  # ---------------- 新增：前沿技术与行业洞察 ----------------
+  - name: "a16z AI News"
+    type: "rss"
+    url: "https://a16z.com/category/ai/feed/"
+    weight: 6
+    is_primary: false
+  - name: "InfoQ AI & ML"
+    type: "rss"
+    url: "https://feed.infoq.com/ai-ml-data-eng/news"
+    weight: 7
+    is_primary: false
+
 llm:
   scorer_model: "deepseek-chat"
   writer_model: "deepseek-chat"
   api_key_env_var: "LLM_API_KEY"
+
+# ==========================================
+# 早报主题与人设配置
+# 轻松切换至“产品日报”、“后端早报”等
+# ==========================================
+theme:
+  title: "🤖 AI 极客早报"
+  keywords: 
+    - "AI"
+    - "LLM"
+    - "GPT"
+    - "OpenAI"
+    - "DeepMind"
+    - "React"
+    - "Vue"
+    - "Frontend"
+    - "Web"
+    - "Next.js"
+    - "Vite"
+    - "开源"
+    - "模型"
+    - "模型发布"
+
+prompts:
+  scorer_prompt: |
+    你是一个资深前端与AI全栈技术专家。你的任务是从一组技术资讯中，挑选出最有价值、最硬核、最适合作为今天技术早报头条的资讯。
+    请挑选出最具价值的前 {top_k} 条资讯。
+    评估标准：
+    1. 行业影响力（如重大开源模型发布、重磅前端框架更新）。
+    2. 对前端开发/全栈开发者的实用价值。
+    3. 创新性与前瞻性。
+    
+    必须返回 JSON 格式，格式要求如下：
+    {{
+      "selected_items": [
+        {{
+          "id": 123,
+          "score": 95, // 0-100 分
+          "reason": "简短的入选理由（一句话）",
+          "tags": ["AI", "LLM"] // 1-2个标签
+        }}
+      ]
+    }}
+  
+  writer_prompt: |
+    你是一个拥有深厚经验的技术自媒体主理人，也是一名前端与AI全栈工程师。
+    你的任务是根据提供的今日最佳技术资讯，撰写一篇面向开发者的微信公众号早报文章。
+    
+    【写作规范】
+    1. 语言风格：专业、简洁、极客风，直接指出该技术对开发者的实际意义，不要废话。必须全程使用中文。
+    2. 结构排版：
+       - 文章开头：一句吸引人的技术金句或全篇核心看点总结。
+       - 正文：分为几个主要模块（例如：🔥 AI 前沿、🚀 开源框架动向、🛠️ 开发者工具）。
+       - 每个资讯条目：
+         - **标题** (加入适当 emoji，并包含原文链接)
+         - **深度看点**：基于提供的原文正文(full_content)或摘要，提炼出最核心的 2-3 个技术细节，而不是简单的表面翻译。
+         - **极客点评**：你作为资深工程师，结合原文内容给出的技术见解、适用场景或避坑指南。
+       - 结尾：鼓励读者在评论区交流或点击关注。
+    3. 格式：严格输出 Markdown 格式。
+    
+    【提示】
+    文章不需要包含过多的营销口号，要注重“干货”。如果提供了原文内容(full_content)，请务必深挖其中的干货细节。

@@ -1,11 +1,15 @@
 import datetime
 import uuid
+import os
 import markdown # 用于转 html
+from datetime import timezone
 from sqlalchemy.orm import Session
 from .db import SessionLocal, Item, Source, Score, Draft, RunRecord
 from .agent_scorer import ScorerAgent
 from .agent_writer import WriterAgent
 from .agent_reviewer import ReviewerAgent
+from .fetcher import run_fetch_and_dedup
+from .fetcher import load_config
 
 def run_llm_pipeline(run_id: str = None):
     if not run_id:
@@ -16,13 +20,18 @@ def run_llm_pipeline(run_id: str = None):
     session: Session = SessionLocal()
     
     try:
-        # 1. 记录运行状态
+        # 0. 先记录运行状态（放到最前面，防止后面的抓取崩溃导致记录丢失）
         record = RunRecord(id=run_id, status="running", stage="llm_pipeline")
         session.add(record)
         session.commit()
+        
+        # 1. 步骤一：触发 RSS 抓取与去重
+        print("[Workflow] 步骤 1/4: 触发 RSS 抓取与去重...")
+        new_count = run_fetch_and_dedup()
+        print(f"[Workflow] RSS 抓取完成，新增 {new_count} 条资讯。")
 
         # 2. 查询最近 48 小时的未评分资讯 (这里简单起见取全部最近抓取的)
-        forty_eight_hours_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=48)
+        forty_eight_hours_ago = datetime.datetime.now(timezone.utc).replace(tzinfo=None) - datetime.timedelta(hours=48)
         
         # 关联查询以获取 source_name 和 weight
         items_query = session.query(Item, Source).join(Source, Item.source_id == Source.id)\
@@ -102,18 +111,23 @@ def run_llm_pipeline(run_id: str = None):
         final_md = reviewer.review_draft(draft_md)
         
         # 转换带有微信样式的 HTML 并生成本地浏览器预览版
+        config = load_config()
+        theme_title = config.get("theme", {}).get("title", "🤖 AI 极客早报")
+        
         from .wechat_formatter import generate_wechat_html
         final_html = generate_wechat_html(final_md)
         
-        # 将最新的网页持久化到根目录，方便用户直接双击打开并复制
-        import os
-        output_html_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "latest_newsletter.html")
+        # 将最新的网页持久化到输出目录
+        # 支持通过环境变量 OUTPUT_DIR 自定义输出目录，容器部署时不依赖 __file__ 相对路径
+        default_output_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        output_dir = os.environ.get("OUTPUT_DIR", default_output_dir)
+        output_html_path = os.path.join(output_dir, "latest_newsletter.html")
         with open(output_html_path, "w", encoding="utf-8") as f:
             f.write(final_html)
 
         # 自动推送到手机 QQ 邮箱
         from .notifier import send_newsletter_email
-        send_newsletter_email(final_html)
+        send_newsletter_email(final_html, theme_title=theme_title)
 
         # 存入 Draft 表
         draft_record = Draft(
@@ -127,7 +141,7 @@ def run_llm_pipeline(run_id: str = None):
         # 更新运行记录
         record.status = "success"
         record.stage = "completed"
-        record.finished_at = datetime.datetime.utcnow()
+        record.finished_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
         session.commit()
         
         print("=== LLM Pipeline Completed Successfully ===")
@@ -143,7 +157,7 @@ def run_llm_pipeline(run_id: str = None):
             if record:
                 record.status = "failed"
                 record.error_msg = str(e)
-                record.finished_at = datetime.datetime.utcnow()
+                record.finished_at = datetime.datetime.now(timezone.utc).replace(tzinfo=None)
                 session.commit()
         except:
             pass

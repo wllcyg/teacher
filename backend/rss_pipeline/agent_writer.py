@@ -12,7 +12,7 @@ class WriterAgent(BaseAgent):
         基于选中的资讯生成早报 Markdown 草稿。
         selected_items: 包含资讯完整信息和打分理由的字典列表。
         """
-        system_prompt = """你是一个拥有深厚经验的技术自媒体主理人，也是一名前端与AI全栈工程师。
+        default_prompt = """你是一个拥有深厚经验的技术自媒体主理人，也是一名前端与AI全栈工程师。
 你的任务是根据提供的今日最佳技术资讯，撰写一篇面向开发者的微信公众号早报文章。
 
 【写作规范】
@@ -30,6 +30,7 @@ class WriterAgent(BaseAgent):
 【提示】
 文章不需要包含过多的营销口号，要注重“干货”。如果提供了原文内容(full_content)，请务必深挖其中的干货细节。
 """
+        system_prompt = self.config.get("prompts", {}).get("writer_prompt", default_prompt)
 
         # 构建给 LLM 的输入数据
         input_data = []

@@ -11,7 +11,10 @@ class ScorerAgent(BaseAgent):
         本地预筛选，降低发送给 LLM 的 token 数量。
         items 包含字段: id, title, source_name, source_weight, summary 等
         """
-        keywords = ["AI", "LLM", "GPT", "OpenAI", "DeepMind", "React", "Vue", "Frontend", "Web", "Next.js", "Vite", "开源", "模型", "模型发布"]
+        # 从 config.yaml 动态读取关键词主题，默认回退到原来的 AI 极客主题
+        keywords = self.config.get("theme", {}).get("keywords", [
+            "AI", "LLM", "GPT", "OpenAI", "DeepMind", "React", "Vue", "Frontend", "Web", "Next.js", "Vite", "开源", "模型", "模型发布"
+        ])
         
         scored_items = []
         for item in items:
@@ -49,7 +52,7 @@ class ScorerAgent(BaseAgent):
                 "summary": item.get("summary", "")[:200] # 截取摘要防超长
             })
 
-        system_prompt = """你是一个资深前端与AI全栈技术专家。你的任务是从一组技术资讯中，挑选出最有价值、最硬核、最适合作为今天技术早报头条的资讯。
+        default_prompt = """你是一个资深前端与AI全栈技术专家。你的任务是从一组技术资讯中，挑选出最有价值、最硬核、最适合作为今天技术早报头条的资讯。
 请挑选出最具价值的前 {top_k} 条资讯。
 评估标准：
 1. 行业影响力（如重大开源模型发布、重磅前端框架更新）。
@@ -67,7 +70,8 @@ class ScorerAgent(BaseAgent):
     }}
   ]
 }}
-""".format(top_k=top_k)
+"""
+        system_prompt = self.config.get("prompts", {}).get("scorer_prompt", default_prompt).format(top_k=top_k)
 
         user_prompt = "候选资讯列表（JSON）：\n" + json.dumps(llm_input_data, ensure_ascii=False)
 
