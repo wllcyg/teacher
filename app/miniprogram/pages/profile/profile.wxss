@@ -1,0 +1,121 @@
+.page-container {
+  padding: 60rpx 48rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+/* 头部 */
+.user-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 80rpx;
+}
+
+.avatar-wrap {
+  width: 140rpx !important;
+  height: 140rpx !important;
+  min-width: 140rpx !important;
+  min-height: 140rpx !important;
+  border-radius: 50% !important;
+  background-color: #E8DFCE;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-right: 40rpx;
+  margin-left: 0 !important;
+  padding: 0 !important;
+  overflow: hidden;
+  box-shadow: 0 4rpx 12rpx rgba(0,0,0,0.05);
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  -webkit-mask-image: -webkit-radial-gradient(white, black); /* 修复 iOS/真机 border-radius overflow 溢出失效的神器 */
+}
+
+.avatar-wrap::after {
+  border: none !important;
+}
+
+.avatar {
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 50% !important;
+  display: block;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.nickname-input {
+  font-size: 48rpx;
+  font-weight: 500;
+  color: var(--primary-color);
+  margin-bottom: 8rpx;
+  height: 60rpx;
+  min-height: 60rpx;
+}
+
+.signature {
+  font-size: 26rpx;
+  color: var(--secondary-color);
+}
+
+/* 统计 */
+.stats-panel {
+  display: flex;
+  justify-content: space-between;
+  background-color: rgba(255, 255, 255, 0.4);
+  padding: 40rpx 32rpx;
+  border-radius: 16rpx;
+  margin-bottom: 80rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.02);
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-num {
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #1A1A1A;
+  margin-bottom: 8rpx;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.stat-label {
+  font-size: 24rpx;
+  color: var(--secondary-color);
+}
+
+/* 菜单 */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 40rpx 0;
+  border-bottom: 1rpx solid rgba(0, 0, 0, 0.05);
+}
+
+.menu-item:active {
+  opacity: 0.6;
+}
+
+.menu-title {
+  font-size: 32rpx;
+  color: var(--primary-color);
+}
+
+.menu-arrow {
+  font-size: 32rpx;
+  color: #CCCCCC;
+  font-family: 'Courier New', Courier, monospace; /* for a slim > arrow */
+}

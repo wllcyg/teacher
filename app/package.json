@@ -1,14 +1,14 @@
 {
-  "name": "teacher-app",
+  "name": "novel-app",
   "version": "1.0.0",
-  "description": "微信小程序项目",
+  "description": "小说微信小程序",
   "main": "miniprogram/app.js",
   "scripts": {},
-  "keywords": [],
+  "keywords": [
+    "novel",
+    "reading"
+  ],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "big.js": "^7.0.1",
-    "tdesign-miniprogram": "^1.6.4"
-  }
+  "dependencies": {}
 }

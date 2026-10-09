@@ -1,10 +1,4 @@
 {
-  "navigationBarTitleText": "财务计算器",
-  "enablePullDownRefresh": false,
-  "usingComponents": {
-    "t-search": "tdesign-miniprogram/search/search",
-    "t-tag": "tdesign-miniprogram/tag/tag",
-    "t-icon": "tdesign-miniprogram/icon/icon",
-    "t-button": "tdesign-miniprogram/button/button"
-  }
+  "usingComponents": {},
+  "navigationBarTitleText": "首页"
 }

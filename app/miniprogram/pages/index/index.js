@@ -1,86 +1,48 @@
-// pages/index/index.js
 Page({
-  data: {},
-
-  onLoad() {},
-
-  onSearchFocus() {
+  data: {
+    greeting: '上午好，',
+    userName: '读者',
+    recentBooks: [
+      {
+        id: 1,
+        title: '史记 (本纪)',
+        author: '司马迁',
+        progress: '已读 12%',
+        coverColor: '#E8DFCE',
+        tag: '史部'
+      },
+      {
+        id: 2,
+        title: '人类简史',
+        author: '尤瓦尔·赫拉利',
+        progress: '未开始',
+        coverColor: '#DCE4E8',
+        tag: '社科'
+      },
+      {
+        id: 3,
+        title: '边城',
+        author: '沈从文',
+        progress: '已读 89%',
+        coverColor: '#E8DFCE',
+        tag: '小说'
+      }
+    ]
+  },
+  onLoad() {
+    // 根据时间设置问候语
+    const hour = new Date().getHours();
+    let greeting = '上午好，';
+    if (hour >= 12 && hour < 18) greeting = '下午好，';
+    else if (hour >= 18 || hour < 5) greeting = '晚上好，';
+    
+    this.setData({ greeting });
+  },
+  onBookTap(e) {
+    const bookId = e.currentTarget.dataset.id;
     wx.showToast({
-      title: '搜索功能开发中',
-      icon: 'none',
-      duration: 1500
-    });
-  },
-
-  navigateToResult(e) {
-    const type = e.currentTarget.dataset.type || 'salary';
-    const tab = e.currentTarget.dataset.tab;
-    let url = `/pages/result/result?type=${type}`;
-    if (tab) {
-      if (type === 'saving') {
-        url += `&savingTab=${tab}`;
-      } else if (type === 'life') {
-        url += `&lifeTab=${tab}`;
-      } else {
-        url += `&tab=${tab}`;
-      }
-    }
-    wx.navigateTo({
-      url,
-      fail: (err) => {
-        console.warn('[Index] navigateTo failed, trying redirectTo:', err);
-        wx.redirectTo({ url });
-      }
-    });
-  },
-
-  navigateToPrepayment() {
-    const url = '/pages/prepayment/prepayment';
-    wx.navigateTo({
-      url,
-      fail: (err) => {
-        console.warn('[Index] navigateTo prepayment failed:', err);
-        wx.redirectTo({ url });
-      }
-    });
-  },
-
-  navigateToCompare() {
-    const url = '/pages/compare/compare';
-    wx.navigateTo({
-      url,
-      fail: (err) => {
-        console.warn('[Index] navigateTo compare failed:', err);
-        wx.redirectTo({ url });
-      }
-    });
-  },
-
-  navigateToPoster() {
-    const url = '/pages/poster/poster';
-    wx.navigateTo({
-      url,
-      fail: (err) => {
-        console.warn('[Index] navigateTo poster failed:', err);
-        wx.redirectTo({ url });
-      }
-    });
-  },
-
-  navigateToFeatured() {
-    const url = '/pages/featured/featured';
-    wx.navigateTo({
-      url,
-      fail: (err) => {
-        console.warn('[Index] navigateTo featured failed:', err);
-        wx.redirectTo({ url });
-      }
-    });
-  },
-
-  showAITip() {
-    wx.switchTab({
-      url: '/pages/ai/ai'
+      title: '即将阅读 ' + bookId,
+      icon: 'none'
     });
   }
-});
+})

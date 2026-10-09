@@ -1,0 +1,46 @@
+<view class="page-container">
+  
+  <!-- 用户头部信息 -->
+  <view class="user-header">
+    <button class="avatar-wrap" open-type="chooseAvatar" bind:chooseavatar="onChooseAvatar">
+      <image class="avatar" src="{{userInfo.avatarUrl || 'https://img.icons8.com/ios-filled/100/8E8E93/user.png'}}" mode="aspectFill"></image>
+    </button>
+    <view class="user-info">
+      <input type="nickname" class="nickname-input" value="{{userInfo.nickName}}" bindchange="onNicknameChange" bindblur="onNicknameBlur" placeholder="点击获取昵称" placeholder-style="color:#CCCCCC;" />
+      <text class="signature">静下心来，读一本好书</text>
+    </view>
+  </view>
+
+  <!-- 统计信息 -->
+  <view class="stats-panel">
+    <view class="stat-item">
+      <text class="stat-num">{{stats.readTime}}</text>
+      <text class="stat-label">阅读时长(时)</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-num">{{stats.readCount}}</text>
+      <text class="stat-label">读过(本)</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-num">{{stats.days}}</text>
+      <text class="stat-label">加入(天)</text>
+    </view>
+  </view>
+
+  <!-- 菜单列表 -->
+  <view class="menu-list">
+    <view class="menu-item" bindtap="onMenuTap" data-type="reading-history">
+      <text class="menu-title">阅读历史</text>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-item" bindtap="onMenuTap" data-type="favorites">
+      <text class="menu-title">我的收藏</text>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-item" bindtap="onMenuTap" data-type="settings">
+      <text class="menu-title">设置</text>
+      <text class="menu-arrow">></text>
+    </view>
+  </view>
+  
+</view>

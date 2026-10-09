@@ -1,195 +1,27 @@
-<view class="index-container">
-  <!-- 1. 顶部搜索栏 -->
-  <view class="search-section">
-    <t-search
-      placeholder="搜索计算器，如房贷、个税"
-      shape="round"
-      clearable
-      action=""
-      t-class="custom-search"
-      bindfocus="onSearchFocus"
-    />
+<view class="page-container">
+  <!-- Header -->
+  <view class="header">
+    <text class="greeting">{{greeting}}</text>
+    <text class="user-name">{{userName}}</text>
   </view>
 
-  <!-- 2. 常用工具横滑区域 -->
-  <view class="quick-tools-section">
-    <view class="section-header">
-      <view class="header-left">
-        <t-icon name="lightning" size="32rpx" color="#00288E" />
-        <text class="title">常用工具</text>
-      </view>
-      <text class="subtitle">向左滑动浏览</text>
-    </view>
-    
-    <scroll-view class="quick-scroll no-scrollbar" scroll-x enable-flex>
-      <view class="quick-chips">
-        <view class="chip-item highlight-chip" hover-class="touch-active" bindtap="navigateToFeatured">
-          <t-icon name="swap" size="30rpx" color="#00288E" />
-          <text class="chip-text font-bold">方案对比</text>
+  <view class="section-title">正在阅读</view>
+
+  <!-- Books Grid -->
+  <view class="books-grid">
+    <block wx:for="{{recentBooks}}" wx:key="id">
+      <view class="book-card" bindtap="onBookTap" data-id="{{item.id}}">
+        <view class="book-cover" style="background-color: {{item.coverColor}}">
+          <!-- Text-based cover for elegance -->
+          <view class="cover-tag">{{item.tag}}</view>
+          <view class="cover-title">{{item.title}}</view>
+          <view class="cover-author">{{item.author}}</view>
         </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="mortgage">
-          <t-icon name="home" size="30rpx" color="#00288E" />
-          <text class="chip-text">房贷计算</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToPrepayment">
-          <t-icon name="undertake-transaction" size="30rpx" color="#059669" />
-          <text class="chip-text">提前还款</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="salary">
-          <t-icon name="chart-bubble" size="30rpx" color="#00288E" />
-          <text class="chip-text">个税计算</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToCompare">
-          <t-icon name="swap" size="30rpx" color="#00288E" />
-          <text class="chip-text">年终奖对比</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToPoster">
-          <t-icon name="image" size="30rpx" color="#00288E" />
-          <text class="chip-text">年度海报</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="fund">
-          <t-icon name="secured" size="30rpx" color="#00288E" />
-          <text class="chip-text">五险一金</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="saving" data-tab="compound">
-          <t-icon name="chart-line-data" size="30rpx" color="#7C3AED" />
-          <text class="chip-text">复利定投</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="saving" data-tab="fire">
-          <t-icon name="chart-bubble" size="30rpx" color="#7C3AED" />
-          <text class="chip-text">FIRE自由</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="life" data-tab="job">
-          <t-icon name="user" size="30rpx" color="#0891B2" />
-          <text class="chip-text">延迟退休</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="life" data-tab="renovation">
-          <t-icon name="view-module" size="30rpx" color="#0891B2" />
-          <text class="chip-text">装修预算</text>
-        </view>
-        <view class="chip-item" hover-class="touch-active" bindtap="navigateToResult" data-type="insurance" data-tab="critical">
-          <t-icon name="secured" size="30rpx" color="#E11D48" />
-          <text class="chip-text">重疾保额</text>
+        <view class="book-info">
+          <text class="book-title">{{item.title}}</text>
+          <text class="book-progress">{{item.progress}}</text>
         </view>
       </view>
-    </scroll-view>
+    </block>
   </view>
-
-  <!-- 3. 测算分类 2x3 Bento Grid -->
-  <view class="category-section">
-    <view class="section-header">
-      <text class="title">测算分类</text>
-      <text class="subtitle">国家最新基准利率已更新</text>
-    </view>
-
-    <view class="bento-grid">
-      <!-- 卡片 1: 购房房贷 -->
-      <view class="bento-card" hover-class="touch-active" bindtap="navigateToResult" data-type="mortgage">
-        <view class="card-top">
-          <view class="icon-wrap bg-blue">
-            <t-icon name="home" size="44rpx" color="#00288E" />
-          </view>
-          <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
-        </view>
-        <view class="card-bottom">
-          <text class="card-title">购房房贷</text>
-          <text class="card-desc">商贷 / 公积金 / 组合</text>
-        </view>
-      </view>
-
-      <!-- 卡片 2: 工资个税 -->
-      <view class="bento-card" hover-class="touch-active" bindtap="navigateToResult" data-type="salary">
-        <view class="card-top">
-          <view class="icon-wrap bg-green">
-            <t-icon name="wallet" size="44rpx" color="#059669" />
-          </view>
-          <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
-        </view>
-        <view class="card-bottom">
-          <text class="card-title">工资个税</text>
-          <text class="card-desc">税后薪资 / 年终奖专项</text>
-        </view>
-      </view>
-
-      <!-- 卡片 3: 购车用车 -->
-      <view class="bento-card" hover-class="touch-active" bindtap="navigateToResult" data-type="car">
-        <view class="card-top">
-          <view class="icon-wrap bg-amber">
-            <t-icon name="control-platform" size="44rpx" color="#D97706" />
-          </view>
-          <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
-        </view>
-        <view class="card-bottom">
-          <text class="card-title">购车用车</text>
-          <text class="card-desc">汽车按揭 / 购置税折旧</text>
-        </view>
-      </view>
-
-      <!-- 卡片 4: 储蓄理财 -->
-      <view class="bento-card" hover-class="touch-active" bindtap="navigateToResult" data-type="saving">
-        <view class="card-top">
-          <view class="icon-wrap bg-purple">
-            <t-icon name="chart-bar" size="44rpx" color="#7C3AED" />
-          </view>
-          <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
-        </view>
-        <view class="card-bottom">
-          <text class="card-title">储蓄理财</text>
-          <text class="card-desc">复利定投 / 大额存单</text>
-        </view>
-      </view>
-
-      <!-- 卡片 5: 生活日常 -->
-      <view class="bento-card" hover-class="touch-active" bindtap="navigateToResult" data-type="life">
-        <view class="card-top">
-          <view class="icon-wrap bg-cyan">
-            <t-icon name="file-copy" size="44rpx" color="#0891B2" />
-          </view>
-          <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
-        </view>
-        <view class="card-bottom">
-          <text class="card-title">生活日常</text>
-          <text class="card-desc">延迟退休 / 装修预算</text>
-        </view>
-      </view>
-
-      <!-- 卡片 6: 保险测算 -->
-      <view class="bento-card" hover-class="touch-active" bindtap="navigateToResult" data-type="insurance">
-        <view class="card-top">
-          <view class="icon-wrap bg-rose">
-            <t-icon name="secured" size="44rpx" color="#E11D48" />
-          </view>
-          <t-icon name="chevron-right" size="36rpx" color="#C4C5D5" />
-        </view>
-        <view class="card-bottom">
-          <text class="card-title">保险测算</text>
-          <text class="card-desc">重疾保额 / 寿险 / 医保自费</text>
-        </view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 4. AI 智能财务助手 Banner -->
-  <view class="ai-banner card-shadow" hover-class="touch-active" bindtap="showAITip">
-    <view class="ai-content">
-      <view class="ai-avatar">
-        <t-icon name="chat" size="44rpx" color="#FFFFFF" />
-      </view>
-      <view class="ai-text">
-        <view class="ai-header">
-          <text class="ai-title">AI 财务智能助手</text>
-          <t-tag size="small" theme="primary" variant="light">新功能</t-tag>
-        </view>
-        <text class="ai-desc">说出你的需求，AI 帮你找工具或定制方案</text>
-      </view>
-    </view>
-    <view class="ai-action">
-      <text class="btn-text">立即体验</text>
-      <t-icon name="arrow-right" size="28rpx" color="#00288E" />
-    </view>
-  </view>
-
-  <!-- tabbar 底部占位，防止内容被遮挡 -->
-  <view class="tabbar-placeholder"></view>
-
 </view>

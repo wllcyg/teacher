@@ -1,47 +1,34 @@
 {
   "pages": [
     "pages/index/index",
-    "pages/featured/featured",
-    "pages/ai/ai",
-    "pages/mine/mine",
-    "pages/result/result",
-    "pages/prepayment/prepayment",
-    "pages/compare/compare",
-    "pages/poster/poster"
+    "pages/store/store",
+    "pages/profile/profile"
   ],
   "window": {
-    "backgroundColor": "#F8F9FF",
     "backgroundTextStyle": "light",
-    "navigationBarBackgroundColor": "#FFFFFF",
-    "navigationBarTitleText": "财务计算器",
+    "navigationBarBackgroundColor": "#F9F6F0",
+    "navigationBarTitleText": "小说阅读器",
     "navigationBarTextStyle": "black"
   },
   "tabBar": {
-    "color": "#94A3B8",
-    "selectedColor": "#00288E",
-    "backgroundColor": "#FFFFFF",
+    "color": "#999999",
+    "selectedColor": "#000000",
+    "backgroundColor": "#F9F6F0",
     "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/index/index",
-        "text": "计算",
-        "iconPath": "images/tabbar/calc.png",
-        "selectedIconPath": "images/tabbar/calc-active.png"
+        "text": "主页"
       },
       {
-        "pagePath": "pages/ai/ai",
-        "text": "AI助手",
-        "iconPath": "images/tabbar/ai.png",
-        "selectedIconPath": "images/tabbar/ai-active.png"
+        "pagePath": "pages/store/store",
+        "text": "书库"
       },
       {
-        "pagePath": "pages/mine/mine",
-        "text": "我的",
-        "iconPath": "images/tabbar/mine.png",
-        "selectedIconPath": "images/tabbar/mine-active.png"
+        "pagePath": "pages/profile/profile",
+        "text": "我的"
       }
     ]
   },
-  "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "sitemapLocation": "sitemap.json"
 }
