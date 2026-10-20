@@ -8,40 +8,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, BackgroundTasks
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import asyncio
-from datetime import datetime
-
-async def rss_daily_scheduler():
-    """纯原生的后台死循环定时器，每天早上 6:00 自动调用流水线"""
-    while True:
-        now = datetime.now()
-        if now.hour == 6 and now.minute == 0:
-            print("[RSS Scheduler] 到达 06:00，触发每日自动早报流水线...")
-            try:
-                # 动态导入，避免循环依赖，用 to_thread 避免阻塞主线程
-                from rss_pipeline.workflow import run_llm_pipeline
-                await asyncio.to_thread(run_llm_pipeline)
-            except Exception as e:
-                print(f"[RSS Scheduler] 流水线运行失败: {e}")
-            # 等待 61 秒防止同一分钟内重复触发
-            await asyncio.sleep(61)
-        else:
-            await asyncio.sleep(30)
-
-async def rss_periodic_fetcher():
-    """每 4 小时自动抓取一次 RSS 数据入库，保证素材库时刻保持新鲜"""
-    while True:
-        try:
-            from rss_pipeline.fetcher import run_fetch_and_dedup
-            print("[RSS Fetcher] 定期 RSS 抓取任务触发...")
-            await asyncio.to_thread(run_fetch_and_dedup)
-            print("[RSS Fetcher] 定期抓取完成。")
-        except Exception as e:
-            print(f"[RSS Fetcher] 定期抓取失败: {e}")
-        # 每 4 小时执行一次
-        await asyncio.sleep(4 * 60 * 60)
 
 _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 if _env_path.exists():
@@ -63,15 +31,7 @@ async def lifespan(app: FastAPI):
     from .migration import init_student_ids_and_schema
     init_student_ids_and_schema(engine)
     
-    # 将早报任务作为守护协程挂载到 FastAPI 生命周期中
-    rss_task = asyncio.create_task(rss_daily_scheduler())
-    # 每 4 小时后台定期抓取 RSS，保持素材库新鲜
-    fetch_task = asyncio.create_task(rss_periodic_fetcher())
-    
     yield
-    
-    rss_task.cancel()
-    fetch_task.cancel()
 
 
 app = FastAPI(
@@ -118,13 +78,6 @@ app.include_router(router, dependencies=[Depends(require_auth)])
 @app.get("/api/health")
 def health():
     return {"ok": True}
-
-@app.post("/api/rss/trigger", tags=["RSS"])
-def trigger_rss_pipeline(background_tasks: BackgroundTasks):
-    """供前台点击按钮，立刻手动触发早报流水线（后台异步执行不卡前端）"""
-    from rss_pipeline.workflow import run_llm_pipeline
-    background_tasks.add_task(run_llm_pipeline)
-    return {"message": "RSS 早报流水线已在后台触发，请留意终端或邮箱通知。"}
 
 
 if __name__ == "__main__":
